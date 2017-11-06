@@ -8,7 +8,8 @@
 
 using namespace extpp;
 
-using small_stack = stack<int, 128>;
+static constexpr u32 block_size = 256;
+using small_stack = stack<int, block_size>;
 
 template<typename Stack>
 void dump_stack(const Stack& stack) {
@@ -50,7 +51,7 @@ void dump_stack(const Stack& stack) {
 }
 
 TEST_CASE("stack", "[stack]") {
-    test_file<small_stack::anchor, 128> file;
+    test_file<small_stack::anchor, block_size> file;
     file.open();
 
     const int max = (small_stack::node_capacity() * 7) / 2;

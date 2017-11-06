@@ -2,9 +2,9 @@
 #define EXTPP_LIST_HPP
 
 #include <extpp/address.hpp>
+#include <extpp/allocator.hpp>
 #include <extpp/assert.hpp>
 #include <extpp/block.hpp>
-#include <extpp/block_allocator.hpp>
 #include <extpp/defs.hpp>
 #include <extpp/engine.hpp>
 #include <extpp/handle.hpp>
@@ -23,7 +23,6 @@ class list {
 public:
     using value_type = T;
     using size_type = u64;
-    using difference_type = i64;
 
     class iterator;
     using const_iterator = iterator;
@@ -56,12 +55,12 @@ private:
 
 private:
     node_type read_node(node_address ptr) const {
-        return access(m_engine, ptr);
+        return access(*m_engine, ptr);
     }
 
     node_type create_node() {
-        raw_address<BlockSize> ptr = m_alloc.allocate();
-        node_type node = construct<node_block>(m_engine, ptr);
+        raw_address<BlockSize> ptr = m_alloc->allocate(1);
+        node_type node = construct<node_block>(*m_engine, ptr);
 
         ++m_anchor->nodes;
         m_anchor.dirty();
@@ -93,10 +92,10 @@ public:
     };
 
 public:
-    list(handle<anchor, BlockSize> a, engine<BlockSize>& eng, block_allocator<BlockSize>& alloc)
+    list(handle<anchor, BlockSize> a, extpp::engine<BlockSize>& eng, extpp::allocator<BlockSize>& alloc)
         : m_anchor(std::move(a))
-        , m_engine(eng)
-        , m_alloc(alloc)
+        , m_engine(&eng)
+        , m_alloc(&alloc)
     {}
 
     list(const list& other) = delete;
@@ -104,6 +103,9 @@ public:
 
     list& operator=(const list& other) = delete;
     list& operator=(list&& other) noexcept = default;
+
+    extpp::engine<BlockSize>& engine() const { return *m_engine; }
+    extpp::allocator<BlockSize>& allocator() const { return *m_alloc; }
 
     bool empty() const { return m_anchor->size == 0; }
     u64 size() const { return m_anchor->size; }
@@ -431,8 +433,8 @@ private:
 
 private:
     handle<anchor, BlockSize> m_anchor;
-    engine<BlockSize>& m_engine;
-    block_allocator<BlockSize>& m_alloc;
+    extpp::engine<BlockSize>* m_engine;
+    extpp::allocator<BlockSize>* m_alloc;
 };
 
 template<typename T, u32 B>
@@ -440,8 +442,7 @@ class list<T, B>::iterator : public boost::iterator_facade<
         iterator,                           // Derived
         value_type,                         // Value Type
         std::bidirectional_iterator_tag,    // Iterator Category
-        const value_type&,                  // Reference type
-        difference_type                     // Difference Type
+        const value_type&                   // Reference type
     >{
 private:
     /// Points to a valid instance unless this iterator has been default constructed.

@@ -81,7 +81,7 @@ void dump_tree(const BTree& tree, std::ostream& out = std::cout) {
 
 template<typename TreeTest>
 void simple_tree_test(TreeTest&& test) {
-    test_file_new<small_tree::anchor, 256> file;
+    test_file<small_tree::anchor, 256> file;
     file.open();
     {
         small_tree tree(file.anchor(), file.engine(), file.alloc());
@@ -240,7 +240,7 @@ TEST_CASE("btree deletion", "[btree]") {
 TEST_CASE("btree-fuzzy", "[btree][.slow]") {
     using tree_t = btree<u64, identity_key, std::less<>, block_size>;
 
-    test_file_new<tree_t::anchor, block_size> file;
+    test_file<tree_t::anchor, block_size> file;
     file.open();
     {
         tree_t tree(file.anchor(), file.engine(), file.alloc());

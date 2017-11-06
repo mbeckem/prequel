@@ -2,8 +2,8 @@
 #define EXTPP_STACK_HPP
 
 #include <extpp/address.hpp>
+#include <extpp/allocator.hpp>
 #include <extpp/block.hpp>
-#include <extpp/block_allocator.hpp>
 #include <extpp/defs.hpp>
 #include <extpp/engine.hpp>
 #include <extpp/handle.hpp>
@@ -18,7 +18,6 @@ template<typename T, u32 BlockSize>
 class stack {
 public:
     using value_type = T;
-
     using size_type = u64;
 
     class iterator;
@@ -78,11 +77,12 @@ public:
     };
 
 public:
-    stack(handle<anchor, BlockSize> anc, engine<BlockSize>& eng, block_allocator<BlockSize>& alloc)
+    stack(handle<anchor, BlockSize> anc, extpp::engine<BlockSize>& eng, extpp::allocator<BlockSize>& alloc)
         : m_anchor(std::move(anc))
         , m_engine(&eng)
         , m_alloc(&alloc)
     {
+        // TODO: These blocks could be lazily loaded only when required.
         if (m_anchor->last) {
             m_buf[0] = access(m_anchor->last);
             if (m_buf[0]->prev) {
@@ -97,6 +97,9 @@ public:
 
     stack& operator=(const stack&) = delete;
     stack& operator=(stack&&) noexcept = default;
+
+    extpp::engine<BlockSize>& engine() const { return *m_engine; }
+    extpp::allocator<BlockSize>& allocator() const { return *m_alloc; }
 
     bool empty() const { return m_anchor->size == 0; }
     u64 size() const { return m_anchor->size; }
@@ -240,7 +243,7 @@ public:
 
 private:
     node_type create() const {
-        raw_address<BlockSize> node = m_alloc->allocate();
+        raw_address<BlockSize> node = m_alloc->allocate(1);
         m_anchor->nodes += 1;
         m_anchor.dirty();
 
@@ -281,22 +284,10 @@ private:
 
     node_type access(node_address node) const { return extpp::access(*m_engine, node); }
 
-    std::tuple<node_type, u32> find(u64 offset) const {
-        for (node_address ptr = m_anchor->last; ptr; ) {
-            node_type node = access(ptr);
-            if (offset < node->count)
-                return make_tuple(std::move(node), u32(offset));
-
-            offset -= node->count;
-            ptr = node->prev;
-        }
-        EXTPP_ASSERT(false, "offset out of bounds.");
-    }
-
 private:
     handle<anchor, BlockSize> m_anchor;
-    engine<BlockSize>* m_engine;
-    block_allocator<BlockSize>* m_alloc;
+    extpp::engine<BlockSize>* m_engine;
+    extpp::allocator<BlockSize>* m_alloc;
 
     /// The top two blocks are pinned and used as buffers.
     /// The topmost block might be empty.
