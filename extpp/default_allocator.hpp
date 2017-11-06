@@ -5,10 +5,13 @@
 #include <extpp/assert.hpp>
 #include <extpp/btree.hpp>
 #include <extpp/defs.hpp>
+#include <extpp/io.hpp>
 #include <extpp/handle.hpp>
 #include <extpp/identity_key.hpp>
 
 #include <extpp/detail/free_list.hpp>
+
+#include <fmt/ostream.h>
 
 namespace extpp {
 
@@ -106,8 +109,8 @@ public:
         , m_min_chunk(std::max(min_chunk, u32(1)))
         , m_meta_freelist(m_anchor.neighbor(&m_anchor->meta_freelist), e)
         , m_meta_alloc(this)
-        , m_extents(m_anchor.neighbor(&m_anchor->extents), m_engine, m_meta_alloc)
-        , m_free_extents(m_anchor.neighbor(&m_anchor->free_extents), m_engine, m_meta_alloc)
+        , m_extents(m_anchor.neighbor(&m_anchor->extents), *m_engine, m_meta_alloc)
+        , m_free_extents(m_anchor.neighbor(&m_anchor->free_extents), *m_engine, m_meta_alloc)
     {}
 
     // The class contains children that point to itself.
@@ -137,13 +140,15 @@ public:
         m_extents.modify(pos, [](auto& e) {
             e.free = true;
         });
+        m_anchor->data_free += pos->size;
+        m_anchor.dirty();
 
         // Merge with predecessor.
         {
             auto prev_pos = std::prev(pos);
             if (prev_pos != m_extents.end() && prev_pos->free && prev_pos->block + prev_pos->size == pos->block) {
                 remove_free(prev_pos->block, prev_pos->size);
-                m_extents.modify(prev_pos, [&](auto& prev) {
+                m_extents.modify(prev_pos, [&](extent_t& prev) {
                     prev.size += pos->size;
                 });
                 pos = m_extents.erase(pos);
@@ -156,7 +161,7 @@ public:
             auto next_pos = std::next(pos);
             if (next_pos != m_extents.end() && next_pos->free && pos->block + pos->size == next_pos->block) {
                 remove_free(next_pos->block, next_pos->size);
-                m_extents.modify(pos, [&](auto& e) {
+                m_extents.modify(pos, [&](extent_t& e) {
                     e.size += next_pos->size;
                 });
                 pos = m_extents.erase(next_pos);
@@ -165,6 +170,32 @@ public:
         }
 
         add_free(pos->block, pos->size);
+    }
+
+    void debug_stats(std::ostream& o) {
+        fmt::print(o,
+                   "Default allocator state: \n"
+                   "  data allocated:      {} blocks\n"
+                   "  data free:           {} blocks\n"
+                   "  metadata allocated:  {} blocks\n"
+                   "  metadata free:       {} blocks\n",
+                   m_anchor->data_allocated,
+                   m_anchor->data_free,
+                   m_anchor->meta_allocated,
+                   m_anchor->meta_free);
+        fmt::print(o, "\n");
+
+        fmt::print(o, "Allocated extents ({} total):\n", m_extents.size());
+        for (const extent_t& e : m_extents) {
+            fmt::print(o, "  Start: {}, Length: {}, Free: {}\n", e.block, e.size, e.free);
+        }
+        fmt::print(o, "\n");
+
+        fmt::print(o, "Freelist entries ({} total)\n", m_free_extents.size());
+        for (const free_extent_t& e : m_free_extents) {
+            fmt::print(o , "  Length: {}, Start: {}", e.size, e.block);
+        }
+        o << std::flush;
     }
 
 private:
@@ -248,6 +279,7 @@ private:
                              "Extent should have been used by the freelist allocation.");
                 remove_free(wild_pos->block, wild_pos->size);
 
+                request -= wild_pos->size;
                 const u64 chunk = chunk_size(request - wild_pos->size);
                 const u64 block = allocate_chunk(chunk);
                 m_anchor->data_allocated += chunk;
@@ -256,7 +288,7 @@ private:
 
                 EXTPP_ASSERT(block == wild_pos->block + wild_pos->size,
                              "Extents are contiguous.");
-                m_extents.modify(wild_pos, [&](auto& e) {
+                m_extents.modify(wild_pos, [&](extent_t& e) {
                     e.size += chunk;
                 });
 
@@ -279,8 +311,12 @@ private:
 
     /// Allocate a block for metadata storage.
     raw_address<BlockSize> allocate_metadata_block() {
-        if (!m_meta_freelist.empty())
-            return m_meta_freelist.pop();
+        if (!m_meta_freelist.empty()) {
+            auto addr = m_meta_freelist.pop();
+            m_anchor->meta_free -= 1;
+            m_anchor.dirty();
+            return addr;
+        }
 
         u64 chunk = chunk_size(1);
         u64 block = allocate_chunk(chunk);

@@ -1,9 +1,7 @@
 #include <catch.hpp>
 
-#include <extpp/block_allocator.hpp>
 #include <extpp/btree.hpp>
-#include <extpp/detail/rollback.hpp>
-#include <extpp/engine.hpp>
+#include <extpp/identity_key.hpp>
 
 #include <algorithm>
 #include <iostream>
@@ -16,12 +14,7 @@ using namespace extpp;
 
 const u32 block_size = 4096;
 
-struct identity_key {
-    template<typename T>
-    T operator()(T t) const { return t; }
-};
-
-using small_tree = btree<int, identity_key, std::less<>, 128>;
+using small_tree = btree<int, identity_key, std::less<>, 256>;
 
 template<typename BTree>
 void dump_tree(const BTree& tree, std::ostream& out = std::cout) {
@@ -88,7 +81,7 @@ void dump_tree(const BTree& tree, std::ostream& out = std::cout) {
 
 template<typename TreeTest>
 void simple_tree_test(TreeTest&& test) {
-    test_file<small_tree::anchor, 128> file;
+    test_file_new<small_tree::anchor, 256> file;
     file.open();
     {
         small_tree tree(file.anchor(), file.engine(), file.alloc());
@@ -247,7 +240,7 @@ TEST_CASE("btree deletion", "[btree]") {
 TEST_CASE("btree-fuzzy", "[btree][.slow]") {
     using tree_t = btree<u64, identity_key, std::less<>, block_size>;
 
-    test_file<tree_t::anchor, block_size> file;
+    test_file_new<tree_t::anchor, block_size> file;
     file.open();
     {
         tree_t tree(file.anchor(), file.engine(), file.alloc());

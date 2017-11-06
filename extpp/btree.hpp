@@ -1,11 +1,11 @@
 #ifndef EXTPP_BTREE_HPP
 #define EXTPP_BTREE_HPP
 
-#include <extpp/address.hpp>
+#include <extpp/allocator.hpp>
 #include <extpp/block.hpp>
-#include <extpp/block_allocator.hpp>
 #include <extpp/defs.hpp>
 #include <extpp/engine.hpp>
+#include <extpp/handle.hpp>
 #include <extpp/raw.hpp>
 #include <extpp/type_traits.hpp>
 
@@ -206,7 +206,7 @@ public:
         u64 leaves = 0;
 
         /// The number of internal nodes in this tree.
-        u64 internals = 0;
+        u32 internals = 0;
 
         /// The height of this tree.
         /// - 0: empty (no nodes)
@@ -228,43 +228,43 @@ public:
 
 private:
     node_type read_node(node_address ptr) const {
-        return access(m_engine, ptr);
+        return access(*m_engine, ptr);
     }
 
     internal_type create_internal() {
-        raw_address<BlockSize> addr = m_alloc.allocate();
-        internal_type internal = construct<internal_block>(m_engine, addr);
+        raw_address<BlockSize> addr = m_alloc->allocate(1);
+        internal_type internal = construct<internal_block>(*m_engine, addr);
         ++m_anchor->internals;
         m_anchor.dirty();
         return internal;
     }
 
     void free_internal(node_address ptr) {
-        m_alloc.free(ptr.raw());
+        m_alloc->free(ptr.raw());
         --m_anchor->internals;
         m_anchor.dirty();
     }
 
     internal_type read_internal(node_address ptr) const {
-        return access(m_engine, address_cast<internal_block>(ptr));
+        return access(*m_engine, address_cast<internal_block>(ptr));
     }
 
     leaf_type create_leaf() {
-        raw_address<BlockSize> addr = m_alloc.allocate();
-        leaf_type leaf = construct<leaf_block>(m_engine, addr);
+        raw_address<BlockSize> addr = m_alloc->allocate(1);
+        leaf_type leaf = construct<leaf_block>(*m_engine, addr);
         ++m_anchor->leaves;
         m_anchor.dirty();
         return leaf;
     }
 
     void free_leaf(leaf_address ptr) {
-        m_alloc.free(ptr.raw());
+        m_alloc->free(ptr.raw());
         --m_anchor->leaves;
         m_anchor.dirty();
     }
 
     leaf_type read_leaf(node_address ptr) const {
-        return access(m_engine, address_cast<leaf_block>(ptr));
+        return access(*m_engine, address_cast<leaf_block>(ptr));
     }
 
 private:
@@ -368,11 +368,11 @@ private:
 
 public:
     btree(handle<anchor, BlockSize> anch,
-          engine<BlockSize>& engine,
-          block_allocator<BlockSize>& alloc,
+          extpp::engine<BlockSize>& eng,
+          allocator<BlockSize>& alloc,
           KeyExtract extract = KeyExtract(), KeyCompare compare = KeyCompare())
-        : m_engine(engine)
-        , m_alloc(alloc)
+        : m_engine(&eng)
+        , m_alloc(&alloc)
         , m_extract(std::move(extract))
         , m_compare(std::move(compare))
         , m_anchor(std::move(anch))
@@ -390,6 +390,9 @@ public:
     u64 leaf_nodes() const { return m_anchor->leaves; }
     u64 internal_nodes() const { return m_anchor->internals; }
     u64 nodes() const { return internal_nodes() + leaf_nodes(); }
+
+    extpp::engine<BlockSize>& engine() const { return *m_engine; }
+    extpp::allocator<BlockSize>& allocator() const { return *m_alloc; }
 
     /// Maximum number of children per internal node.
     static constexpr u32 internal_fanout() { return internal_block::max_size(); }
@@ -990,10 +993,10 @@ private:
 
 private:
     /// The block engine.
-    engine<BlockSize>& m_engine;
+    extpp::engine<BlockSize>* m_engine;
 
     /// Used to allocate blocks for tree nodes.
-    block_allocator<BlockSize>& m_alloc;
+    extpp::allocator<BlockSize>* m_alloc;
 
     /// Takes a value and returns the value's search key.
     KeyExtract m_extract;

@@ -13,8 +13,7 @@ using void_t = void;
 template<typename T>
 struct is_trivial {
     static constexpr bool value =
-                std::is_trivially_copyable<T>::value
-            &&  std::is_trivially_destructible<T>::value;
+                std::is_trivially_copyable<T>::value;
 };
 
 template<typename T>

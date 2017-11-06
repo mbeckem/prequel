@@ -49,14 +49,25 @@ struct select_capacity_impl<Proto, BlockSize, 0, fits> {
                   "The block prototype cannot fit the provided BlockSize.");
 };
 
+template<typename T, u32 BlockSize, bool small_enough = (sizeof(T) <= BlockSize)>
+struct make_block;
+
+template<typename T, u32 BlockSize>
+struct make_block<T, BlockSize, false> {
+    static_assert(always_false_v<T>,
+                  "T is too large to fit into the given block size.");
+};
+
+template<typename T, u32 BlockSize>
+struct make_block<T, BlockSize, true> {
+    using type = add_padding<T, BlockSize - sizeof(T)>;
+};
+
 } // namespace detail
 
 template<typename T, u32 BlockSize>
 struct make_block {
-    static_assert(sizeof(T) <= BlockSize,
-                  "T is too large to fit into BlockSize.");
-
-    using type = detail::add_padding<T, BlockSize - sizeof(T)>;
+    using type = typename detail::make_block<T, BlockSize>::type;
 
     static_assert(sizeof(type) == BlockSize, "Size must be exact.");
 
