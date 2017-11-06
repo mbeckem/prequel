@@ -1,0 +1,11 @@
+Open Questions / Design Issues
+==============================
+
+
+1) In which places should the BlockSize be a template parameter/compile time constant?
+
+Currently, the block size is required to be a constant in the generation of block-sized
+structures, e.g. B-Tree nodes. Therefore it has to be a template parameter for all
+external datastructures. We *could* also make it a compile time constant in
+classes like `address`, `allocator` or `block_engine`.
+
