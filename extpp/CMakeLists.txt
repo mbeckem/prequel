@@ -11,7 +11,6 @@ set(HEADERS
     allocator.hpp
     assert.hpp
     block.hpp
-    block_allocator.hpp
     btree.hpp
     btree_map.hpp
     btree_set.hpp

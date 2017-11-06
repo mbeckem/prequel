@@ -1,7 +1,6 @@
 #ifndef TEST_FILE_HPP
 #define TEST_FILE_HPP
 
-#include <extpp/block_allocator.hpp>
 #include <extpp/default_allocator.hpp>
 #include <extpp/engine.hpp>
 #include <extpp/handle.hpp>
