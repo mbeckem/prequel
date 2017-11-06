@@ -1070,17 +1070,24 @@ private:
 
     void increment() {
         EXTPP_ASSERT(m_tree, "incrementing invalid iterator");
-        EXTPP_ASSERT(m_leaf, "incrementing past-the-end iterator");
 
-        if (++m_index == m_leaf->count) {
-            leaf_address next = m_leaf->next;
-            if (next) {
-                m_leaf = m_tree->read_leaf(next);
-                m_index = 0;
-            } else {
-                m_leaf.reset();
-                m_index = 0;
+        if (m_leaf) {
+            if (++m_index == m_leaf->count) {
+                leaf_address next = m_leaf->next;
+                if (next) {
+                    m_leaf = m_tree->read_leaf(next);
+                    m_index = 0;
+                } else {
+                    m_leaf.reset();
+                    m_index = 0;
+                }
             }
+        } else {
+            // Go from the past-the-end iterator to the first entry of the first leaf.
+            leaf_address ptr = m_tree->m_anchor->leftmost;
+            EXTPP_ASSERT(ptr, "incrementing past-the-end iterator on an empty tree");
+            m_leaf = m_tree->read_leaf(ptr);
+            m_index = 0;
         }
         EXTPP_ASSERT(!m_leaf || m_index < m_leaf->count, "either past-the-end or a valid position");
     }
@@ -1091,9 +1098,13 @@ private:
         if (m_leaf) {
             if (m_index-- == 0) {
                 leaf_address prev = m_leaf->previous;
-                EXTPP_ASSERT(prev, "decrementing the begin iterator");
-                m_leaf = m_tree->read_leaf(prev);
-                m_index = m_leaf->count - 1;
+                if (prev) {
+                    m_leaf = m_tree->read_leaf(prev);
+                    m_index = m_leaf->count - 1;
+                } else {
+                    m_leaf.reset();
+                    m_index = 0;
+                }
             }
         } else {
             // Go from the past-the-end iterator to the last entry of the last leaf.

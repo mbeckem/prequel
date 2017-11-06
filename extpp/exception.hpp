@@ -12,14 +12,14 @@ class exception : public std::exception {};
 class io_error : public exception {
 public:
     io_error(const char* message)
-        : invalid_argument(std::string(message))
+        : io_error(std::string(message))
     {}
 
     io_error(std::string message)
         : m_message(std::move(message))
     {}
 
-    const char* message() const noexcept override {
+    const char* what() const noexcept override {
         return m_message.c_str();
     }
 
