@@ -58,4 +58,12 @@ TEST_CASE("basic address casts", "[address]") {
 
         REQUIRE(c2.raw() == c1.raw() - sizeof(int)); // Itanium abi
     }
+
+    {
+        address<t4, bs> a1;
+        address<t2, bs> a2 = a1;
+
+        REQUIRE(!a1);
+        REQUIRE(!a2);
+    }
 }

@@ -29,7 +29,9 @@ template<typename Derived, typename Base>
 static ptrdiff_t ptr_adjust_impl() {
     auto from = reinterpret_cast<const Derived*>(&ptr_adjust_helper<sizeof(Derived), alignof(Derived)>::buffer);
     auto to = static_cast<const Base*>(from);
-    return reinterpret_cast<const char*>(to) - reinterpret_cast<const char*>(from);
+    auto diff = reinterpret_cast<const char*>(to) - reinterpret_cast<const char*>(from);
+    EXTPP_ASSERT(diff >= 0, "Negative offset from derived to base!");
+    return diff;
 }
 
 template<typename Derived, typename Base>
@@ -121,6 +123,9 @@ class address;
 template<typename T, u32 BlockSize>
 address<T, BlockSize> address_cast(const raw_address<BlockSize>& addr);
 
+template<typename To, typename From, u32 BlockSize>
+address<To, BlockSize> address_cast(const address<From, BlockSize>& addr);
+
 /// Addresses a value of type `T` in external memory.
 template<typename T, u32 BlockSize>
 class address
@@ -176,7 +181,7 @@ public:
     /// Addresses are convertible to base classes by default.
     template<typename Base, std::enable_if_t<std::is_base_of<Base, T>::value>* = nullptr>
     operator address<Base, BlockSize>() const {
-        return address<Base, BlockSize>(m_raw + detail::ptr_adjust<T, Base>());
+        return address_cast<Base>(*this);
     }
 
     friend bool operator==(const address& lhs, const address& rhs) {
@@ -208,7 +213,8 @@ namespace detail {
 
 template<typename To, typename From, u32 BlockSize>
 address<To, BlockSize> static_address_cast(const address<From, BlockSize>& addr, std::true_type /* To is base */) {
-    return addr; // Conversion operator does the job.
+    // To is base of From.
+    return address_cast<To>(addr.raw() + detail::ptr_adjust<From, To>());
 }
 
 template<typename To, typename From, u32 BlockSize>
@@ -227,6 +233,8 @@ template<typename To, typename From, u32 BlockSize>
 address<To, BlockSize> address_cast(const address<From, BlockSize>& addr) {
     static_assert(std::is_base_of<To, From>::value || std::is_base_of<From, To>::value,
                   "Addresses to objects of type From cannot be statically converted to To.");
+    if (!addr)
+        return {};
     return detail::static_address_cast<To>(addr, std::is_base_of<To, From>());
 }
 
