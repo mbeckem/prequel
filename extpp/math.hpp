@@ -11,7 +11,10 @@ namespace extpp {
 template<typename T>
 using IsUnsigned = std::enable_if_t<std::is_unsigned<T>::value, T>;
 
-/// Rounds `v` towards the next power of two.
+template<typename T>
+using IsInteger = std::enable_if_t<std::is_integral<T>::value, T>;
+
+/// Rounds `v` towards the next power of two. Returns `v` if it is already a power of two.
 /// Note: returns 0 if `v == 0`.
 ///
 /// Adapted from http://graphics.stanford.edu/~seander/bithacks.html#RoundUpPowerOf2
@@ -52,6 +55,14 @@ constexpr T mod_pow2(T a, T b) noexcept {
 template<typename T, IsUnsigned<T>* = nullptr>
 constexpr bool is_aligned(T a, T b) noexcept {
     return mod_pow2(a, b) == 0;
+}
+
+/// Returns ceil(A / B) for two positive (non-zero) integers.
+template<typename T, IsInteger<T>* = nullptr>
+constexpr T ceil_div(T a, T b) {
+    EXTPP_CONSTEXPR_ASSERT(a > 0, "Dividend must be greater than zero.");
+    EXTPP_CONSTEXPR_ASSERT(b > 0, "Divisor must be greater than zero.");
+    return (a + b - 1) / b;
 }
 
 } // namespace extpp

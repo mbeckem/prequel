@@ -5,6 +5,7 @@ set(SOURCES
     block_test.cpp
     btree_test.cpp
     default_allocator_test.cpp
+    extent_test.cpp
     freelist_test.cpp
     inlined_any_test.cpp
     io_test.cpp

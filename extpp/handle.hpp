@@ -70,9 +70,15 @@ public:
     /// \pre `*this`.
     /// \pre `ptr` must point into the same block as `data()`.
     template<typename U>
-    handle<U, BlockSize> neighbor(U* ptr) const {
+    handle<U, BlockSize> neighbor(U* ptr) const& {
         EXTPP_ASSERT(*this, "invalid pointer");
         return handle<U, BlockSize>(m_block, ptr);
+    }
+
+    template<typename U>
+    handle<U, BlockSize> neighbor(U* ptr) && {
+        EXTPP_ASSERT(*this, "invalid pointer");
+        return handle<U, BlockSize>(std::move(m_block), ptr);
     }
 
     /// Returns the address of this object on disk.
@@ -174,7 +180,7 @@ template<typename T, u32 BlockSize, typename... Args>
 handle<T, BlockSize> construct(engine<BlockSize>& e, raw_address<BlockSize> addr, Args&&... args) {
     // TODO: Allow non block-aligned addresses?
     EXTPP_ASSERT(addr && addr.block_offset() == 0, "Address does not point to a valid block.");
-    return construct<T>(e.read_zero(addr.block_index()), std::forward<Args>(args)...);
+    return construct<T>(e.overwrite(addr.block_index()), std::forward<Args>(args)...);
 }
 
 template<typename T, u32 BlockSize>

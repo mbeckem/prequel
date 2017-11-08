@@ -12,8 +12,6 @@
 
 using namespace extpp;
 
-const u32 block_size = 4096;
-
 using small_tree = btree<int, identity_key, std::less<>, 256>;
 
 template<typename BTree>
@@ -152,7 +150,9 @@ TEST_CASE("btrees are always sorted", "[btree]") {
 
 TEST_CASE("btree deletion", "[btree]") {
     simple_tree_test([](auto&& tree) {
-        for (int i = 10000; i > 0; --i)
+        const int max = 100000;
+
+        for (int i = max; i > 0; --i)
             tree.insert(i);
 
         SECTION("remove ascending") {
@@ -174,11 +174,11 @@ TEST_CASE("btree deletion", "[btree]") {
 
                 ++expected;
             }
-            REQUIRE(expected == 10001);
+            REQUIRE(expected == max + 1);
         }
 
         SECTION("remove descending") {
-            int expected = 10000;
+            int expected = max;
             while (expected > 0) {
                 auto pos = --tree.end();
                 auto end = tree.end();
@@ -201,11 +201,26 @@ TEST_CASE("btree deletion", "[btree]") {
             }
         }
 
+        SECTION("remove middle") {
+            int mid = max / 2;
+            auto pos = tree.find(mid);
+            auto end = tree.end();
+            while (pos != end)
+                pos = tree.erase(pos);
+
+            tree.verify();
+
+            REQUIRE(tree.size() == u64(mid - 1));
+            REQUIRE(*std::prev(tree.end()) == mid - 1);
+
+            tree.clear();
+        }
+
         SECTION("remove random") {
             std::mt19937_64 rng;
 
             std::vector<int> values;
-            for (int i = 10000; i > 0; --i)
+            for (int i = max; i > 0; --i)
                 values.push_back(i);
             std::shuffle(values.begin(), values.end(), rng);
 
@@ -238,9 +253,9 @@ TEST_CASE("btree deletion", "[btree]") {
 
 // Generates a large number of (unique) random integers and inserts them into a btree in memory.
 TEST_CASE("btree-fuzzy", "[btree][.slow]") {
-    using tree_t = btree<u64, identity_key, std::less<>, block_size>;
+    using tree_t = btree<u64, identity_key, std::less<>, 4096>;
 
-    test_file<tree_t::anchor, block_size> file;
+    test_file<tree_t::anchor, 4096> file;
     file.open();
     {
         tree_t tree(file.anchor(), file.engine(), file.alloc());

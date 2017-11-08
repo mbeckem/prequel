@@ -45,7 +45,7 @@
         }                                                               \
     } while (0)
 
-#define UNREACHABLE(message) (::keydb::unreachable_impl_(__FILE__, __LINE__, (message)))
+#define EXTPP_UNREACHABLE(message) (::extpp::unreachable_impl_(__FILE__, __LINE__, (message)))
 
 namespace extpp {
 

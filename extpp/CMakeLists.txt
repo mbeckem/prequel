@@ -18,6 +18,7 @@ set(HEADERS
     defs.hpp
     engine.hpp
     exception.hpp
+    extent.hpp
     handle.hpp
     identity_key.hpp
     io.hpp

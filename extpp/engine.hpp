@@ -444,7 +444,11 @@ public:
     ///
     /// Throws if an I/O error occurs (this can still happen if the new block
     /// evicts an old block from the cache).
-    boost::intrusive_ptr<block> read_zero(u64 index);
+    boost::intrusive_ptr<block> overwrite(u64 index);
+
+    /// Like `overwrite(index)`, but sets the content to that of `data`.
+    /// Data must be at least `block_size()` bytes long.
+    boost::intrusive_ptr<block> overwrite(u64 index, const byte* data);
 
     /// Writes all dirty blocks back to disk.
     /// Throws if an I/O error occurs.
@@ -580,8 +584,12 @@ public:
         return {block_engine::read(index)};
     }
 
-    block_handle<BlockSize> read_zero(u64 index) {
-        return {block_engine::read(index)};
+    block_handle<BlockSize> overwrite(u64 index) {
+        return {block_engine::overwrite(index)};
+    }
+
+    block_handle<BlockSize> overwrite(u64 index, const byte* data) {
+        return {block_engine::overwrite(index, data)};
     }
 
     void flush() {

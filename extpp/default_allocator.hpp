@@ -54,14 +54,16 @@ private:
         metadata_allocator(metadata_allocator&&) = delete;
         metadata_allocator& operator=(const metadata_allocator&) = delete;
 
-        raw_address<BlockSize> allocate(u64 n) override {
-            if (n != 1)
-                throw std::logic_error("Cannot allocate sizes other than 1.");
-
+        raw_address<BlockSize> do_allocate(u64 n) override {
+            EXTPP_CHECK(n == 1, "Cannot allocate sizes other than 1.");
             return parent->allocate_metadata_block();
         }
 
-        void free(raw_address<BlockSize> addr) override {
+        raw_address<BlockSize> do_reallocate(raw_address<BlockSize>, u64 ) override {
+            throw std::logic_error("Cannot reallocate meta data blocks.");
+        }
+
+        void do_free(raw_address<BlockSize> addr) override {
             parent->free_metadata_block(addr);
         }
 
@@ -117,25 +119,74 @@ public:
     default_allocator(default_allocator&&) = delete;
     default_allocator& operator=(default_allocator&&) = delete;
 
-    raw_address<BlockSize> allocate(u64 request) override {
-        if (request == 0)
-            throw std::invalid_argument("invalid allocation request: 0 blocks.");
-
+protected:
+    raw_address<BlockSize> do_allocate(u64 request) override {
         // Find a free extent with at least `request` blocks.
         if (auto addr = allocate_from_freelist(request))
             return addr;
         return allocate_from_wilderness(request);
     }
 
-    void free(raw_address<BlockSize> a) override {
-        EXTPP_CHECK(a, "The address passed to free() is invalid.");
-        EXTPP_CHECK(a.block_offset() == 0, "The address passed to free() does not point to a block.");
+    raw_address<BlockSize> do_reallocate(raw_address<BlockSize> addr, u64 request) override {
+//        auto pos = m_extents.find(addr.block_index());
+//        EXTPP_CHECK(pos != m_extents.end(),
+//                    "The pointer passed to reallocate() does not point "
+//                    "to a previous allocation.");
+//        EXTPP_CHECK(!pos->free, "Calling reallocate() on a previously freed address.");
 
-        auto pos = m_extents.find(a.block_index());
+//        // Size unchanged.
+//        if (request == pos->size)
+//            return addr;
+
+//        const u64 block = pos->block;
+//        const u64 size = pos->size;
+
+//        // Shrink.
+//        if (request < size) {
+//            m_extents.modify(pos, [&](extent_t& e) {
+//                e.size = request;
+//            });
+//            add_free_block_after(std::move(pos), block + request, size - request);
+//            return addr;
+//        }
+
+//        // Additional memory is required.
+//        const u64 additional = request - size;
+
+//        // Try to take memory from the immediate neighbor to the right.
+//        auto next_pos = std::next(pos);
+//        if (next_pos != m_extents.end() && next_pos->free && block + size == next_pos->block) {
+//            m_extents.modify(pos, [&](extent_t& e) {
+//                e.size = request;
+//            });
+//        }
+
+//        // If this is the rightmost allocation, simply grow the file.
+//        if (next_pos == m_extents.end() && block + size == file_size()) {
+//            const u64 new_chunk = chunk_size(additional);
+//            const u64 new_block = allocate_chunk(new_chunk);
+
+//            m_extents.modify(pos, [&](extent_t& e) {
+//                e.size = request;
+//            });
+//            if (new_chunk > additional)
+//                add_free_block_after(std::move(next_pos), new_block + additional, new_chunk - additional);
+//            return addr;
+//        }
+
+        // TODO
+        unused(addr, request);
+        EXTPP_UNREACHABLE("Not implemented");
+    }
+
+    void do_free(raw_address<BlockSize> addr) override {
+        auto pos = m_extents.find(addr.block_index());
         EXTPP_CHECK(pos != m_extents.end(),
                     "The pointer passed to free() does not point "
                     "to a previous allocation.");
         EXTPP_CHECK(!pos->free, "Double free detected.");
+        // TODO: Can improve error reporting by detecting if a was
+        // freed and the free range was merged with its predecessor.
 
         m_extents.modify(pos, [](auto& e) {
             e.free = true;
@@ -172,6 +223,7 @@ public:
         add_free(pos->block, pos->size);
     }
 
+public:
     void debug_stats(std::ostream& o) {
         fmt::print(o,
                    "Default allocator state: \n"
@@ -193,7 +245,7 @@ public:
 
         fmt::print(o, "Freelist entries ({} total)\n", m_free_extents.size());
         for (const free_extent_t& e : m_free_extents) {
-            fmt::print(o , "  Length: {}, Start: {}", e.size, e.block);
+            fmt::print(o , "  Length: {}, Start: {}\n", e.size, e.block);
         }
         o << std::flush;
     }

@@ -34,6 +34,10 @@ private:
     };
 
 public:
+    using engine_type = extpp::engine<BlockSize>;
+    using allocator_type = extpp::default_allocator<BlockSize>;
+
+public:
     explicit test_file()
         : m_file(create_memory_file("test-file"))
         , m_block_size(BlockSize)
