@@ -13,8 +13,6 @@ set(HEADERS
     assert.hpp
     block.hpp
     btree.hpp
-    btree_map.hpp
-    btree_set.hpp
     default_allocator.hpp
     defs.hpp
     engine.hpp
@@ -24,8 +22,10 @@ set(HEADERS
     identity_key.hpp
     io.hpp
     list.hpp
+    map.hpp
     math.hpp
     raw.hpp
+    set.hpp
     stack.hpp
     type_traits.hpp
 )
