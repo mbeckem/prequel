@@ -331,7 +331,7 @@ private:
         }
 
         // Growing might be possible if we have a free neighbor to our right.
-        const extents_cursor next_pos = std::next(pos);
+        extents_cursor next_pos = std::next(pos);
         if (next_pos == m_extents.end() || !next_pos->free || !extents_touch(*pos, *next_pos))
             return false;
 
@@ -409,6 +409,7 @@ private:
         return chunk;
     }
 
+    /// Allocate a new chunk of memory for metadata storage.
     void allocate_metadata_chunk() {
         const u64 chunk = chunk_size(2, m_min_meta_chunk);
         const u64 block = allocate_chunk(chunk);
