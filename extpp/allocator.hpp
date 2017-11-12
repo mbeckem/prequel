@@ -18,7 +18,7 @@ public:
         EXTPP_CHECK(n > 0, "Cannot allocate 0 blocks.");
         auto result = do_allocate(n);
         EXTPP_ASSERT(result, "do_allocate() returned an invalid address. "
-                           "Throw an exception instead.");
+                             "Throw an exception instead.");
         return result;
     }
 
