@@ -127,6 +127,8 @@ TEST_CASE("btree basics", "[btree]") {
             REQUIRE(*pair.first == v);
         }
 
+        REQUIRE(tree.find(54) == tree.end());
+
         auto pos = tree.find(55);
         REQUIRE(pos != tree.end());
         REQUIRE(*pos == 55);
@@ -346,15 +348,6 @@ TEST_CASE("btree-fuzzy", "[btree][.slow]") {
             }
         }
     }
-}
-
-template<typename SafeIterator>
-void print_safe(const SafeIterator& s) {
-    std::cout << s.valid();
-    if (s.valid()) {
-        std::cout << " " << s.base().node_address() << " " << s.base().index();
-    }
-    std::cout << std::endl;
 }
 
 TEST_CASE("btree cursor stability", "[btree]") {

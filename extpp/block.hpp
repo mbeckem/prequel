@@ -24,7 +24,6 @@ struct add_padding: T {
 
     static constexpr u32 extra_padding = Padding;
 
-protected:
     byte m_extra_padding[Padding] = {};
 };
 

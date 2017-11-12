@@ -134,4 +134,32 @@ TEST_CASE("default allocator", "[default-allocator]") {
         REQUIRE(alloc.data_free() >= 2001000);
         REQUIRE(alloc.data_total() >= 2001000);
     }
+
+    SECTION("allocating after free reuses memory") {
+        alloc.min_chunk(16);
+
+        auto a1 = alloc.allocate(32);
+        REQUIRE(alloc.data_total() == 32);
+        alloc.free(a1);
+        REQUIRE(alloc.data_used() == 0);
+
+        auto a2 = alloc.allocate(16);
+        REQUIRE(a2 == a1);
+        REQUIRE(alloc.data_used() == 16);
+        REQUIRE(alloc.data_total() == 32);
+
+        auto a3 = alloc.allocate(14);
+        REQUIRE(a3.block_index() == a2.block_index() + 16);
+        REQUIRE(alloc.data_used() == 30);
+
+        auto a4 = alloc.allocate(3);
+        REQUIRE(a4.block_index() == a3.block_index() + 14);
+        REQUIRE(alloc.data_total() == 48);
+        REQUIRE(alloc.data_used() == 33);
+
+        alloc.free(a3);
+        auto a5 = alloc.reallocate(a2, 30);
+        REQUIRE(a5 == a2);
+        REQUIRE(alloc.data_used() == 33);
+    }
 }
