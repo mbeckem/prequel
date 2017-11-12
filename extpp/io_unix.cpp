@@ -1,7 +1,7 @@
-#include "./io.hpp"
+#include <extpp/io.hpp>
 
-#include "./assert.hpp"
-#include "./util.hpp"
+#include <extpp/assert.hpp>
+#include <extpp/detail/rollback.hpp>
 
 #include <fcntl.h>
 #include <unistd.h>
@@ -172,7 +172,7 @@ std::unique_ptr<file> unix_vfs::open(const char* path, access_t access, flags_t 
         throw std::system_error(ec, __PRETTY_FUNCTION__);
     }
 
-    auto guard = rollback([&]{
+    auto guard = detail::rollback([&]{
         ::close(fd);
     });
 

@@ -27,9 +27,9 @@ private:
         handle<Anchor, BlockSize> anchor;
         default_allocator<BlockSize> alloc;
 
-        state(handle<block, BlockSize> hnd, extpp::engine<BlockSize>& eng, u32 chunk)
+        state(handle<block, BlockSize> hnd, extpp::engine<BlockSize>& eng)
             : anchor(hnd.neighbor(&hnd->anchor))
-            , alloc(hnd.neighbor(&hnd->alloc_anchor), eng, chunk)
+            , alloc(hnd.neighbor(&hnd->alloc_anchor), eng)
         {}
     };
 
@@ -61,7 +61,7 @@ public:
         m_engine.emplace(*m_file, 8);
         {
             auto first_block = cast<block>(m_engine->read(0));
-            m_state.emplace(first_block, *m_engine, 16);
+            m_state.emplace(first_block, *m_engine);
         }
 
         rb.commit();

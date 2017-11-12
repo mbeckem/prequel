@@ -18,6 +18,7 @@ using i64 = std::int64_t;
 
 using byte = unsigned char;
 
+using std::ptrdiff_t;
 using std::uintptr_t;
 using std::size_t;
 

@@ -5,6 +5,7 @@ set(HEADERS
     detail/iter_tools.hpp
     detail/operators.hpp
     detail/rollback.hpp
+    detail/safe_iterator.hpp
     detail/sequence_insert.hpp
 
     address.hpp

@@ -2,6 +2,7 @@
 
 #include <extpp/btree.hpp>
 #include <extpp/identity_key.hpp>
+#include <extpp/detail/fix.hpp>
 
 #include <algorithm>
 #include <iostream>
@@ -25,7 +26,7 @@ void dump_tree(const BTree& tree, std::ostream& out = std::cout) {
         return out;
     };
 
-    auto visit = fix([&](auto& self, visitor_t& v) -> void {
+    auto visit = detail::fix([&](auto& self, visitor_t& v) -> void {
         if (v.is_internal()) {
             line() << "Internal node @" << v.address() << "\n";
             line() << "Parent: @" << v.parent_address() << "\n";
@@ -125,6 +126,39 @@ TEST_CASE("btree basics", "[btree]") {
             REQUIRE(pair.second);
             REQUIRE(*pair.first == v);
         }
+
+        auto pos = tree.find(55);
+        REQUIRE(pos != tree.end());
+        REQUIRE(*pos == 55);
+
+        pos = tree.lower_bound(57);
+        REQUIRE(pos != tree.end());
+        REQUIRE(*pos == 57);
+
+        pos = tree.lower_bound(60);
+        REQUIRE(pos != tree.end());
+        REQUIRE(*pos == 61);
+
+        pos = tree.upper_bound(57);
+        REQUIRE(pos != tree.end());
+        REQUIRE(*pos == 59);
+
+        pos = tree.upper_bound(257);
+        REQUIRE(pos == tree.end());
+
+        auto range = tree.equal_range(61);
+        REQUIRE(range.first != range.second);
+        REQUIRE(*range.first == 61);
+        REQUIRE(*range.second == 63);
+
+        range = tree.equal_range(64);
+        REQUIRE(range.first == range.second);
+        REQUIRE(*range.first == 65);
+
+        range = tree.equal_range(257);
+        REQUIRE(range.first != range.second);
+        REQUIRE(range.second == tree.end());
+        REQUIRE(*range.first == 257);
 
         REQUIRE(tree.find(127) != tree.end());
         REQUIRE(tree.size() == 129);
@@ -298,6 +332,7 @@ TEST_CASE("btree-fuzzy", "[btree][.slow]") {
 
         tree.verify();
 
+
         std::shuffle(numbers.begin(), numbers.end(), rng);
         for (u64 n : numbers) {
             INFO("Searching for number " << n);
@@ -311,4 +346,60 @@ TEST_CASE("btree-fuzzy", "[btree][.slow]") {
             }
         }
     }
+}
+
+template<typename SafeIterator>
+void print_safe(const SafeIterator& s) {
+    std::cout << s.valid();
+    if (s.valid()) {
+        std::cout << " " << s.base().node_address() << " " << s.base().index();
+    }
+    std::cout << std::endl;
+}
+
+TEST_CASE("btree cursor stability", "[btree]") {
+    simple_tree_test([](auto&& tree) {
+        using cursor_t = typename std::decay_t<decltype(tree)>::cursor;
+
+        auto numbers = generate_numbers(10000);
+
+        std::vector<cursor_t> cursors;
+        for (size_t i = 0; i < 100; ++i)
+            cursors.emplace_back(tree.insert(numbers[i]).first);
+
+        for (size_t i = 100; i < numbers.size(); ++i)
+            tree.insert(numbers[i]);
+        REQUIRE(tree.size() == numbers.size());
+
+        for (size_t i = 0; i < 100; ++i) {
+            auto& cursor = cursors[i];
+            if (!cursor.valid())
+                FAIL("Invalid cursor at index " << i);
+            if (*cursor != numbers[i])
+                FAIL("Invalid value at index " << i << ", expected " << numbers[i] << " but saw " << *cursor);
+        }
+
+        for (size_t i = 100; i < numbers.size(); ++i)
+            tree.erase(numbers[i]);
+        REQUIRE(tree.size() == 100);
+
+        for (size_t i = 0; i < 100; ++i) {
+            auto& cursor = cursors[i];
+            if (!cursor.valid())
+                FAIL("Invalid cursor at index " << i);
+            if (*cursor != numbers[i])
+                FAIL("Invalid value at index " << i << ", expected " << numbers[i] << " but saw " << *cursor);
+        }
+
+        for (size_t i = 0; i < 100; ++i) {
+            auto& cursor = cursors[i];
+            if (!cursor.valid())
+                FAIL("The cursor at index " << i << " is already invalid.");
+            tree.erase(cursor);
+            if (cursor.valid())
+                FAIL("The cursor at index " << i << " did not become invalid after its erasure");
+        }
+
+        REQUIRE(tree.size() == 0);
+    });
 }

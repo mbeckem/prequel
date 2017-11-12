@@ -25,7 +25,7 @@ TEST_CASE("extent", "[extent]") {
         return file.anchor().neighbor(&file.anchor()->extents[index]);
     };
 
-    {
+    SECTION("basic usage") {
         extent_t e1(extent_anchor(0), file.engine(), file.alloc());
         REQUIRE(e1.empty());
         REQUIRE(e1.size() == 0);
@@ -33,6 +33,7 @@ TEST_CASE("extent", "[extent]") {
         e1.resize(2);
         REQUIRE(e1.size() == 2);
         REQUIRE(!e1.empty());
+        REQUIRE(e1.data());
         {
             auto h = e1.overwrite(0);
             for (u32 i = 0; i < 256; ++i)
@@ -41,6 +42,9 @@ TEST_CASE("extent", "[extent]") {
             for (u32 i = 0; i < 256; ++i)
                 h.data()[i] = byte(255 - i);
         }
+
+        extent_t e2(extent_anchor(1), file.engine(), file.alloc());
+        e2.resize(8);
 
         e1.resize(4);
         REQUIRE(e1.size() == 4);
@@ -57,10 +61,8 @@ TEST_CASE("extent", "[extent]") {
             }
         }
 
-        e1.resize(400);
-        REQUIRE(e1.size() == 400);
-
         e1.clear();
+        e2.clear();
         REQUIRE(e1.size() == 0);
         REQUIRE(e1.empty());
         REQUIRE(!e1.data());

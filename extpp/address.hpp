@@ -16,28 +16,37 @@ namespace extpp {
 
 namespace detail {
 
-template<size_t Size, size_t Align>
+// We need a dummy object (not initialized), should be optimized out.
+template<typename T> struct ptr_adjust_holder { static T value; };
+
+// This code uses old-style compile time programming by design to get
+// around constexpr restrictions (i.e. forbidden casts at compile time).
+// Base must be a (non-virtual) base class of Derived.
+//
+// Inspired by the blog post at
+// https://thecppzoo.blogspot.de/2016/10/constexpr-offsetof-practical-way-to.html
+template<typename Derived, typename Base>
 struct ptr_adjust_helper {
-    alignas(Align) static const char buffer[Size];
+    using holder = ptr_adjust_holder<Derived>;
+
+    enum {
+        // The pointer offset for Derived -> Base casts.
+        // Note: this does not work with MSVC.
+        value = (char *)((Base *) &holder::value) - (char *) &holder::value
+    };
+
+// This technique doesn't seem to be required.
+//    char for_sizeof[
+//        (char *)((Base *) &holder::value) -
+//        (char *)&holder::value
+//    ];
+// later:
+//    sizeof(...::for_sizeof).
 };
 
-// The pointer adjustment necessary to go from Derived* to Base*.
-// Only useful (and highly unsafe) for trivially copyable types.
-// This should really be a constexpr function but reinterpreting memory
-// is forbidden in constexpr contexts.
 template<typename Derived, typename Base>
-static ptrdiff_t ptr_adjust_impl() {
-    auto from = reinterpret_cast<const Derived*>(&ptr_adjust_helper<sizeof(Derived), alignof(Derived)>::buffer);
-    auto to = static_cast<const Base*>(from);
-    auto diff = reinterpret_cast<const char*>(to) - reinterpret_cast<const char*>(from);
-    EXTPP_ASSERT(diff >= 0, "Negative offset from derived to base!");
-    return diff;
-}
-
-template<typename Derived, typename Base>
-static ptrdiff_t ptr_adjust() {
-    static const ptrdiff_t adjust = ptr_adjust_impl<std::remove_const_t<Derived>, std::remove_const_t<Base>>();
-    return adjust;
+constexpr ptrdiff_t ptr_adjust() {
+    return ptr_adjust_helper<Derived, Base>::value;
 }
 
 } // namespace detail

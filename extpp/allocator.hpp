@@ -16,7 +16,10 @@ public:
     /// Returns the address of the first block.
     raw_address<BlockSize> allocate(u64 n) {
         EXTPP_CHECK(n > 0, "Cannot allocate 0 blocks.");
-        return do_allocate(n);
+        auto result = do_allocate(n);
+        EXTPP_ASSERT(result, "do_allocate() returned an invalid address. "
+                           "Throw an exception instead.");
+        return result;
     }
 
     /// Changes the size of the allocated range pointed to by `a` to `n` blocks.
@@ -44,7 +47,11 @@ public:
             free(a);
             return {};
         }
-        return do_reallocate(a, n);
+
+        auto result = do_reallocate(a, n);
+        EXTPP_ASSERT(result, "do_reallocate() returned an invalid address. "
+                             "Throw an exception instead.");
+        return result;
     }
 
     /// Frees blocks previously allocated using `allocate()` or `reallocate()`.

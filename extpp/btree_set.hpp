@@ -43,18 +43,19 @@ public:
     bool empty() const { return m_tree.empty(); }
     size_type size() const { return m_tree.size(); }
 
-    void clear() { m_tree.free(); }
+    void clear() { m_tree.clear(); }
     std::pair<iterator, bool> insert(const key_type& key) { return m_tree.insert(value); }
 
     // TODO
-    iterator erase();
-
     size_type count(const key_type& key) const { return find(key) != end(); }
-    iterator find(const key_type& key) const { return m_tree.find(key); }
 
     std::pair<iterator, iterator> equal_range(const key_type& key) const { return m_tree.equal_range(key); }
     iterator lower_bound(const key_type& key) const { return m_tree.lower_bound(key); }
     iterator upper_bound(const key_type& key) const { return m_tree.upper_bound(key); }
+    iterator find(const key_type& key) const { return m_tree.find(key); }
+
+    bool erase(const key_type& key) { return m_tree.erase(key); }
+    iterator erase(const iterator& pos) { return m_tree.erase(pos); }
 
 private:
     tree_type m_tree;

@@ -56,8 +56,8 @@ public:
         return *this;
     }
 
-    void reset(block_handle<BlockSize> handle, T* data) noexcept {
-        *this = handle(std::move(handle), data);
+    void reset(block_handle<BlockSize> h, T* data) noexcept {
+        *this = handle(std::move(h), data);
     }
 
     void reset() noexcept {

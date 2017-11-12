@@ -42,11 +42,16 @@ public:
     /// The number of available blocks is exactly `size()`.
     raw_address<BlockSize> data() const { return m_anchor->start; }
 
+    /// Returns the address of the block with the given index.
+    raw_address<BlockSize> get(u64 index) const {
+        EXTPP_ASSERT(index < size(), "Index out of bounds.");
+        return m_anchor->start + index * BlockSize;
+    }
+
     /// Returns a handle to the block with the given index.
     /// \pre `index < size()`.
     block_handle<BlockSize> access(u64 index) const {
-        EXTPP_ASSERT(index < size(), "Index out of bounds.");
-        return m_engine->read(m_anchor->start.block_index() + index);
+        return m_engine->read(get(index).block_index());
     }
 
     /// Returns a handle to the block with the given index.
@@ -56,8 +61,7 @@ public:
     ///
     /// \pre `index < size()`.
     block_handle<BlockSize> overwrite(u64 index) const {
-        EXTPP_ASSERT(index < size(), "Index out of bounds");
-        return m_engine->overwrite(m_anchor->start.block_index() + index);
+        return m_engine->overwrite(get(index).block_index());
     }
 
     /// Returns a handle to the block with the given index.
@@ -69,8 +73,7 @@ public:
     /// \pre `data` has BlockSize readable bytes.
     /// \pre `index < size()`.
     block_handle<BlockSize> overwrite(u64 index, const byte* data) const {
-        EXTPP_ASSERT(index < size(), "Index out of bounds");
-        return m_engine->overwrite(m_anchor->start.block_index() + index, data);
+        return m_engine->overwrite(get(index).block_index(), data);
     }
 
     /// Removes all blocks from this extent.
@@ -92,28 +95,13 @@ public:
     ///
     /// \post `size() == new_size`.
     ///
-    /// \warning This invalidates all handles handed out using `access` or `overwrite`,
-    /// because the blocks might me moved in external storage.
+    /// \warning This invalidates all block addresses and handles
+    /// because the blocks might be moved to a new location.
     void resize(u64 new_size) {
-        // TODO reallocate.
-        if (new_size == size()) {
+        if (new_size == size())
             return;
-        }
-        if (new_size == 0) {
-            clear();
-            return;
-        }
 
-        const auto addr = m_alloc->allocate(new_size);
-        const u64 copy = std::min(size(), new_size);
-        for (u64 i = 0; i < copy; ++i) {
-            auto lhs = m_engine->read(m_anchor->start.block_index() + i);
-            m_engine->overwrite(addr.block_index() + i, lhs.data());
-        }
-
-        if (m_anchor->start)
-            m_alloc->free(m_anchor->start);
-        m_anchor->start = addr;
+        m_anchor->start = m_alloc->reallocate(m_anchor->start, new_size);
         m_anchor->size = new_size;
         m_anchor.dirty();
     }

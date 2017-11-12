@@ -10,8 +10,10 @@
 #include <extpp/type_traits.hpp>
 
 #include <extpp/detail/iter_tools.hpp>
+#include <extpp/detail/safe_iterator.hpp>
 #include <extpp/detail/sequence_insert.hpp>
 
+#include <boost/container/small_vector.hpp>
 #include <boost/iterator/iterator_facade.hpp>
 #include <boost/optional.hpp>
 
@@ -41,6 +43,9 @@ public:
     class iterator;
     using const_iterator = iterator;
 
+    class cursor;
+    using const_cursor = cursor;
+
     using key_compare = KeyCompare;
     using size_type = u64;
 
@@ -52,6 +57,11 @@ public:
                   "The value type must be trivial.");
     static_assert(is_trivial<key_type>::value,
                   "The key type must be trivial.");
+
+private:
+    using cursor_map = detail::safe_iterator_map<btree, cursor>;
+
+    using cursor_buffer_t = boost::container::small_vector<cursor*, 16>;
 
 private:
     struct node_header;
@@ -459,25 +469,21 @@ public:
         return iter(std::move(leaf), index);
     }
 
+    std::pair<iterator, iterator> equal_range(const key_type& key) const {
+        auto lower = lower_bound(key);
+        auto upper = lower;
+        if (upper != end() && equal(key, extract(*upper)))
+            ++upper;
+        return std::make_pair(std::move(lower), std::move(upper));
+    }
+
     /// Searches the tree for a value with the given key.
     /// Returns an iterator that points to that value if the key was found,
     /// or `end()` if no such value exists.
-    ///
-    /// \note If the tree contains more than one value with that key,
-    /// this iterator will point to the first one (i.e. the one that would
-    /// be visited first when iterating from `begin()` to `end()`).
-    /// All other values with the same key immediately follow the value
-    /// in insertion order.
     iterator find(const key_type& key) const {
-        if (empty())
-            return end();
-
-        leaf_type leaf;
-        u32 index;
-        std::tie(leaf, index) = search(key, lower_bound_search{this});
-        if (index < leaf->count && equal(extract(leaf->values[index]), key)) {
-            return iter(std::move(leaf), index);
-        }
+        auto pos = lower_bound(key);
+        if (pos != end() && equal(extract(*pos), key))
+            return pos;
         return end();
     }
 
@@ -538,10 +544,9 @@ public:
     /// `pos` must point to a valid element.
     ///
     /// Returns an iterator following the removed element.
-    iterator erase(const iterator& pos) {
+    iterator erase(iterator pos) {
         EXTPP_ASSERT(pos.tree() == this, "iterator does not belong to this instance");
-        EXTPP_ASSERT(pos != end(), "cannot erase an invalid iterator");
-
+        EXTPP_ASSERT(pos != end(), "cannot erase the past-the-end iterator");
         return erase_at(pos.leaf(), pos.index());
     }
 
@@ -554,7 +559,8 @@ public:
     /// \note Iterators are not invalidated.
     template<typename Operation>
     void modify(const iterator& iter, Operation&& op) {
-        EXTPP_ASSERT(iter != end(), "cannot modify the end iterator");
+        EXTPP_ASSERT(iter.tree() == this, "iterator does not belong to this btree");
+        EXTPP_ASSERT(iter != end(), "cannot modify the past-the-end iterator");
 
         value_type v = *iter;
         key_type k = extract(v);
@@ -566,6 +572,14 @@ public:
         }
         iter.leaf()->values[iter.index()] = v;
         iter.leaf().dirty();
+    }
+
+    /// Replaces the value at `*iter` with `value`.
+    /// Both values must have the same key.
+    void replace(const iterator& iter, const value_type& value) {
+        return modify(iter, [&](value_type& v) {
+            v = value;
+        });
     }
 
     void verify() const;
@@ -584,6 +598,7 @@ private:
         leaf.dirty();
         if (leaf->count < max) {
             leaf->insert(index, value);
+            move_iterators(leaf, index, leaf->count - 1, leaf, index + 1);
             return iter(std::move(leaf), index);
         }
         EXTPP_ASSERT(leaf->count == max,
@@ -690,6 +705,18 @@ private:
 
         pos = insert_index < mid ? iter(left_leaf, insert_index)
                                  : iter(right_leaf, insert_index - mid);
+        if (insert_index < mid) {
+            // All values with old_index >= insert_index and old_index < mid
+            // have shifted one to the right. The others are located in the new node.
+            move_iterators(left_leaf, mid - 1, count, right_leaf, 0);
+            move_iterators(left_leaf, insert_index, mid - 1, left_leaf, insert_index + 1);
+        } else {
+            // All values with old_index >= mid are now in the right node. Additionally,
+            // those with old_index >= insert_index have shifted one to the right.
+            move_iterators(left_leaf, insert_index, count, right_leaf, insert_index - mid + 1);
+            move_iterators(left_leaf, mid, insert_index, right_leaf, 0);
+        }
+
         return extract(left_leaf->values[mid - 1]);
     }
 
@@ -738,6 +765,9 @@ private:
         leaf->remove(index);
         leaf.dirty();
 
+        invalidate_iterators(leaf, index);
+        move_iterators(leaf, index + 1, leaf->count + 1, leaf, index);
+
         // The leftmost/rightmost leaves are allowed to become completely empty,
         // in which case they are simply removed.
         if (leaf.address() == m_anchor->leftmost || leaf.address() == m_anchor->rightmost) {
@@ -783,6 +813,9 @@ private:
 
                 parent->keys[parent_index - 1] = extract(left->values[left->count - 1]);
                 parent.dirty();
+
+                move_iterators(leaf, 0, leaf->count - 1, leaf, 1);
+                move_iterators(left, left->count, left->count + 1, leaf, 0);
                 return succ(leaf, index + 1);
             }
         }
@@ -796,6 +829,9 @@ private:
 
                 parent->keys[parent_index] = extract(leaf->values[leaf->count - 1]);
                 parent.dirty();
+
+                move_iterators(right, 0, 1, leaf, leaf->count - 1);
+                move_iterators(right, 1, right->count + 1, right, 0);
                 return succ(leaf, index);
             }
         }
@@ -921,6 +957,9 @@ private:
         shift(right->values, right->count, left->count);
         copy(left->values, left->count, right->values);
         right->count += left->count;
+
+        move_iterators(right, 0, right->count - left->count, right, left->count);
+        move_iterators(left, 0, left->count, right, 0);
     }
 
     /// Merges the content of the left node into the right node.
@@ -973,6 +1012,30 @@ private:
         free_leaf(leaf.address());
     }
 
+    /// Move the iterator positions from old_leaf, [first_index, last_index)
+    /// to new_leaf, [new_first_index, ...).
+    void move_iterators(const leaf_type& old_leaf,
+                        u32 first_index, u32 last_index,
+                        const leaf_type& new_leaf,
+                        u32 new_first_index) {
+        cursor_buffer_t buffer;
+        m_iterator_map.find_iterators(old_leaf.address().raw(), first_index, last_index, buffer);
+
+        for (cursor *i : buffer) {
+            u32 offset = i->base().index() - first_index;
+            *i = iter(new_leaf, new_first_index + offset);
+        }
+    }
+
+    void invalidate_iterators(const leaf_type& leaf, u32 index) {
+        cursor_buffer_t buffer;
+        m_iterator_map.find_iterators(leaf.address().raw(), index, index + 1, buffer);
+
+        for (cursor *i : buffer) {
+            i->reset();
+        }
+    }
+
     iterator iter(leaf_address leaf, u32 index) const { return iter(read_leaf(leaf), index); }
     iterator iter(leaf_type leaf, u32 index) const { return iterator(this, std::move(leaf), index); }
 
@@ -1006,6 +1069,10 @@ private:
 
     /// Persistent tree state.
     handle<anchor, BlockSize> m_anchor;
+
+    /// Contains references to safe iterators. These have to be adjusted when
+    /// elements are inserted/removed or nodes are split/merged.
+    mutable cursor_map m_iterator_map;
 };
 
 /// An iterator points to a single value inside the btree or past the end.
@@ -1047,6 +1114,7 @@ private:
         EXTPP_ASSERT(m_index < m_leaf->count, "index must be within bounds");
     }
 
+public:
     const btree* tree() const { return m_tree; }
 
     const leaf_type& leaf() const {
@@ -1054,8 +1122,9 @@ private:
         return m_leaf;
     }
 
+    raw_address<B> node_address() const { return m_leaf.address().raw(); }
+
     u32 index() const {
-        EXTPP_ASSERT(m_leaf, "invalid iterator");
         return m_index;
     }
 
@@ -1119,6 +1188,34 @@ private:
 
         EXTPP_ASSERT(!m_leaf || m_index < m_leaf->count, "either past-the-end or a valid position");
     }
+};
+
+template<typename V, typename K, typename C, u32 B>
+class btree<V, K, C, B>::cursor : public detail::safe_iterator_base<btree, iterator, cursor> {
+public:
+    cursor() = default;
+
+    cursor(iterator iter)
+        : cursor::safe_iterator_base{iter.tree()->m_iterator_map, std::move(iter)}
+    {}
+
+    cursor(const cursor&) = default;
+    cursor(cursor&&) noexcept = default;
+
+    cursor& operator=(iterator iter) {
+        const btree* tree = iter.tree();
+        cursor::safe_iterator_base::reset(tree->m_iterator_map, std::move(iter));
+        return *this;
+    }
+
+    cursor& operator=(const cursor&) = default;
+    cursor& operator=(cursor&&) noexcept = default;
+
+private:
+    friend class btree;
+    friend class cursor::safe_iterator_base;
+
+    using cursor::safe_iterator_base::reset;
 };
 
 template<typename V, typename K, typename C, u32 B>
