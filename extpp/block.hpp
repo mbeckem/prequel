@@ -95,9 +95,12 @@ private:
     static_assert(sizeof(Header) <= BlockSize,
                   "Header cannot fit into BlockSize.");
 
+    // The compiler should use the empty base class optimization.
+    static constexpr u32 header_size = std::is_empty<Header>::value ? 0 : sizeof(Header);
+
     // This is just an estimate because it doesn't take Value's alignment into account.
     // The real capacity is determined by make_variable_block and may be a bit lower.
-    static constexpr u32 max_array_size = (BlockSize - sizeof(Header)) / sizeof(Value);
+    static constexpr u32 max_array_size = (BlockSize - header_size) / sizeof(Value);
 
     static_assert(max_array_size > 0,
                   "No space left in block after array header");

@@ -388,11 +388,15 @@ public:
         , m_anchor(std::move(anch))
     {}
 
-    btree(const btree& other) = delete;
-    btree(btree&& other) noexcept = default;
+    btree(const btree&) = delete;
+    btree(btree&&) noexcept = default;
 
-    btree& operator=(const btree& other) = delete;
-    btree& operator=(btree&& other) noexcept = default;
+    btree& operator=(const btree&) = delete;
+    btree& operator=(btree&&) noexcept = default;
+
+
+    extpp::engine<BlockSize>& engine() const { return *m_engine; }
+    extpp::allocator<BlockSize>& allocator() const { return *m_alloc; }
 
     bool empty() const { return height() == 0; }
     u64 size() const { return m_anchor->size; }
@@ -400,9 +404,6 @@ public:
     u64 leaf_nodes() const { return m_anchor->leaves; }
     u64 internal_nodes() const { return m_anchor->internals; }
     u64 nodes() const { return internal_nodes() + leaf_nodes(); }
-
-    extpp::engine<BlockSize>& engine() const { return *m_engine; }
-    extpp::allocator<BlockSize>& allocator() const { return *m_alloc; }
 
     /// Maximum number of children per internal node.
     static constexpr u32 internal_fanout() { return internal_block::max_size(); }

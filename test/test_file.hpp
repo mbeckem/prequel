@@ -38,15 +38,18 @@ public:
     using allocator_type = extpp::default_allocator<BlockSize>;
 
 public:
-    explicit test_file()
+    test_file()
         : m_file(create_memory_file("test-file"))
         , m_block_size(BlockSize)
     {
-        m_file->truncate(m_block_size);
+        init();
+    }
 
-        extpp::engine<BlockSize> be(*m_file, 1);
-        construct<block>(be.read(0));
-        be.flush();
+    test_file(std::unique_ptr<file> file)
+        : m_file(std::move(file))
+        , m_block_size(BlockSize)
+    {
+        init();
     }
 
     void open() {
@@ -91,6 +94,16 @@ public:
         if (!m_engine)
             throw std::logic_error("not open");
         return m_state->alloc;
+    }
+
+private:
+    void init() {
+        if (m_file->file_size() == 0) {
+            m_file->truncate(m_block_size);
+            extpp::engine<BlockSize> be(*m_file, 1);
+            construct<block>(be.read(0));
+            be.flush();
+        }
     }
 
 private:

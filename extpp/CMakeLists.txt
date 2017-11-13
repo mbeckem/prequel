@@ -27,6 +27,7 @@ set(HEADERS
     raw.hpp
     set.hpp
     stack.hpp
+    stream.hpp
     type_traits.hpp
 )
 

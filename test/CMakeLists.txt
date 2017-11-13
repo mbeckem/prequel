@@ -12,7 +12,7 @@ set(SOURCES
     list_test.cpp
     math_test.cpp
     stack_test.cpp
-
+    stream_test.cpp
     test_file.hpp
 )
 

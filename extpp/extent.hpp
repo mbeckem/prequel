@@ -29,6 +29,12 @@ public:
         , m_alloc(&alloc)
     {}
 
+    extent(const extent&) = delete;
+    extent(extent&&) noexcept = default;
+
+    extent& operator=(const extent&) = delete;
+    extent& operator=(extent&&) noexcept = default;
+
     extpp::engine<BlockSize>& engine() const { return *m_engine; }
     extpp::allocator<BlockSize>& allocator() const { return *m_alloc; }
 

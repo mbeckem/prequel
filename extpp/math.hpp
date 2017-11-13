@@ -65,6 +65,17 @@ constexpr T ceil_div(T a, T b) {
     return (a + b - 1) / b;
 }
 
+/// Returns the signed difference `a - b` for two unsigned numbers.
+template<typename T, IsUnsigned<T>* = nullptr>
+constexpr std::make_signed_t<T> signed_difference(T a, T b) {
+    using U = std::make_signed_t<T>;
+    if (a >= b) {
+        return static_cast<U>(a - b);
+    } else {
+        return -static_cast<U>(b - a);
+    }
+}
+
 } // namespace extpp
 
 #endif // EXTPP_MATH_HPP
