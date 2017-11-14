@@ -10,7 +10,9 @@ set(HEADERS
 
     address.hpp
     allocator.hpp
+    anchor_ptr.hpp
     assert.hpp
+    bin.hpp
     block.hpp
     btree.hpp
     default_allocator.hpp

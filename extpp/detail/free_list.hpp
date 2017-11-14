@@ -2,6 +2,7 @@
 #define EXTPP_DETAIL_FREE_LIST_HPP
 
 #include <extpp/address.hpp>
+#include <extpp/anchor_ptr.hpp>
 #include <extpp/block.hpp>
 #include <extpp/defs.hpp>
 #include <extpp/engine.hpp>
@@ -50,7 +51,7 @@ public:
     };
 
 public:
-    explicit free_list(handle<anchor, BlockSize> a, engine<BlockSize>& e)
+    explicit free_list(anchor_ptr<anchor> a, engine<BlockSize>& e)
         : m_anchor(std::move(a))
         , m_engine(&e)
     {}
@@ -107,7 +108,7 @@ public:
     free_list& operator=(free_list&&) noexcept = default;
 
 private:
-    handle<anchor, BlockSize> m_anchor;
+    anchor_ptr<anchor> m_anchor;
     engine<BlockSize>* m_engine;
 };
 

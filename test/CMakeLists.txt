@@ -1,6 +1,7 @@
 set(SOURCES
     main.cpp
     address_test.cpp
+    anchor_ptr_test.cpp
     block_engine_test.cpp
     block_test.cpp
     btree_test.cpp

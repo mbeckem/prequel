@@ -2,6 +2,7 @@
 #define EXTPP_BTREE_HPP
 
 #include <extpp/allocator.hpp>
+#include <extpp/anchor_ptr.hpp>
 #include <extpp/block.hpp>
 #include <extpp/defs.hpp>
 #include <extpp/engine.hpp>
@@ -377,7 +378,7 @@ private:
     }
 
 public:
-    btree(handle<anchor, BlockSize> anch,
+    btree(anchor_ptr<anchor> anch,
           extpp::engine<BlockSize>& eng,
           allocator<BlockSize>& alloc,
           KeyExtract extract = KeyExtract(), KeyCompare compare = KeyCompare())
@@ -1069,7 +1070,7 @@ private:
     KeyCompare m_compare;
 
     /// Persistent tree state.
-    handle<anchor, BlockSize> m_anchor;
+    anchor_ptr<anchor> m_anchor;
 
     /// Contains references to safe iterators. These have to be adjusted when
     /// elements are inserted/removed or nodes are split/merged.

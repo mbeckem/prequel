@@ -2,6 +2,7 @@
 #define EXTPP_DEFAULT_ALLOCATOR_HPP
 
 #include <extpp/allocator.hpp>
+#include <extpp/anchor_ptr.hpp>
 #include <extpp/assert.hpp>
 #include <extpp/btree.hpp>
 #include <extpp/defs.hpp>
@@ -111,7 +112,7 @@ public:
     };
 
 public:
-    default_allocator(handle<anchor, BlockSize> anch, engine<BlockSize>& e)
+    default_allocator(anchor_ptr<anchor> anch, engine<BlockSize>& e)
         : m_anchor(std::move(anch))
         , m_engine(&e)
         , m_file(&e.fd())
@@ -546,7 +547,7 @@ private:
     }
 
 private:
-    handle<anchor, BlockSize> m_anchor;
+    anchor_ptr<anchor> m_anchor;
     engine<BlockSize>* m_engine;
     file* m_file;
 

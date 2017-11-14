@@ -2,6 +2,7 @@
 #define EXTPP_EXTENT_HPP
 
 #include <extpp/address.hpp>
+#include <extpp/anchor_ptr.hpp>
 #include <extpp/allocator.hpp>
 #include <extpp/assert.hpp>
 #include <extpp/engine.hpp>
@@ -23,7 +24,12 @@ public:
     };
 
 public:
-    extent(handle<anchor, BlockSize> anc, extpp::engine<BlockSize>& eng, extpp::allocator<BlockSize>& alloc)
+    // Read-only interface for existing anchors, without creating a handle for them.
+    static raw_address<BlockSize> data(const anchor& a) { return a.start; }
+    static u64 size(const anchor& a) { return a.size; }
+
+public:
+    extent(anchor_ptr<anchor> anc, extpp::engine<BlockSize>& eng, extpp::allocator<BlockSize>& alloc)
         : m_anchor(std::move(anc))
         , m_engine(&eng)
         , m_alloc(&alloc)
@@ -113,7 +119,7 @@ public:
     }
 
 private:
-    handle<anchor, BlockSize> m_anchor;
+    anchor_ptr<anchor> m_anchor;
     extpp::engine<BlockSize>* m_engine;
     extpp::allocator<BlockSize>* m_alloc;
 };

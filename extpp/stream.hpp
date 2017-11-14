@@ -1,6 +1,7 @@
 #ifndef EXTPP_STREAM_HPP
 #define EXTPP_STREAM_HPP
 
+#include <extpp/anchor_ptr.hpp>
 #include <extpp/assert.hpp>
 #include <extpp/block.hpp>
 #include <extpp/extent.hpp>
@@ -53,7 +54,7 @@ public:
     };
 
 public:
-    stream(handle<anchor, BlockSize> h, extpp::engine<BlockSize>& e, extpp::allocator<BlockSize>& a)
+    stream(anchor_ptr<anchor> h, extpp::engine<BlockSize>& e, extpp::allocator<BlockSize>& a)
         : m_anchor(std::move(h))
         , m_extent(m_anchor.neighbor(&m_anchor->extent), e, a)
     {}
@@ -204,7 +205,7 @@ private:
     }
 
 private:
-    handle<anchor, BlockSize> m_anchor;
+    anchor_ptr<anchor> m_anchor;
     extent<BlockSize> m_extent;
 };
 

@@ -25,9 +25,12 @@ bool always_false_v = always_false<T>::value;
 template<bool c, typename T = void>
 using disable_if_t = std::enable_if_t<!c, T>;
 
+template<typename T>
+using remove_ref_cv_t = std::remove_cv_t<std::remove_reference_t<T>>;
+
 template<typename T, typename U>
 using DisableSelf = disable_if_t<
-    std::is_base_of<T, std::remove_cv_t<std::remove_reference_t<U>>>::value
+    std::is_base_of<T, remove_ref_cv_t<U>>::value
 >;
 
 // Performs a static pointer cast and preserves the constness.
