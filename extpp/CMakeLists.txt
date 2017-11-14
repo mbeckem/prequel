@@ -1,4 +1,6 @@
 set(HEADERS
+    detail/empty.hpp
+    detail/bitset.hpp
     detail/fix.hpp
     detail/free_list.hpp
     detail/inlined_any.hpp
@@ -24,6 +26,7 @@ set(HEADERS
     identity_key.hpp
     io.hpp
     list.hpp
+    log.hpp
     map.hpp
     math.hpp
     raw.hpp

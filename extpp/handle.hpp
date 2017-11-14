@@ -193,6 +193,93 @@ handle<T, BlockSize> access(engine<BlockSize>& e, address<T, BlockSize> addr) {
     return {std::move(block), ptr};
 }
 
+/// Perform a linear write, starting from the given disk address.
+/// Will write exactly `size` bytes from `data` to disk to the
+/// address range [address, address + size).
+template<u32 BlockSize>
+void write(engine<BlockSize>& e, raw_address<BlockSize> address, const void* data, size_t size) {
+    if (size == 0)
+        return;
+
+    const byte* buffer = reinterpret_cast<const byte*>(data);
+    u64 block_index = address.block_index();
+
+    // Partial write at the start.
+    if (u32 offset = address.block_offset(); offset != 0) {
+        auto block = e.read(block_index);
+        size_t n = std::min(size, size_t(BlockSize - offset));
+        std::memmove(block.data() + offset, buffer, n);
+        block.dirty();
+
+        buffer += n;
+        size -= n;
+        block_index += 1;
+    }
+    // Write as many full blocks as possible.
+    while (size >= BlockSize) {
+        e.overwrite(block_index, buffer);
+
+        buffer += BlockSize;
+        size -= BlockSize;
+        block_index += 1;
+    }
+    // Partial write at the end.
+    if (size > 0) {
+        auto block = e.read(block_index);
+        std::memmove(block.data(), buffer, size);
+        block.dirty();
+    }
+}
+
+template<typename T, u32 BlockSize>
+void write(engine<BlockSize>& e, address<T, BlockSize> address, const T* data, size_t size) {
+    static_assert(is_trivial<T>::value, "Type must be trivial.");
+    return write(e, address.raw(), data, sizeof(T) * size);
+}
+
+/// Perform a linear read, starting from the given disk address.
+/// Will read exactly `size` bytes from the address range [address, address + size)
+/// on disk into `data`.
+template<u32 BlockSize>
+void read(engine<BlockSize>& e, raw_address<BlockSize> address, void* data, size_t size) {
+    if (size == 0)
+        return;
+
+    byte* buffer = reinterpret_cast<byte*>(data);
+    u64 block_index = address.block_index();
+
+    // Partial read at the start.
+    if (u32 offset = address.block_offset(); offset != 0) {
+        auto block = e.read(block_index);
+        size_t n = std::min(size, size_t(BlockSize - offset));
+        std::memmove(buffer, block.data() + offset, n);
+
+        buffer += n;
+        size -= n;
+        block_index += 1;
+    }
+    // Full block reads.
+    while (size >= BlockSize) {
+        auto block = e.read(block_index);
+        std::memmove(buffer, block.data(), BlockSize);
+
+        buffer += BlockSize;
+        size -= BlockSize;
+        block_index += 1;
+    }
+    // Partial read at the end.
+    if (size > 0) {
+        auto block = e.read(block_index);
+        std::memmove(buffer, block.data(), size);
+    }
+}
+
+template<typename T, u32 BlockSize>
+void read(engine<BlockSize>& e, address<T, BlockSize> address, T* data, size_t size) {
+    static_assert(is_trivial<T>::value, "Type must be trivial.");
+    return read(e, address.raw(), data, sizeof(T) * size);
+}
+
 } // namespace extpp
 
 #endif // EXTPP_HANDLE_HPP

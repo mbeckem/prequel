@@ -12,8 +12,28 @@
 #include <boost/iterator/iterator_facade.hpp>
 
 #include <new>
+#include <variant>
 
 namespace extpp {
+
+/// The stream allocates new blocks in chunks of the given size.
+struct linear_growth {
+    linear_growth(u64 chunk_size = 1)
+        : m_chunk_size(chunk_size)
+    {
+        EXTPP_ASSERT(chunk_size >= 1, "Invalid chunk size.");
+    }
+
+    u64 chunk_size() const { return m_chunk_size; }
+
+private:
+    u64 m_chunk_size;
+};
+
+/// The stream is resized exponentially (to 2^n blocks).
+struct exponential_growth {};
+
+using growth_strategy = std::variant<linear_growth, exponential_growth>;
 
 template<typename T, u32 BlockSize>
 class stream {
@@ -78,6 +98,9 @@ public:
     u64 capacity() const { return blocks() * block_capacity(); }
     u64 blocks() const { return m_extent.size(); }
 
+    growth_strategy growth() const { return m_growth; }
+    void growth(const growth_strategy& g) { m_growth = g; }
+
     /// The relative space utilization (memory used by elements
     /// divided by the total allocated memory).
     double fill_factor() const {
@@ -112,9 +135,52 @@ public:
     ///
     /// \post `capacity() >= n`.
     void reserve(u64 n) {
-        u64 blocks = (n + block_capacity() - 1) / block_capacity();
+        u64 blocks = ceil_div(n, u64(block_capacity()));
         if (blocks > m_extent.size())
             grow_extent(blocks);
+    }
+
+    void clear() {
+        resize(0);
+    }
+
+    void resize(u64 n, value_type value = value_type()) {
+        if (n == size())
+            return;
+        if (n < size()) {
+            m_anchor->size = n;
+            m_anchor.dirty();
+            return;
+        }
+
+        // Same reason for the copy as in push back.
+        const value_type v = value;
+        reserve(n);
+        {
+            u64 remaining = n - size();
+            u64 blk_index = block_index(m_anchor->size);
+            u32 blk_offset = block_offset(m_anchor->size);
+
+            auto block = blk_offset == 0 ? create(blk_index) : access(blk_index);
+            block.dirty();
+            while (remaining > 0) {
+                new (block->get(blk_offset)) value_type(v);
+
+                remaining--;
+                if (remaining == 0)
+                    break;
+
+                ++blk_offset;
+                if (blk_offset == block_capacity()) {
+                    blk_index++;
+                    blk_offset = 0;
+                    block = create(blk_index);
+                }
+            }
+        }
+
+        m_anchor->size = n;
+        m_anchor.dirty();
     }
 
     /// Emplaces a new element at the end of the stream.
@@ -128,12 +194,8 @@ public:
     /// Inserts a new element at the end of the stream.
     /// Existing iterators and references will be invalidated if a reallocation
     /// is required, i.e. if the current capacity is too small for the new size.
-    void push_back(const value_type& value) {
-        // We have to make a copy of value here. Otherwise, a reference could
-        // point into the current stream itself and would become invalid
-        // if a relocation is required. We have no (efficient) way of telling
-        // whether a reference points to one of our blocks or not.
-        push_back_impl(value_type(value));
+    void push_back(value_type value) {
+        push_back_impl(value);
     }
 
     /// Remove the last element from the stream.
@@ -159,6 +221,13 @@ public:
         modify(pos, [&](value_type& v) {
             v = value;
         });
+    }
+
+    /// TODO: Other forms.
+    handle<value_type, BlockSize> pointer_to(iterator pos) {
+        EXTPP_ASSERT(pos.index() < size(), "Iterator points to an invalid index.");
+        block_type h = pos.block();
+        return h.neighbor(h->get(pos.block_offset()));
     }
 
 private:
@@ -191,8 +260,23 @@ private:
     /// Grow the extent to at least `minimum` blocks.
     void grow_extent(u64 minimum) {
         EXTPP_ASSERT(minimum > m_extent.size(), "Cannot shrink the extent.");
-        // TODO: Different growth strategies.
-        u64 new_size = round_towards_pow2(minimum);
+
+        struct visitor_t {
+            u64 old_size;
+            u64 minimum;
+
+            u64 operator()(const linear_growth& g) {
+                // Round up to multiple of chunk size.
+                u64 alloc = minimum - old_size;
+                return old_size + ceil_div(alloc, g.chunk_size()) * g.chunk_size();
+            }
+
+            u64 operator()(const exponential_growth&) {
+                return round_towards_pow2(minimum);
+            }
+        } v{m_extent.size(), minimum};
+
+        u64 new_size = std::visit(v, m_growth);
         m_extent.resize(new_size);
     }
 
@@ -207,6 +291,7 @@ private:
 private:
     anchor_ptr<anchor> m_anchor;
     extent<BlockSize> m_extent;
+    growth_strategy m_growth = exponential_growth();
 };
 
 template<typename T, u32 BlockSize>

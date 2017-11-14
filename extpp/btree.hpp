@@ -506,7 +506,9 @@ public:
     /// Does not change the tree if a value with the same key already exists.
     ///
     /// \note Inserting a value invalidates *all* other iterators.
-    std::pair<iterator, bool> insert(const value_type& value) {
+    std::pair<iterator, bool> insert(value_type value) {
+        // TODO: Copy of value necessary?
+        // It might point into the container itself.
         if (empty()) {
             leaf_type leaf = create_leaf();
             leaf->values[0] = value;

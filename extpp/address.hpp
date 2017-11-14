@@ -72,6 +72,8 @@ public:
 public:
     raw_address(): m_value(invalid_value) {}
 
+    raw_address(std::nullptr_t): raw_address() {}
+
     explicit raw_address(u64 value): m_value(value) {}
 
     raw_address(u64 block, u32 offset)
@@ -148,7 +150,7 @@ public:
 public:
     address() = default;
 
-    address(std::nullptr_t) {}
+    address(std::nullptr_t): address() {}
 
 private:
     template<typename U, u32 Bs>
@@ -210,6 +212,18 @@ private:
 private:
     raw_address<BlockSize> m_raw;
 };
+
+template<u32 BlockSize>
+i64 distance(const raw_address<BlockSize>& from, const raw_address<BlockSize>& to) {
+    EXTPP_ASSERT(from, "From address is invalid.");
+    EXTPP_ASSERT(to, "To address is invalid.");
+    return signed_difference(to.value(), from.value());
+}
+
+template<typename T, u32 BlockSize>
+i64 distance(const address<T, BlockSize>& from, const address<T, BlockSize>& to) {
+    return distance(from.raw(), to.raw()) / sizeof(T);
+}
 
 /// Performs the equivalent of `reinterpret_cast` to `To*`.
 template<typename To, u32 BlockSize>

@@ -4,7 +4,7 @@ project(extpp)
 
 find_package(Boost REQUIRED)
 
-set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD 17)
 if ((CMAKE_CXX_COMPILER_ID MATCHES "GNU") OR (CMAKE_CXX_COMPILER_ID MATCHES "Clang"))
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -pedantic -Wno-noexcept-type -Wno-terminate")
     set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -Werror")
@@ -19,5 +19,6 @@ find_package(Boost 1.60 COMPONENTS REQUIRED)
 
 find_package(fmt REQUIRED)
 
+add_definitions("-DEXTPP_BIN_TRACE_ENABLED=1")
 add_subdirectory(extpp)
 add_subdirectory(test)

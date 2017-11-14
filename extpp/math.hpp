@@ -60,7 +60,7 @@ constexpr bool is_aligned(T a, T b) noexcept {
 /// Returns ceil(A / B) for two positive (non-zero) integers.
 template<typename T, IsInteger<T>* = nullptr>
 constexpr T ceil_div(T a, T b) {
-    EXTPP_CONSTEXPR_ASSERT(a > 0, "Dividend must be greater than zero.");
+    EXTPP_CONSTEXPR_ASSERT(a >= 0, "Dividend must be greater than or equal to zero.");
     EXTPP_CONSTEXPR_ASSERT(b > 0, "Divisor must be greater than zero.");
     return (a + b - 1) / b;
 }

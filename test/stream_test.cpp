@@ -93,9 +93,32 @@ TEST_CASE("stream basics", "[stream]") {
                 FAIL("Unexpected value " << stream[i] << ", expected " << expected);
         }
     }
-}
 
-#include <iostream>
+    SECTION("resizing") {
+        stream.resize(12345, 1122334455);
+
+        REQUIRE(stream.size() == 12345);
+        for (auto i : stream) {
+            if (i != 1122334455)
+                FAIL("Unexpected value: " << i);
+        }
+
+        stream.resize(123);
+        REQUIRE(stream.size() == 123);
+
+        stream.resize(123456);
+        REQUIRE(stream.size() == 123456);
+        for (u64 i = 0; i < 123; ++i) {
+            if (stream[i] != 1122334455)
+                FAIL("Unexpected value: " << stream[i]);
+        }
+
+        for (u64 i = 123; i < 123456; ++i) {
+            if (stream[i] != 0)
+                FAIL("Unexpected value: " << stream[i]);
+        }
+    }
+}
 
 TEST_CASE("stream state is persistent", "[stream]") {
     file_t file;
@@ -116,6 +139,50 @@ TEST_CASE("stream state is persistent", "[stream]") {
         for (int i = 0; i < 100000; ++i) {
             if (stream[i] != i)
                 FAIL("Unexpected value " << stream[i] << ", expected " << i);
+        }
+    }
+    file.close();
+}
+
+TEST_CASE("customizable stream growths", "[stream]") {
+    file_t file;
+    file.open();
+    {
+        stream_t stream(file.anchor(), file.engine(), file.alloc());
+        REQUIRE(std::holds_alternative<exponential_growth>(stream.growth()));
+
+        SECTION("exponential") {
+            stream.resize(1);
+            REQUIRE(stream.blocks() == 1);
+
+            stream.resize(stream.block_capacity() * 10);
+            REQUIRE(stream.blocks() == 16);
+
+            stream.resize(stream.block_capacity() * 127);
+            REQUIRE(stream.blocks() == 128);
+            REQUIRE(stream.capacity() == stream.blocks() * stream.block_capacity());
+        }
+
+        SECTION("linear") {
+            stream.growth(linear_growth(5));
+
+            stream.resize(0);
+            REQUIRE(stream.blocks() == 0);
+
+            stream.resize(1);
+            REQUIRE(stream.blocks() == 5);
+            REQUIRE(stream.capacity() == stream.block_capacity() * 5);
+
+            stream.resize(24 * stream.block_capacity());
+            REQUIRE(stream.blocks() == 25);
+
+            stream.growth(linear_growth(1));
+            stream.resize(101 * stream.block_capacity());
+            REQUIRE(stream.blocks() == 101);
+
+            stream.growth(linear_growth(12345));
+            stream.resize(101 * stream.block_capacity() + 1);
+            REQUIRE(stream.blocks() == (12345 + 101));
         }
     }
     file.close();
