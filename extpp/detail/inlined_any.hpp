@@ -138,7 +138,7 @@ private:
         static_assert(sizeof(T) <= Size,
                       "The object does not fit into the buffer. "
                       "You should increase the inlined size or use a smaller type instead.");
-        static_assert(alignof(T) <= alignof(m_storage),
+        static_assert(alignof(T) <= alignof(decltype(m_storage)),
                       "The object's alignment is too large.");
 
         EXTPP_ASSERT(!m_vtable, "instance must be empty.");
