@@ -172,6 +172,8 @@ private:
 
 private:
     class segregated_free_list {
+        // The free list for index `i` contains cell ranges
+        // of sizes `size_classes[i], ..., size_classes[i+1] - 1`.
         static constexpr std::array<u16, 16> size_classes = {
             1,  2,   3,   4,
             6,  8,   12,  16,
@@ -253,17 +255,15 @@ private:
             EXTPP_ASSERT(cell, "Cell pointer must be valid.");
             EXTPP_ASSERT(size > 0, "Invalid region size.");
 
-            // The free list with index i stores regions of
-            // size >= size_classes[i] and size < size_classes[i + 1].
-            size_t i = size_class_index(size);
-            EXTPP_ASSERT(i < size_classes.size(), "Invalid size class.");
-            EXTPP_ASSERT(size_classes[i] <= size, "Size class invariant.");
-            EXTPP_ASSERT(i == size_classes.size() - 1 || size_classes[i+1] > size, "Size class invariant.");
+            const size_t sc = size_class_index(size);
+            EXTPP_ASSERT(sc < size_classes.size(), "Invalid size class.");
+            EXTPP_ASSERT(size_classes[sc] <= size, "Size class invariant.");
+            EXTPP_ASSERT(sc == size_classes.size() - 1 || size_classes[sc+1] > size, "Size class invariant.");
 
-            if (i == size_classes.size() - 1) {
+            if (sc == size_classes.size() - 1) {
                 insert_large_run({cell, size});
             } else {
-                insert_into_list(i, {cell, size});
+                insert_into_list(sc, {cell, size});
             }
         }
 
@@ -323,16 +323,12 @@ private:
             }
         }
 
-        bool list_empty(size_t index) {
-            EXTPP_ASSERT(index >= 0 && index < m_lists.size(), "Invalid list index.");
-            return !m_lists[index]->head.valid();
-        }
-
         cell_range pop_list_head(size_t index) {
             EXTPP_ASSERT(index >= 0 && index < m_lists.size(), "Invalid list index.");
 
             auto& ls = m_lists[index];
-            EXTPP_ASSERT(ls->head, "List is empty.");
+            if (!ls->head)
+                return {};
 
             auto head_node = access(engine(), ls->head);
             auto cell_addr = address_cast<cell>(ls->head.raw());
@@ -407,8 +403,8 @@ private:
             const size_t si = size_class_index(size);
             const size_t sj = size_classes[si] == size ? si : si + 1;
             for (size_t i = sj; i < m_lists.size(); ++i) {
-                if (!list_empty(i))
-                    return pop_list_head(i);
+                if (cell_range range = pop_list_head(i); range.addr)
+                    return range;
             }
 
             // Any large object would be big enough.
@@ -849,7 +845,7 @@ private:
 
             // Identify contiguous free regions (sequences of 0s) in the bitmap.
             // FIXME: Think about size_t ... and 64bit cell indicies?
-            detail::bitset& bitmap = chunk->bitmap;
+            const detail::bitset& bitmap = chunk->bitmap;
             size_t i = bitmap.find_unset(0);
             while (i != detail::bitset::npos) {
                 size_t j = bitmap.find_set(i + 1);
@@ -905,6 +901,7 @@ private:
     // Given a reference and a callback object, invoke the callback object
     // for every child reference in the object pointed to by `ref`.
     using visitor_type = std::function<void(bin_marker&, bin_type& bin, reference_type ref)>;
+
     using stack_entry = std::tuple<reference_type, visitor_type>;
     using stack_type = std::vector<stack_entry>;
 
