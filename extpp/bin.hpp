@@ -191,8 +191,7 @@ private:
             address<list_node, BlockSize> head, tail;
         };
 
-        using stream_t = stream<list_header, BlockSize>;
-        using stream_iter = typename stream_t::iterator;
+        using stream_type = stream<list_header, BlockSize>;
 
         struct cell_range {
             cell_address_t addr;
@@ -223,7 +222,7 @@ private:
 
     public:
         class anchor {
-            typename stream_t::anchor lists;
+            typename stream_type::anchor lists;
             typename free_tree::anchor tree;
 
             friend class segregated_free_list;
@@ -239,12 +238,13 @@ private:
                 m_lists_headers.resize(size_classes.size() - 1);
             }
             for (auto i = m_lists_headers.begin(), e = m_lists_headers.end(); i != e; ++i)
-                m_lists.push_back(i);
+                m_lists.push_back(m_lists_headers.pointer_to(i));
         }
 
         void clear() {
-            for (auto i : m_lists) {
-                m_lists_headers.replace(i, list_header());
+            for (auto& i : m_lists) {
+                *i = list_header();
+                i.dirty();
             }
             m_large_ranges.clear();
         }
@@ -281,7 +281,7 @@ private:
 
         void debug_stats(std::ostream& out) {
             for (size_t i = 0; i < size_classes.size() - 1; ++i) {
-                stream_iter& ls = m_lists[i];
+                auto& ls = m_lists[i];
 
                 fmt::print(out, "Size [{}, {}):\n", size_classes[i], size_classes[i+1]);
 
@@ -309,19 +309,17 @@ private:
             new (new_tail.get()) list_node(nullptr, range.size);
             new_tail.dirty();
 
-            stream_iter& ls = m_lists[index];
+            auto& ls = m_lists[index];
             if (!ls->head) {
                 EXTPP_ASSERT(!ls->tail, "Tail must be invalid too.");
-                m_lists_headers.modify(ls, [&](list_header& h) {
-                    h.head = h.tail = new_tail.address();
-                });
+                ls->head = ls->tail = new_tail.address();
+                ls.dirty();
             } else {
                 auto old_tail = access(engine(), ls->tail);
                 old_tail->next = new_tail.address();
                 old_tail.dirty();
-                m_lists_headers.modify(ls, [&](list_header& h) {
-                    h.tail = new_tail.address();
-                });
+                ls->tail = new_tail.address();
+                ls.dirty();
             }
         }
 
@@ -333,17 +331,17 @@ private:
         cell_range pop_list_head(size_t index) {
             EXTPP_ASSERT(index >= 0 && index < m_lists.size(), "Invalid list index.");
 
-            stream_iter& ls = m_lists[index];
+            auto& ls = m_lists[index];
             EXTPP_ASSERT(ls->head, "List is empty.");
 
             auto head_node = access(engine(), ls->head);
             auto cell_addr = address_cast<cell>(ls->head.raw());
 
-            m_lists_headers.modify(ls, [&](list_header& h) {
-                h.head = head_node->next;
-                if (!h.head)
-                    h.tail = nullptr;
-            });
+            ls->head = head_node->next;
+            if (!ls->head)
+                ls->tail = nullptr;
+            ls.dirty();
+
             return {cell_addr, head_node->size};
         }
 
@@ -352,7 +350,7 @@ private:
             EXTPP_ASSERT(index >= 0 && index < m_lists.size(), "Invalid list index.");
             EXTPP_ASSERT(size_classes[index] <= size && size_classes[index+1] > size, "Wrong size class.");
 
-            auto ls = m_lists_headers.pointer_to(m_lists[index]);
+            auto& ls = m_lists[index];
 
             address<list_node, BlockSize> prev_addr;
             address<list_node, BlockSize> curr_addr = ls->head;
@@ -452,9 +450,14 @@ private:
         extpp::engine<BlockSize>& engine() const { return m_lists_headers.engine(); }
 
     private:
-        stream_t m_lists_headers;               ///< Stores the linked list headers.
-        std::vector<stream_iter> m_lists;       ///< Pins the headers in main memory.
-        free_tree m_large_ranges;                 ///< Ordered tree for very large regions.
+        /// Stores the linked list headers.
+        stream_type m_lists_headers;
+
+        /// Pins the headers in main memory.
+        std::vector<handle<list_header, BlockSize>> m_lists;
+
+        /// Ordered tree for very large regions.
+        free_tree m_large_ranges;
     };
 
     struct chunk_entry {
