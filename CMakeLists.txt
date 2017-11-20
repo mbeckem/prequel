@@ -21,3 +21,4 @@ find_package(fmt REQUIRED)
 
 add_subdirectory(extpp)
 add_subdirectory(test)
+add_subdirectory(example)

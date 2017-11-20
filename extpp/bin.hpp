@@ -306,7 +306,7 @@ private:
             static_assert(cell_size >= sizeof(list_node), "Cannot store a list node in a cell.");
 
             auto new_tail = access(engine(), address_cast<list_node>(range.addr.raw()));
-            new (new_tail.get()) list_node(nullptr, range.size);
+            new (new_tail.get()) list_node({}, range.size);
             new_tail.dirty();
 
             auto& ls = m_lists[index];
@@ -335,7 +335,7 @@ private:
 
             ls->head = head_node->next;
             if (!ls->head)
-                ls->tail = nullptr;
+                ls->tail = {};
             ls.dirty();
 
             return {cell_addr, head_node->size};
@@ -439,7 +439,7 @@ private:
 
             cell_range entry;
             entry.size = size;
-            entry.addr = 0;
+            entry.addr = address_cast<cell>(raw_address_t(0, 0));
             return m_large_ranges.lower_bound(entry);
         }
 
@@ -514,7 +514,7 @@ private:
         bool is_free() const { return free.free == 1; }
         bool is_reference() const { return ref.free == 0; }
 
-        raw_address_t get_address() const { return static_cast<raw_address_t>(as_reference().address * cell_size); }
+        raw_address_t get_address() const { return raw_address_t::byte_address(as_reference().address * cell_size); }
         void set_address(raw_address_t addr) {
             EXTPP_ASSERT(addr.value() % cell_size == 0, "Address must be aligned correctly.");
             as_reference().address = addr.value() / cell_size;

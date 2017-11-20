@@ -38,13 +38,13 @@ static_assert(std::is_convertible<address<t4, bs>, address<t1, bs>>::value,
 
 TEST_CASE("basic address casts", "[address]") {
     {
-        address<t2, bs> c = address_cast<t2>(raw_address<bs>(64));
+        address<t2, bs> c = address_cast<t2>(raw_address<bs>::byte_address(64));
         address<t1, bs> p = c;
         REQUIRE(p.raw() == c.raw());
     }
 
     {
-        address<t4, bs> c = address_cast<t4>(raw_address<bs>(64));
+        address<t4, bs> c = address_cast<t4>(raw_address<bs>::byte_address(64));
         address<t3, bs> p1 = c;
         address<t2, bs> p2 = c;
 
@@ -53,7 +53,7 @@ TEST_CASE("basic address casts", "[address]") {
     }
 
     {
-        address<t2, bs> c1 = address_cast<t2>(raw_address<bs>(64));
+        address<t2, bs> c1 = address_cast<t2>(raw_address<bs>::byte_address(64));
         address<t4, bs> c2 = address_cast<t4>(c1);
 
         REQUIRE(c2.raw() == c1.raw() - sizeof(int)); // Itanium abi

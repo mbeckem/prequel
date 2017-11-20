@@ -60,21 +60,23 @@ class raw_address
 {
     static_assert(is_pow2(BlockSize), "BlockSize must be a power of two.");
 
+    struct byte_addr_t {};
+
 public:
     static constexpr u32 block_size = BlockSize;
     static constexpr u32 block_size_log2 = log2(block_size);
     static constexpr u64 invalid_value = u64(-1);
 
     static raw_address from_block(u64 block_index) {
-        return raw_address(block_index * BlockSize);
+        return raw_address(block_index, 0);
+    }
+
+    static raw_address byte_address(u64 index) {
+        return raw_address(byte_addr_t(), index);
     }
 
 public:
     raw_address(): m_value(invalid_value) {}
-
-    raw_address(std::nullptr_t): raw_address() {}
-
-    explicit raw_address(u64 value): m_value(value) {}
 
     raw_address(u64 block, u32 offset)
         : m_value(block * BlockSize + offset)
@@ -101,11 +103,13 @@ public:
     }
 
     raw_address& operator+=(i64 offset) {
+        EXTPP_ASSERT(valid(), "Invalid address.");
         m_value += offset;
         return *this;
     }
 
     raw_address& operator-=(i64 offset) {
+        EXTPP_ASSERT(valid(), "Invalid address.");
         m_value -= offset;
         return *this;
     }
@@ -123,6 +127,9 @@ public:
             return o << "INVALID";
         return o << "(" << addr.block_index() << ", " << addr.block_offset() << ")";
     }
+
+private:
+    explicit raw_address(byte_addr_t, u64 value): m_value(value) {}
 
 private:
     u64 m_value;
@@ -149,8 +156,6 @@ public:
 
 public:
     address() = default;
-
-    address(std::nullptr_t): address() {}
 
 private:
     template<typename U, u32 Bs>

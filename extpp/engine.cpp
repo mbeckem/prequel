@@ -72,6 +72,7 @@ void block_cache::dispose(block* blk) noexcept
 //
 // --------------------------------
 
+// TODO: Bucket array should be able to grow dynamically.
 block_map::block_map(size_t expected_load)
     : m_buckets(round_towards_pow2(std::max(size_t(32), (expected_load * 4) / 3)))
     , m_map(map_t::bucket_traits(m_buckets.data(), m_buckets.size()))

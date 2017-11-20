@@ -588,6 +588,13 @@ public:
 
     void verify() const;
 
+    // TODO: Other variants.
+    handle<value_type, BlockSize> pointer_to(iterator iter) {
+        EXTPP_ASSERT(iter.tree() == this, "iterator does not belong to this btree");
+        EXTPP_ASSERT(iter != end(), "cannot form a pointer to the past-the-end iterator");
+        return iter.leaf().neighbor(iter.leaf()->values[iter.index()].ptr());
+    }
+
 private:
     /// Insert the given value at the specified leaf position.
     /// Splits the leaf (and its parents) if required.

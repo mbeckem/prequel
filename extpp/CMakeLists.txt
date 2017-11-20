@@ -18,6 +18,7 @@ set(HEADERS
     block.hpp
     btree.hpp
     default_allocator.hpp
+    default_file_format.hpp
     defs.hpp
     engine.hpp
     exception.hpp
@@ -60,7 +61,7 @@ target_include_directories(extpp PUBLIC SYSTEM ${Boost_INCLUDE_DIRS})
 
 if (UNIX)
     # TODO: glibc specific
-    target_compile_definitions(${PROJECT_NAME} PRIVATE -D_FILE_OFFSET_BIT=64)
+    target_compile_definitions(${PROJECT_NAME} PUBLIC -D_FILE_OFFSET_BITS=64)
 endif()
 
 #add_executable(${PROJECT_NAME} main.cpp)

@@ -280,6 +280,38 @@ void read(engine<BlockSize>& e, address<T, BlockSize> address, T* data, size_t s
     return read(e, address.raw(), data, sizeof(T) * size);
 }
 
+template<u32 BlockSize>
+void zero(engine<BlockSize>& e, raw_address<BlockSize> address, u64 size) {
+    if (size == 0)
+        return;
+
+    u64 block_index = address.block_index();
+
+    // Partial write at the start.
+    if (u32 offset = address.block_offset(); offset != 0) {
+        auto block = e.read(block_index);
+        u64 n = std::min(size, u64(BlockSize - offset));
+        std::memset(block.data() + offset, 0, n);
+        block.dirty();
+
+        size -= n;
+        block_index += 1;
+    }
+    // Write as many full blocks as possible.
+    while (size >= BlockSize) {
+        e.overwrite(block_index);
+
+        size -= BlockSize;
+        block_index += 1;
+    }
+    // Partial write at the end.
+    if (size > 0) {
+        auto block = e.read(block_index);
+        std::memset(block.data(), 0, size);
+        block.dirty();
+    }
+}
+
 } // namespace extpp
 
 #endif // EXTPP_HANDLE_HPP

@@ -13,6 +13,8 @@ namespace extpp {
 template<u32 BlockSize>
 class extent {
 public:
+    static constexpr u32 block_size = BlockSize;
+
     class anchor {
         /// Address of the first block.
         raw_address<BlockSize> start;
@@ -24,9 +26,13 @@ public:
     };
 
 public:
-    // Read-only interface for existing anchors, without creating a handle for them.
-    static raw_address<BlockSize> data(const anchor& a) { return a.start; }
-    static u64 size(const anchor& a) { return a.size; }
+    /// Destroys any data used by the anchor. Must not use the anchor after calling `destroy()`.
+    static void destroy(const anchor& a, extpp::engine<BlockSize>& eng, extpp::allocator<BlockSize>& alloc) {
+        unused(eng);
+        if (a.start) {
+            alloc.free(a.start);
+        }
+    }
 
 public:
     extent(anchor_ptr<anchor> anc, extpp::engine<BlockSize>& eng, extpp::allocator<BlockSize>& alloc)
