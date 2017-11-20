@@ -19,6 +19,5 @@ find_package(Boost 1.60 COMPONENTS REQUIRED)
 
 find_package(fmt REQUIRED)
 
-add_definitions("-DEXTPP_BIN_TRACE_ENABLED=1")
 add_subdirectory(extpp)
 add_subdirectory(test)
