@@ -323,7 +323,7 @@ private:
             }
         }
 
-        cell_range pop_list_head(size_t index) {
+        cell_range remove_list_head(size_t index) {
             EXTPP_ASSERT(index >= 0 && index < m_lists.size(), "Invalid list index.");
 
             auto& ls = m_lists[index];
@@ -403,7 +403,7 @@ private:
             const size_t si = size_class_index(size);
             const size_t sj = size_classes[si] == size ? si : si + 1;
             for (size_t i = sj; i < m_lists.size(); ++i) {
-                if (cell_range range = pop_list_head(i); range.addr)
+                if (cell_range range = remove_list_head(i); range.addr)
                     return range;
             }
 
