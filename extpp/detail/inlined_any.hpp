@@ -169,14 +169,14 @@ private:
     }
 
     template<typename T, typename Any>
-    auto* inner(Any& self) {
+    static auto* inner(Any& self) {
         return (self.has_value() && self.m_vtable->type == typeid(T))
                 ? const_pointer_cast<T>(const_pointer_cast<void>(&self.m_storage))
                 : nullptr;
     }
 
     template<typename T, typename Any>
-    auto& inner_ref(Any& self) {
+    static auto& inner_ref(Any& self) {
         auto ptr = inner<T>(self);
         if (!ptr) {
             // TODO Own exception?

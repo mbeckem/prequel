@@ -2,7 +2,6 @@
 
 #include <extpp/btree.hpp>
 #include <extpp/engine.hpp>
-#include <extpp/default_allocator.hpp>
 #include <extpp/default_file_format.hpp>
 #include <extpp/extent.hpp>
 #include <extpp/math.hpp>
@@ -27,7 +26,7 @@
  * using an extpp::btree. File entries are stored directly in the tree,
  * and are ordered by their name, which can be up to 32 bytes long.
  *
- * The extent of each file is stored in a extpp::extent, which is
+ * The content of each file is stored in a extpp::extent, which is a
  * range of contiguous blocks. Every non-empty file therefore occupies
  * at least one block on disk. Storing large files in a single contiguous
  * sequence of blocks is a very bad approach (because lots of copying
@@ -54,7 +53,7 @@ public:
     static constexpr size_t max_size = 32;
 
 private:
-    /// Unset bytes at the end are zero.
+    // Unset bytes at the end are zero.
     char m_data[max_size];
 
 public:
@@ -93,7 +92,7 @@ public:
     }
 };
 
-// File extent is stored in a range of contiguous blocks.
+// File content is stored in a range of contiguous blocks.
 using file_extent = extpp::extent<block_size>;
 
 // Represents a file and will be stored in the directory's btree.
@@ -103,6 +102,7 @@ struct file {
     uint64_t size = 0; // In bytes.
     file_extent::anchor extent;
 
+    // Files are indexed by their name.
     struct key_extract {
         short_string operator()(const file& f) const { return f.name; }
     };
@@ -111,7 +111,7 @@ struct file {
 // A directory is an ordered tree of file entries.
 using directory = extpp::btree<file, file::key_extract, std::less<>, block_size>;
 
-// The file system has only a single directory, the root directory.
+// The file system has only a single directory.
 // It's btree is anchored in the first block on disk.
 struct header {
     directory::anchor root;
@@ -254,7 +254,7 @@ static int fs_rename(const char* from, const char* to) {
     return 0;
 }
 
-// Create a file if does not already exist.
+// Create a file if it does not already exist.
 static int fs_create(const char* path, mode_t mode, struct fuse_file_info* fi) {
     (void) fi;
     (void) mode;
@@ -278,7 +278,9 @@ static int fs_open(const char* path, struct fuse_file_info* fi) {
     if (auto name = fs.filename_from_path(path)) {
         auto entry = fs.root().find(*name);
         // We could allocate some state here and store it in fi->fh
-        // for later use in read() etc.
+        // for later use in read() etc. That would avoid
+        // the need of repeatedly looking up the file in every read()
+        // or write() call.
         if (entry != fs.root().end())
             return 0;
     }
