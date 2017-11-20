@@ -962,6 +962,7 @@ private:
     /// Merges the content of the left node into the content of the right node.
     void merge(const leaf_type& left, const leaf_type& right) {
         constexpr u32 max = leaf_block::max_size();
+        unused(max);
 
         EXTPP_ASSERT(left->count + right->count <= max,
                      "Too many values for a merge.");
@@ -977,6 +978,7 @@ private:
     /// Has to consult the parent node in order to find the key appropriate for the last child of `left`.
     void merge(const internal_type& left, const internal_type& right, const internal_type& parent, u32 left_index) {
         constexpr u32 max = internal_block::max_size();
+        unused(max);
 
         EXTPP_ASSERT(left->count + right->count <= max, "Too many values for a merge.");
         EXTPP_ASSERT(left_index + 1 < parent->count, "parent index out of bounds.");
