@@ -144,7 +144,7 @@ TEST_CASE("stream state is persistent", "[stream]") {
     file.close();
 }
 
-TEST_CASE("customizable stream growths", "[stream]") {
+TEST_CASE("customizable stream growth", "[stream]") {
     file_t file;
     file.open();
     {
