@@ -56,7 +56,6 @@ private:
 private:
     void init() {
         // TODO: Verify file format, check magic bytes...
-        handle<block, BlockSize> b;
         if (m_file->file_size() == 0) {
             m_file->truncate(BlockSize);
             m_handle = construct<block>(m_engine, raw_address<BlockSize>::from_block(0));

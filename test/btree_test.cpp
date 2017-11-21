@@ -171,6 +171,25 @@ TEST_CASE("btree basics", "[btree]") {
     });
 }
 
+TEST_CASE("duplicate keys are detected", "[btree]") {
+    simple_tree_test([](auto&& tree) {
+        std::vector<int> numbers = generate_numbers(10000);
+        for (int n : numbers)
+            tree.insert(n);
+
+        REQUIRE(tree.size() == numbers.size());
+        for (int n : numbers) {
+            auto [pos, inserted] = tree.insert(n);
+            if (*pos != n) {
+                FAIL("Unexpected value " << *pos << ", expected " << n);
+            }
+            if (inserted) {
+                FAIL("Value " << n << " should already be in the tree.");
+            }
+        }
+    });
+}
+
 TEST_CASE("btrees are always sorted", "[btree]") {
     simple_tree_test([](auto&& tree) {
         std::vector<int> numbers = generate_numbers(4000);
