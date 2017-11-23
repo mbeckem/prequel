@@ -61,7 +61,7 @@ target_include_directories(extpp PUBLIC SYSTEM ${Boost_INCLUDE_DIRS})
 
 if (UNIX)
     # TODO: glibc specific
-    target_compile_definitions(${PROJECT_NAME} PUBLIC -D_FILE_OFFSET_BITS=64)
+    target_compile_definitions(${PROJECT_NAME} PRIVATE -D_FILE_OFFSET_BITS=64)
 endif()
 
 #add_executable(${PROJECT_NAME} main.cpp)
