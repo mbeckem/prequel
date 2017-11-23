@@ -5,6 +5,7 @@
 #include <extpp/assert.hpp>
 #include <extpp/btree.hpp>
 #include <extpp/engine.hpp>
+#include <extpp/exception.hpp>
 #include <extpp/identity_key.hpp>
 
 #include <ostream>
@@ -74,6 +75,10 @@ public:
     /// Call `free(id)` if the ID can be reused.
     T allocate() {
         if (m_tree.empty()) {
+            if (m_anchor->max == std::numeric_limits<T>::max()) {
+                EXTPP_THROW(exception("ID space exhausted."));
+            }
+
             T id = ++m_anchor->max;
             m_anchor.dirty();
             return id;
@@ -91,7 +96,7 @@ public:
         EXTPP_CHECK(right == m_tree.end() || right->begin > id,
                     "ID has already been freed.");
 
-        // Right neighbor.
+        // Left neighbor.
         tree_cursor left = right == m_tree.begin() ? m_tree.end() : std::prev(right.iterator());
         EXTPP_CHECK(left == m_tree.end() || left->end < id,
                     "ID has already been freed.");
