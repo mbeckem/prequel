@@ -133,7 +133,7 @@ public:
     explicit file_system(std::unique_ptr<extpp::file> file, std::uint32_t cache_size)
         : m_fmt(std::move(file), cache_size)
         , m_header(m_fmt.user_data())
-        , m_root(m_header.neighbor(&m_header->root), m_fmt.engine(), m_fmt.allocator())
+        , m_root(m_header.member(&header::root), m_fmt.engine(), m_fmt.allocator())
     {
         m_fmt.allocator().debug_print(std::cout);
     }
@@ -312,7 +312,7 @@ static int fs_read(const char* path, char* buf, size_t size, off_t offset,
         return 0; // End of file.
 
     const size_t n = std::min(entry->size - offset, size);
-    file_extent extent(entry.neighbor(&entry->extent), fs.engine(), fs.allocator());
+    file_extent extent(entry.member(&file::extent), fs.engine(), fs.allocator());
     extpp::read(fs.engine(), extent.data() + static_cast<uint64_t>(offset), buf, n);
     return n;
 }
@@ -360,7 +360,7 @@ static int fs_write(const char* path, const char* buf, size_t size, off_t offset
         return -ENOENT;
 
     auto entry = fs.root().pointer_to(entry_pos);
-    file_extent extent(entry.neighbor(&entry->extent), fs.engine(), fs.allocator());
+    file_extent extent(entry.member(&file::extent), fs.engine(), fs.allocator());
     adapt_capacity(extent, offset + size);
 
     extpp::write(fs.engine(), extent.data() + static_cast<uint64_t>(offset), buf, size);
@@ -388,7 +388,7 @@ static int fs_truncate(const char* path, off_t off) {
         return -ENOENT;
 
     auto entry = fs.root().pointer_to(entry_pos);
-    file_extent extent(entry.neighbor(&entry->extent), fs.engine(), fs.allocator());
+    file_extent extent(entry.member(&file::extent), fs.engine(), fs.allocator());
     adapt_capacity(extent, new_size);
 
     if (new_size != entry->size) {

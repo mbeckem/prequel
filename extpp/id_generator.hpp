@@ -62,7 +62,7 @@ public:
 public:
     id_generator(anchor_ptr<anchor> anc, extpp::engine<BlockSize>& e, extpp::allocator<BlockSize>& a)
         : m_anchor(std::move(anc))
-        , m_tree(m_anchor.neighbor(&m_anchor->tree), e, a)
+        , m_tree(m_anchor.member(&anchor::tree), e, a)
     {}
 
     extpp::engine<BlockSize>& engine() const { return m_tree.engine(); }

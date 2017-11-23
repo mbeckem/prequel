@@ -81,6 +81,29 @@ public:
         return handle<U, BlockSize>(std::move(m_block), ptr);
     }
 
+    /// Returns a handle to some member of the current object.
+    ///
+    /// Example:
+    ///     struct test { int x; };
+    ///
+    ///     handle<test> h1 = ...;
+    ///     handle<test> h2 = h1.member(&test::x); // points to h1->x.
+    template<typename B, typename U, std::enable_if_t<
+        std::is_base_of<B, T>::value>* = nullptr
+    >
+    handle<U, BlockSize> member(U B::*m) const& {
+        EXTPP_ASSERT(*this, "invalid pointer");
+        return neighbor(std::addressof(get()->*m));
+    }
+
+    template<typename B, typename U, std::enable_if_t<
+        std::is_base_of<B, T>::value>* = nullptr
+    >
+    handle<U, BlockSize> member(U B::*m) && {
+        EXTPP_ASSERT(*this, "invalid pointer");
+        return std::move(*this).neighbor(std::addressof(get()->*m));
+    }
+
     /// Returns the address of this object on disk.
     extpp::address<T, BlockSize> address() const {
         if (!valid())

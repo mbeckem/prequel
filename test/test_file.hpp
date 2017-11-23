@@ -28,8 +28,8 @@ private:
         default_allocator<BlockSize> alloc;
 
         state(handle<block, BlockSize> hnd, extpp::engine<BlockSize>& eng)
-            : anchor(hnd.neighbor(&hnd->anchor))
-            , alloc(hnd.neighbor(&hnd->alloc_anchor), eng)
+            : anchor(hnd.member(&block::anchor))
+            , alloc(hnd.member(&block::alloc_anchor), eng)
         {}
     };
 

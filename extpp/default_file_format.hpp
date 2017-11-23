@@ -37,7 +37,7 @@ public:
     }
 
     handle<UserData, BlockSize> user_data() {
-        return m_handle.neighbor(&m_handle->user);
+        return m_handle.member(&block::user);
     }
 
     void flush() {
@@ -64,7 +64,7 @@ private:
             m_handle = access(m_engine, address_cast<block>(raw_address<BlockSize>::from_block(0)));
         }
 
-        m_allocator.emplace(m_handle.neighbor(&m_handle->alloc), m_engine);
+        m_allocator.emplace(m_handle.member(&block::alloc), m_engine);
     }
 
 private:

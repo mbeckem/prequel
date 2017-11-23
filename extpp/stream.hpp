@@ -76,7 +76,7 @@ public:
 public:
     stream(anchor_ptr<anchor> h, extpp::engine<BlockSize>& e, extpp::allocator<BlockSize>& a)
         : m_anchor(std::move(h))
-        , m_extent(m_anchor.neighbor(&m_anchor->extent), e, a)
+        , m_extent(m_anchor.member(&anchor::extent), e, a)
     {}
 
     stream(const stream&) = delete;

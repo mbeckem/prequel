@@ -232,8 +232,8 @@ private:
 
     public:
         segregated_free_list(anchor_ptr<anchor> anc, extpp::engine<BlockSize>& e, extpp::allocator<BlockSize>& a)
-            : m_lists_headers(anc.neighbor(&anc->lists), e, a)
-            , m_large_ranges(anc.neighbor(&anc->tree), e, a)
+            : m_lists_headers(anc.member(&anchor::lists), e, a)
+            , m_large_ranges(anc.member(&anchor::tree), e, a)
         {
             m_lists_headers.growth(linear_growth(1));
             if (m_lists_headers.empty()) {
@@ -569,9 +569,9 @@ public:
         : m_anchor(std::move(h))
         , m_engine(&e)
         , m_alloc(&a)
-        , m_chunks(m_anchor.neighbor(&m_anchor->chunks), e, a)
-        , m_free_list(m_anchor.neighbor(&m_anchor->free_list), e, a)
-        , m_objects(m_anchor.neighbor(&m_anchor->objects), e, a)
+        , m_chunks(m_anchor.member(&anchor::chunks), e, a)
+        , m_free_list(m_anchor.member(&anchor::free_list), e, a)
+        , m_objects(m_anchor.member(&anchor::objects), e, a)
     {}
 
     bin(const bin&) = delete;

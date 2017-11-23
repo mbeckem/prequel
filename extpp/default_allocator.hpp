@@ -116,10 +116,10 @@ public:
         : m_anchor(std::move(anch))
         , m_engine(&e)
         , m_file(&e.fd())
-        , m_meta_freelist(m_anchor.neighbor(&m_anchor->meta_freelist), e)
+        , m_meta_freelist(m_anchor.member(&anchor::meta_freelist), e)
         , m_meta_alloc(this)
-        , m_extents(m_anchor.neighbor(&m_anchor->extents), *m_engine, m_meta_alloc)
-        , m_free_extents(m_anchor.neighbor(&m_anchor->free_extents), *m_engine, m_meta_alloc)
+        , m_extents(m_anchor.member(&anchor::extents), *m_engine, m_meta_alloc)
+        , m_free_extents(m_anchor.member(&anchor::free_extents), *m_engine, m_meta_alloc)
     {}
 
     // The class contains children that point to itself.

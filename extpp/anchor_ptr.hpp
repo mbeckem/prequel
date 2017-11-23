@@ -168,6 +168,29 @@ public:
         return anchor_ptr<U>(static_cast<anchor_ptr_base&&>(*this).alias(addr));
     }
 
+    /// Returns a handle to some member of the current object.
+    ///
+    /// Example:
+    ///     struct test { int x; };
+    ///
+    ///     anchor_ptr<test> h1 = ...;
+    ///     anchor_ptr<test> h2 = h1.member(&test::x); // points to h1->x.
+    template<typename B, typename U, std::enable_if_t<
+        std::is_base_of<B, T>::value>* = nullptr
+    >
+    auto member(U B::*m) const& {
+        EXTPP_ASSERT(get(), "Nullpointer dereference.");
+        return neighbor(std::addressof(get()->*m));
+    }
+
+    template<typename B, typename U, std::enable_if_t<
+        std::is_base_of<B, T>::value>* = nullptr
+    >
+    auto member(U B::*m) && {
+        EXTPP_ASSERT(get(), "Nullpointer dereference.");
+        return (std::move(*this)).neighbor(std::addressof(get()->*m));
+    }
+
     T* operator->() const {
         EXTPP_ASSERT(get(), "Nullpointer dereference.");
         return get();
