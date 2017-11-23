@@ -8,7 +8,7 @@
 
 namespace extpp {
 
-// TODO: Mechanism for fadvice()
+// TODO: Mechanism for fadvice() and sync()
 class file {
 public:
     file() = default;

@@ -56,10 +56,10 @@ public:
         if (m_engine)
             throw std::logic_error("already open");
 
-        auto rb = detail::rollback([&]{
+        detail::rollback rb = [&]{
             m_state.reset();
             m_engine.reset();
-        });
+        };
 
         m_engine.emplace(*m_file, 8);
         {

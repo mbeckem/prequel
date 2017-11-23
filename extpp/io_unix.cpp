@@ -1,6 +1,7 @@
 #include <extpp/io.hpp>
 
 #include <extpp/assert.hpp>
+#include <extpp/exception.hpp>
 #include <extpp/detail/rollback.hpp>
 
 #include <fcntl.h>
@@ -78,12 +79,15 @@ void unix_file::read(u64 offset, void* buffer, u32 count)
         ssize_t n = ::pread(m_fd, data, count, offset);
         if (n == -1) {
             auto ec = get_errno();
-            throw std::system_error(ec, __PRETTY_FUNCTION__);
+            EXTPP_THROW(io_error(
+                fmt::format("Failed to read from `{}`: {}.",
+                            name(), ec.message())));
         }
 
         if (n == 0) {
-            // TODO: Exception type
-            throw std::runtime_error("Unexpected end of file.");
+            EXTPP_THROW(io_error(
+                fmt::format("Failed to read from `{}`: Unexpected end of file.",
+                            name())));
         }
 
         count -= n;
@@ -104,14 +108,15 @@ void unix_file::write(u64 offset, const void* buffer, u32 count)
         ssize_t n = ::pwrite(m_fd, data, count, offset);
         if (n == -1) {
             auto ec = get_errno();
-            throw std::system_error(ec, __PRETTY_FUNCTION__);
+            EXTPP_THROW(io_error(
+                fmt::format("Failed to write to `{}`: {}.",
+                            name(), ec.message())));
         }
 
         count -= n;
         offset += n;
         data += n;
     }
-
 }
 
 u64 unix_file::file_size()
@@ -121,7 +126,9 @@ u64 unix_file::file_size()
     struct stat st;
     if (::fstat(m_fd, &st) == -1) {
         auto ec = get_errno();
-        throw std::system_error(ec, __PRETTY_FUNCTION__);
+        EXTPP_THROW(io_error(
+            fmt::format("Failed to get attributes of `{}`: {}.",
+                        name(), ec.message())));
     }
 
     return st.st_size;
@@ -132,7 +139,9 @@ void unix_file::truncate(u64 size)
     check_open();
     if (::ftruncate(m_fd, size) == -1) {
         auto ec = get_errno();
-        throw std::system_error(ec, __PRETTY_FUNCTION__);
+        EXTPP_THROW(io_error(
+            fmt::format("Failed to truncate `{}`: {}.",
+                        name(), ec.message())));
     }
 }
 
@@ -142,7 +151,9 @@ void unix_file::close()
         int fd = std::exchange(m_fd, -1);
         if (::close(fd) == -1) {
             auto ec = get_errno();
-            throw std::system_error(ec, __PRETTY_FUNCTION__);
+            EXTPP_THROW(io_error(
+                fmt::format("Failed to close `{}`: {}.",
+                            name(), ec.message())));
         }
     }
 }
@@ -150,8 +161,7 @@ void unix_file::close()
 void unix_file::check_open()
 {
     if (m_fd == -1) {
-        // TODO Own exception type
-        throw std::runtime_error("File is closed.");
+        EXTPP_THROW(io_error("File is closed."));
     }
 }
 
@@ -167,14 +177,15 @@ std::unique_ptr<file> unix_vfs::open(const char* path, access_t access, flags_t 
 
     int fd = ::open(path, flags, createmode);
     if (fd == -1) {
-        // TODO Exceptoin type
         auto ec = get_errno();
-        throw std::system_error(ec, __PRETTY_FUNCTION__);
+        EXTPP_THROW(io_error(
+            fmt::format("Failed to open `{}`: {}.", path, ec.message())
+        ));
     }
 
-    auto guard = detail::rollback([&]{
+    detail::rollback guard = [&]{
         ::close(fd);
-    });
+    };
 
     auto ret = std::make_unique<unix_file>(fd, path);
     guard.commit();

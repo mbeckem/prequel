@@ -34,29 +34,16 @@ public:
     void close() override;
 
 private:
-    size_t truncate_offset(u64 offset) const;
     void range_check(u64 offset, u32 count) const;
 };
 
-size_t memory_file::truncate_offset(u64 offset) const
-{
-    using limits = std::numeric_limits<size_t>;
-    if (offset > limits::max()) {
-        // TODO: Own exception class
-        throw std::invalid_argument("offset too large.");
-    }
-    return static_cast<size_t>(offset);
-}
-
 void memory_file::range_check(u64 offset, u32 count) const
 {
-    size_t begin = truncate_offset(offset);
-    if (begin >= m_data.size()) {
-        throw std::range_error("range out of bounds");
+    if (offset < m_data.size()) {
+        if (count <= m_data.size() - offset)
+            return;
     }
-    if (count > m_data.size() - begin) {
-        throw std::range_error("range out of bounds");
-    }
+    EXTPP_THROW(io_error(fmt::format("File range is out of bounds ({}, {})", offset, count)));
 }
 
 void memory_file::read(u64 offset, void* buffer, u32 count)
@@ -88,7 +75,9 @@ u64 memory_file::file_size()
 
 void memory_file::truncate(u64 size)
 {
-    m_data.resize(truncate_offset(size));
+    if (size > std::numeric_limits<size_t>::max())
+        EXTPP_THROW(io_error(fmt::format("File size too large ({} B)", size)));
+    m_data.resize(size);
 }
 
 void memory_file::close()

@@ -10,18 +10,23 @@ namespace extpp {
 namespace detail {
 
 template<typename Function>
-class rollback_impl {
+class rollback {
 private:
     Function fn;
     bool invoke;
 
 public:
-    rollback_impl(Function fn)
+    rollback(const Function& fn)
         : fn(fn)
         , invoke(true)
     {}
 
-    ~rollback_impl() noexcept(noexcept(fn())) {
+    rollback(Function&& fn)
+        : fn(std::move(fn))
+        , invoke(true)
+    {}
+
+    ~rollback() noexcept(noexcept(fn())) {
         if (invoke) {
             fn();
         }
@@ -33,23 +38,9 @@ public:
         invoke = false;
     }
 
-    rollback_impl(rollback_impl&& other) noexcept(std::is_nothrow_move_constructible<Function>::value)
-        : fn(std::move(other.fn))
-        , invoke(std::exchange(other.invoke, false))
-    {}
-
-    rollback_impl& operator=(const rollback_impl&) = delete;
+    rollback(rollback&& other) = delete;
+    rollback& operator=(const rollback&) = delete;
 };
-
-/// Constructs an object that will invoke `fn` if it gets destroyed.
-/// The invocation of `fn` can be stopped by calling `commit()` prior
-/// to the destruction.
-///
-/// \relates rollback_impl
-template<typename Function>
-auto rollback(const Function& fn) {
-    return rollback_impl<Function>(fn);
-}
 
 } // namespace detail
 } // namespace extpp

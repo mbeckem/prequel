@@ -274,9 +274,9 @@ boost::intrusive_ptr<block> block_engine::read_impl(u64 index, ReadAction&& read
     }
 
     block& blk = allocate_block();
-    auto guard = detail::rollback([&]{
+    detail::rollback guard = [&]{
         free_block(blk);
-    });
+    };
 
     EXTPP_ASSERT(blk.block_size == m_block_size,
                 "block size invariant");

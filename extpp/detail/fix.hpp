@@ -7,16 +7,6 @@
 namespace extpp {
 namespace detail {
 
-template<typename Function>
-struct fix_impl {
-    Function function;
-
-    template<typename... Args>
-    decltype(auto) operator()(Args&&... args) const {
-        return function(*this, std::forward<Args>(args)...);
-    }
-};
-
 /// Makes it possible to write recursive lambda functions.
 ///
 /// In C++, lambda functions cannot refer to themselves by name, i.e.
@@ -28,7 +18,7 @@ struct fix_impl {
 ///
 /// Example:
 ///
-///     auto fib = fix([](auto& self, int i) -> int {
+///     fix fib = [](auto& self, int i) -> int {
 ///         if (i == 0)
 ///             return 0;
 ///         if (i == 1)
@@ -38,9 +28,24 @@ struct fix_impl {
 ///     fib(42); // Works.
 ///
 template<typename Function>
-auto fix(Function&& fn) {
-    return fix_impl<std::decay_t<Function>>{std::forward<Function>(fn)};
-}
+class fix {
+private:
+    Function m_fn;
+
+public:
+    fix(const Function& fn)
+        : m_fn(fn)
+    {}
+
+    fix(Function&& fn)
+        : m_fn(std::move(fn))
+    {}
+
+    template<typename... Args>
+    decltype(auto) operator()(Args&&... args) const {
+        return m_fn(*this, std::forward<Args>(args)...);
+    }
+};
 
 } // namespace detail
 } // namespace extpp
