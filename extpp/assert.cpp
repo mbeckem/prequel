@@ -1,5 +1,7 @@
 #include <extpp/assert.hpp>
 
+#include <extpp/exception.hpp>
+
 #include <cstdlib>
 #include <cstring>
 #include <iostream>
@@ -11,7 +13,6 @@ assertion_failure_impl_::assertion_failure_impl_(
         const char* cond, const char* message) {
     check_impl_(file, line, cond, message);
 }
-
 
 void check_impl_(const char* file, int line, const char* condition, const char* message) {
     std::cerr << "Assertion `" << condition << "` failed";

@@ -25,6 +25,7 @@ set(HEADERS
     extent.hpp
     handle.hpp
     identity_key.hpp
+    id_generator.hpp
     io.hpp
     list.hpp
     log.hpp

@@ -35,7 +35,7 @@ TEST_CASE("bin", "[bin]") {
 
         refs.push_back(bin.insert(raw(str1), str1.size()));
 
-        bin.debug_stats(std::cout);
+       //  bin.debug_print(std::cout);
     }
     //file.alloc().debug_stats(std::cout);
     file.close();

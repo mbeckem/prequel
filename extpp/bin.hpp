@@ -623,7 +623,7 @@ public:
         return m_objects[ref.index].get_size();
     }
 
-    void debug_stats(std::ostream& out) {
+    void debug_print(std::ostream& out) {
         fmt::print(out, "Chunk tree:\n");
         for (chunk_entry chunk : m_chunks) {
             fmt::print(out, "- Address: {}, Blocks: {}, Large: {}\n", chunk.addr, chunk.blocks, bool(chunk.large_object));

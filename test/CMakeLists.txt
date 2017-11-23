@@ -10,6 +10,7 @@ set(SOURCES
     default_allocator_test.cpp
     extent_test.cpp
     freelist_test.cpp
+    id_generator_test.cpp
     inlined_any_test.cpp
     io_test.cpp
     list_test.cpp

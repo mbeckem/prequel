@@ -135,7 +135,7 @@ public:
         , m_header(m_fmt.user_data())
         , m_root(m_header.neighbor(&m_header->root), m_fmt.engine(), m_fmt.allocator())
     {
-        m_fmt.allocator().debug_stats(std::cout);
+        m_fmt.allocator().debug_print(std::cout);
     }
 
     auto& engine() { return m_fmt.engine(); }

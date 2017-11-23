@@ -140,7 +140,7 @@ public:
     u32 min_meta_chunk() const { return m_min_meta_chunk; }
     void min_meta_chunk(u32 chunk) { m_min_meta_chunk = chunk; }
 
-    void debug_stats(std::ostream& o) {
+    void debug_print(std::ostream& o) {
         fmt::print(o,
                    "Default allocator state: \n"
                    "  Data allocated:      {} blocks\n"
