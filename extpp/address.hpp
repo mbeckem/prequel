@@ -57,8 +57,11 @@ class raw_address;
 template<typename T, u32 BlockSize>
 class address;
 
-template<typename T, u32 BlockSize>
-address<T, BlockSize> address_cast(const raw_address<BlockSize>& addr);
+template<typename To, u32 BlockSize>
+address<To, BlockSize> raw_address_cast(const raw_address<BlockSize>& addr);
+
+template<typename To, typename From, u32 BlockSize>
+address<To, BlockSize> address_cast(const address<From, BlockSize>& addr);
 
 /// Addresses an arbitrary byte offset in external memory.
 template<u32 BlockSize>
@@ -204,7 +207,7 @@ public:
         return address_cast<Base>(*this);
     }
 
-    operator raw_address<BlockSize>() const { return raw(); }
+    operator const raw_address<BlockSize>&() const { return raw(); }
 
     friend bool operator==(const address& lhs, const address& rhs) {
         return lhs.m_raw == rhs.m_raw;
@@ -238,9 +241,15 @@ i64 distance(const address<T, BlockSize>& from, const address<T, BlockSize>& to)
 
 /// Performs the equivalent of `reinterpret_cast` to `To*`.
 template<typename To, u32 BlockSize>
-address<To, BlockSize> address_cast(const raw_address<BlockSize>& addr) {
+address<To, BlockSize> raw_address_cast(const raw_address<BlockSize>& addr) {
     static_assert(is_trivial<To>::value, "Only trivial types are supported in external memory.");
     return address<To, BlockSize>(addr);
+}
+
+// Just to aid overload resolution.
+template<typename To, typename From, u32 BlockSize>
+address<To, BlockSize> raw_address_cast(const address<From, BlockSize>& addr) {
+    return raw_address_cast<To>(addr.raw());
 }
 
 /// Performs the equivalent of a `static_cast` from `From*` to `To*`.
@@ -254,9 +263,9 @@ address<To, BlockSize> address_cast(const address<From, BlockSize>& addr) {
     if (!addr)
         return {};
     if constexpr (std::is_base_of<To, From>::value) {
-        return address_cast<To>(addr.raw() + detail::ptr_adjust<From, To>());
+        return raw_address_cast<To>(addr.raw() + detail::ptr_adjust<From, To>());
     } else {
-        return address_cast<To>(addr.raw() - detail::ptr_adjust<To, From>());
+        return raw_address_cast<To>(addr.raw() - detail::ptr_adjust<To, From>());
     }
 }
 

@@ -110,7 +110,7 @@ public:
             return {};
         raw_address<BlockSize> raw(m_block.address().block_index(),
                                    reinterpret_cast<const byte*>(m_data) - m_block.data());
-        return address_cast<T>(raw);
+        return raw_address_cast<T>(raw);
     }
 
     /// Returns a reference to the block engine.

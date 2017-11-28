@@ -61,7 +61,7 @@ private:
             m_handle = construct<block>(m_engine, raw_address<BlockSize>::from_block(0));
             m_engine.flush();
         } else {
-            m_handle = access(m_engine, address_cast<block>(raw_address<BlockSize>::from_block(0)));
+            m_handle = access(m_engine, raw_address_cast<block>(raw_address<BlockSize>::from_block(0)));
         }
 
         m_allocator.emplace(m_handle.member(&block::alloc), m_engine);

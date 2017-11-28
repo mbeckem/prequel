@@ -305,7 +305,7 @@ private:
             EXTPP_ASSERT(index >= 0 && index < m_lists.size(), "Invalid list index.");
             static_assert(cell_size >= sizeof(list_node), "Cannot store a list node in a cell.");
 
-            auto new_tail = access(engine(), address_cast<list_node>(range.addr.raw()));
+            auto new_tail = access(engine(), raw_address_cast<list_node>(range.addr.raw()));
             new (new_tail.get()) list_node({}, range.size);
             new_tail.dirty();
 
@@ -331,7 +331,7 @@ private:
                 return {};
 
             auto head_node = access(engine(), ls->head);
-            auto cell_addr = address_cast<cell>(ls->head.raw());
+            auto cell_addr = raw_address_cast<cell>(ls->head);
 
             ls->head = head_node->next;
             if (!ls->head)
@@ -367,7 +367,7 @@ private:
                         ls->tail = prev_addr;
                         ls.dirty();
                     }
-                    return {address_cast<cell>(curr_addr.raw()), curr_node->size};
+                    return {raw_address_cast<cell>(curr_addr), curr_node->size};
                 }
 
                 prev_addr = curr_addr;
@@ -439,7 +439,7 @@ private:
 
             cell_range entry;
             entry.size = size;
-            entry.addr = address_cast<cell>(raw_address_t(0, 0));
+            entry.addr = raw_address_cast<cell>(raw_address_t(0, 0));
             return m_large_ranges.lower_bound(entry);
         }
 
@@ -666,7 +666,7 @@ private:
         const u64 blocks = block_count(cells);
         const raw_address_t addr = m_alloc->allocate(blocks);
         insert_chunk(chunk_entry(addr, blocks, true));
-        return address_cast<cell>(addr);
+        return raw_address_cast<cell>(addr);
     }
 
     /// Allocate a new chunk and put it into the free list.
@@ -675,7 +675,7 @@ private:
         const raw_address_t addr = m_alloc->allocate(blocks);
         const chunk_entry chunk(addr, blocks, false);
         insert_chunk(chunk);
-        m_free_list.free(address_cast<cell>(addr), blocks * data_block::num_cells);
+        m_free_list.free(raw_address_cast<cell>(addr), blocks * data_block::num_cells);
     }
 
     /// Allocate a slot in the object table that points to (addr, size).
@@ -721,7 +721,7 @@ private:
         EXTPP_ASSERT(o.get_address() >= e.addr
                      && o.get_address() + o.get_size() < e.addr + e.blocks * BlockSize,
                      "Object does not belong to this chunk.");
-        return distance(address_cast<cell>(e.addr), address_cast<cell>(o.get_address()));
+        return distance(raw_address_cast<cell>(e.addr), raw_address_cast<cell>(o.get_address()));
     }
 
     /// Returns the number of cells occupied by an object with the given byte size.
@@ -836,7 +836,7 @@ private:
 
             // Identify the free space in the chunk and add them to the free list.
             // Chunks that are entirely unmarked are completely free.
-            const address base_cell = address_cast<cell>(chunk->addr);
+            const address base_cell = raw_address_cast<cell>(chunk->addr);
             if (!chunk->marked) {
                 m_free_list.free(base_cell, chunk->blocks * data_block::num_cells);
                 EXTPP_BIN_TRACE("Chunk {} was completely free.", chunk->addr);
