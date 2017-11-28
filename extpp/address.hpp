@@ -128,7 +128,8 @@ public:
     }
 
     friend bool operator<(const raw_address& lhs, const raw_address& rhs) {
-        return lhs.value() < rhs.value();
+        // "+1": The invalid pointer (-1) is the smallest value.
+        return lhs.value() + 1 < rhs.value() + 1;
     }
 
     friend std::ostream& operator<<(std::ostream& o, const raw_address& addr) {

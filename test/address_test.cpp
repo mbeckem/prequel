@@ -67,3 +67,23 @@ TEST_CASE("basic address casts", "[address]") {
         REQUIRE(!a2);
     }
 }
+
+TEST_CASE("address comparisons", "[address]") {
+    raw_address<bs> a1;
+    raw_address<bs> a2(1, 0);
+    raw_address<bs> a3(2, 5);
+    raw_address<bs> a4(4, 1);
+
+    REQUIRE(a1 < a2);
+    REQUIRE(a1 < a3);
+    REQUIRE(a1 < a4);
+
+    REQUIRE(!(a1 >= a2));
+    REQUIRE(!(a1 >= a3));
+    REQUIRE(!(a1 >= a4));
+
+    REQUIRE(a2 < a3);
+    REQUIRE(a2 < a4);
+
+    REQUIRE(a3 < a4);
+}
