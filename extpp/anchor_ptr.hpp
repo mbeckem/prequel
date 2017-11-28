@@ -206,7 +206,7 @@ public:
     bool valid() const { return get() != nullptr; }
     explicit operator bool() const { return valid(); }
 
-    void dirty() { anchor_ptr_base::dirty(); }
+    void dirty() const { anchor_ptr_base::dirty(); }
 
 private:
     template<typename U>

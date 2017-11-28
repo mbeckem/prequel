@@ -36,17 +36,17 @@ void dump_tree(const BTree& tree, std::ostream& out = std::cout) {
             for (u32 i = 0; i < v.size() - 1; ++i) {
                 line() << i << ": " << "(<= " << v.key(i) << ")" << "\n";
                 ++indent;
-                v.move_child(i);
+                v.visit_child(i);
                 self(v);
-                v.move_parent();
+                v.visit_parent();
                 --indent;
             }
 
             line() << (v.size() - 1) << ": " << "\n";
             ++indent;
-            v.move_child(v.size() - 1);
+            v.visit_child(v.size() - 1);
             self(v);
-            v.move_parent();
+            v.visit_parent();
             --indent;
 
             --indent;
@@ -376,8 +376,11 @@ TEST_CASE("btree cursor stability", "[btree]") {
         auto numbers = generate_numbers(10000);
 
         std::vector<cursor_t> cursors;
-        for (size_t i = 0; i < 100; ++i)
+        for (size_t i = 0; i < 100; ++i) {
             cursors.emplace_back(tree.insert(numbers[i]).first);
+            if (*cursors.back() != numbers[i])
+                FAIL("Invalid cursor at index " << i << ", expected value " << numbers[i] << " but saw " << *cursors.back());
+        }
 
         for (size_t i = 100; i < numbers.size(); ++i)
             tree.insert(numbers[i]);

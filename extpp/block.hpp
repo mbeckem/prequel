@@ -27,15 +27,20 @@ struct add_padding: T {
     byte m_extra_padding[Padding] = {};
 };
 
+template<typename T, u32 Capacity>
+struct add_capacity : T {
+    using T::T;
+
+    static constexpr u32 capacity = Capacity;
+};
+
 template<template<u32 N> class Proto, u32 BlockSize, u32 Capacity,
          bool fits = (sizeof(Proto<Capacity>) <= BlockSize)>
 struct select_capacity_impl;
 
 template<template<u32 N> class Proto, u32 BlockSize, u32 Capacity>
-struct select_capacity_impl<Proto, BlockSize, Capacity, true> : Proto<Capacity> {
-    using Proto<Capacity>::Proto;
-
-    static constexpr u32 capacity = Capacity;
+struct select_capacity_impl<Proto, BlockSize, Capacity, true> {
+    using type = add_capacity<Proto<Capacity>, Capacity>;
 };
 
 template<template<u32 N> class Proto, u32 BlockSize, u32 Capacity>
@@ -83,7 +88,10 @@ template<template<u32 N> class Proto,
 struct make_variable_block {
     static_assert(MaxCapacity > 0, "MaxCapacity must be greater than 0.");
 
-    using type = make_block_t<detail::select_capacity_impl<Proto, BlockSize, MaxCapacity>, BlockSize>;
+    using type = make_block_t<
+        typename detail::select_capacity_impl<Proto, BlockSize, MaxCapacity>::type,
+        BlockSize
+    >;
 };
 
 template<template<u32 N> class Proto, u32 BlockSize, u32 MaxCapacity>

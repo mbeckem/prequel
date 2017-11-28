@@ -61,7 +61,7 @@ public:
             m_engine.reset();
         };
 
-        m_engine.emplace(*m_file, 8);
+        m_engine.emplace(*m_file, 16);
         {
             auto first_block = cast<block>(m_engine->read(0));
             m_state.emplace(first_block, *m_engine);

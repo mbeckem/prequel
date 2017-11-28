@@ -51,6 +51,15 @@ constexpr ptrdiff_t ptr_adjust() {
 
 } // namespace detail
 
+template<u32 BlockSize>
+class raw_address;
+
+template<typename T, u32 BlockSize>
+class address;
+
+template<typename T, u32 BlockSize>
+address<T, BlockSize> address_cast(const raw_address<BlockSize>& addr);
+
 /// Addresses an arbitrary byte offset in external memory.
 template<u32 BlockSize>
 class raw_address
@@ -157,13 +166,7 @@ public:
 public:
     address() = default;
 
-private:
-    template<typename U, u32 Bs>
-    friend address<U, Bs> address_cast(const raw_address<Bs>&);
-
-    template<typename U, u32 Bs>
-    friend class address;
-
+public:
     explicit address(const raw_address<BlockSize>& addr)
         : m_raw(addr)
     {
@@ -199,6 +202,8 @@ public:
     operator address<Base, BlockSize>() const {
         return address_cast<Base>(*this);
     }
+
+    operator raw_address<BlockSize>() const { return raw(); }
 
     friend bool operator==(const address& lhs, const address& rhs) {
         return lhs.m_raw == rhs.m_raw;
@@ -237,22 +242,6 @@ address<To, BlockSize> address_cast(const raw_address<BlockSize>& addr) {
     return address<To, BlockSize>(addr);
 }
 
-namespace detail {
-
-template<typename To, typename From, u32 BlockSize>
-address<To, BlockSize> static_address_cast(const address<From, BlockSize>& addr, std::true_type /* To is base */) {
-    // To is base of From.
-    return address_cast<To>(addr.raw() + detail::ptr_adjust<From, To>());
-}
-
-template<typename To, typename From, u32 BlockSize>
-address<To, BlockSize> static_address_cast(const address<From, BlockSize>& addr, std::false_type /* To is base */) {
-    // From is base of To.
-    return address_cast<To>(addr.raw() - detail::ptr_adjust<To, From>());
-}
-
-} // namespace detail
-
 /// Performs the equivalent of a `static_cast` from `From*` to `To*`.
 /// Such a cast is only possible if From and To form an inheritance
 /// relationship, i.e. From is a base of To or the other way around.
@@ -263,7 +252,11 @@ address<To, BlockSize> address_cast(const address<From, BlockSize>& addr) {
                   "Addresses to objects of type From cannot be statically converted to To.");
     if (!addr)
         return {};
-    return detail::static_address_cast<To>(addr, std::is_base_of<To, From>());
+    if constexpr (std::is_base_of<To, From>::value) {
+        return address_cast<To>(addr.raw() + detail::ptr_adjust<From, To>());
+    } else {
+        return address_cast<To>(addr.raw() - detail::ptr_adjust<To, From>());
+    }
 }
 
 } // namespace extpp

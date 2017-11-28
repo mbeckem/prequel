@@ -5,10 +5,17 @@ set(HEADERS
     detail/free_list.hpp
     detail/inlined_any.hpp
     detail/iter_tools.hpp
+    detail/memory.hpp
     detail/operators.hpp
     detail/rollback.hpp
-    detail/safe_iterator.hpp
     detail/sequence_insert.hpp
+
+    btree/base.hpp
+    btree/iterator.hpp
+    btree/node.hpp
+    btree/safe_iterator.hpp
+    btree/state.hpp
+    btree/verify.hpp
 
     address.hpp
     allocator.hpp

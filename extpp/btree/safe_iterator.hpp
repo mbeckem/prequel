@@ -1,5 +1,5 @@
-#ifndef EXTPP_DETAIL_SAFE_ITERATOR_HPP
-#define EXTPP_DETAIL_SAFE_ITERATOR_HPP
+#ifndef EXTPP_BTREE_SAFE_ITERATOR_HPP
+#define EXTPP_BTREE_SAFE_ITERATOR_HPP
 
 #include <extpp/address.hpp>
 
@@ -122,15 +122,15 @@ private:
     const Derived& derived() const { return *static_cast<const Derived*>(this); }
 
     void register_self() {
-        m_map->register_iterator(this->base().node_address(), this->base().index(), &derived());
+        m_map->register_iterator(this->base().address(), this->base().index(), &derived());
     }
 
     void replace_other(safe_iterator_base& other) {
-        m_map->replace_iterator(this->base().node_address(), this->base().index(), &other.derived(), &derived());
+        m_map->replace_iterator(this->base().address(), this->base().index(), &other.derived(), &derived());
     }
 
     void unregister_self() {
-        m_map->unregister_iterator(this->base().node_address(), this->base().index(), &derived());
+        m_map->unregister_iterator(this->base().address(), this->base().index(), &derived());
     }
 
 private:
@@ -299,4 +299,4 @@ private:
 } // namespace detail
 } // namespace extpp
 
-#endif // EXTPP_DETAIL_SAFE_ITERATOR_HPP
+#endif // EXTPP_BTREE_SAFE_ITERATOR_HPP

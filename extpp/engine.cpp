@@ -283,14 +283,15 @@ boost::intrusive_ptr<block> block_engine::read_impl(u64 index, ReadAction&& read
     {
         blk.index = index;
         read(blk.buffer);
-        m_blocks.insert(blk);
-        m_cache.use(blk);       // This can cause a block write (and therefore an error) for a
-                                // block that is evicted from the cache.
-        guard.commit();
     }
+    guard.commit();
 
+    boost::intrusive_ptr<block> result(&blk);
+    m_blocks.insert(blk);
+    m_cache.use(blk);       // This can cause a block write (and therefore an error) for a
+                            // block that is evicted from the cache.
     rethrow_write_error();
-    return boost::intrusive_ptr<block>(&blk);
+    return result;
 }
 
 void block_engine::flush()
