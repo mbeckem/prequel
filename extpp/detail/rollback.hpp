@@ -3,6 +3,7 @@
 
 #include <extpp/defs.hpp>
 
+#include <exception>
 #include <type_traits>
 #include <utility>
 
@@ -28,7 +29,13 @@ public:
 
     ~rollback() noexcept(noexcept(fn())) {
         if (invoke) {
-            fn();
+            if (std::uncaught_exceptions()) {
+                try {
+                    fn();
+                } catch (...) {}
+            } else {
+                fn();
+            }
         }
     }
 
