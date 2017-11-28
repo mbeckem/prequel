@@ -149,7 +149,7 @@ template<typename T, u32 BlockSize>
 class address;
 
 template<typename T, u32 BlockSize>
-address<T, BlockSize> address_cast(const raw_address<BlockSize>& addr);
+address<T, BlockSize> raw_address_cast(const raw_address<BlockSize>& addr);
 
 template<typename To, typename From, u32 BlockSize>
 address<To, BlockSize> address_cast(const address<From, BlockSize>& addr);
