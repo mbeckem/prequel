@@ -1,8 +1,10 @@
 #include <extpp/io.hpp>
 
 #include <extpp/assert.hpp>
-
+#include <extpp/exception.hpp>
 #include <extpp/detail/rollback.hpp>
+
+#include <fmt/format.h>
 
 #include <cstring>
 #include <utility>
@@ -40,6 +42,8 @@ public:
 
     void truncate(u64 size) override;
 
+    void sync() override;
+
     void close() override;
 
 private:
@@ -76,8 +80,10 @@ void win32_file::seek(u64 offset)
     LARGE_INTEGER win_offset;
     win_offset.QuadPart = offset;
     if (!SetFilePointerEx(m_handle, win_offset, nullptr, FILE_BEGIN)) {
-        // TODO: Own error exception
-        throw std::system_error(last_error(), __PRETTY_FUNCTION__);
+        auto err = last_error();
+        EXTPP_THROW(io_error(
+            fmt::format("Failed to seek in `{}`: {}.", name(), err.message())
+        ));
     }
 }
 
@@ -94,12 +100,16 @@ void win32_file::read(u64 offset, void* buffer, u32 count)
     byte* data = reinterpret_cast<byte*>(buffer);
     while (remaining > 0) {
         if (!ReadFile(m_handle, data, remaining, &read, nullptr)) {
-            throw std::system_error(last_error(), __PRETTY_FUNCTION__);
+            auto err = last_error();
+            EXTPP_THROW(io_error(
+                fmt::format("Failed to read from `{}`: {}.", name(), err.message())
+            ));
         }
 
         if (read == 0) {
-            // TODO Exception type.
-            throw std::runtime_error("End of file.");
+            EXTPP_THROW(io_error(
+                fmt::format("Failed to read from `{}`: Unexpected end of file.", name())
+            ));
         }
 
         data += read;
@@ -120,7 +130,10 @@ void win32_file::write(u64 offset, const void* buffer, u32 count)
     const byte* data = reinterpret_cast<const byte*>(buffer);
     while (remaining > 0) {
         if (!WriteFile(m_handle, data, remaining, &written, NULL)) {
-            throw std::system_error(last_error(), __PRETTY_FUNCTION__);
+            auto err = last_error();
+            EXTPP_THROW(io_error(
+                fmt::format("Failed to write to `{}`: {}.", name(), err.message())
+            ));
         }
 
         data += written;
@@ -134,7 +147,10 @@ u64 win32_file::file_size()
 
     LARGE_INTEGER win_size;
     if (!GetFileSizeEx(m_handle, &win_size)) {
-        throw std::system_error(last_error(), __PRETTY_FUNCTION__);
+        auto err = last_error();
+        EXTPP_THROW(io_error(
+            fmt::format("Failed to get size of `{}`: {}.", name(), err.message())
+        ));
     }
     return static_cast<u64>(win_size.QuadPart);
 }
@@ -145,7 +161,22 @@ void win32_file::truncate(u64 size)
     seek(size);
 
     if (!SetEndOfFile(m_handle)) {
-        throw std::system_error(last_error(), __PRETTY_FUNCTION__);
+        auto err = last_error();
+        EXTPP_THROW(io_error(
+            fmt::format("Failed to truncate `{}`: {}.", name(), err.message())
+        ));
+    }
+}
+
+void win32_file::sync()
+{
+    check_open();
+
+    if (!FlushFileBuffers(m_handle)) {
+        auto err = last_error();
+        EXTPP_THROW(io_error(
+            fmt::format("Failed to sync `{}`: {}.", name(), err.message())
+        ));
     }
 }
 
@@ -154,7 +185,10 @@ void win32_file::close()
     if (m_handle != INVALID_HANDLE_VALUE) {
         auto fd = std::exchange(m_handle, INVALID_HANDLE_VALUE);
         if (!CloseHandle(fd)) {
-            throw std::system_error(last_error(), __PRETTY_FUNCTION__);
+            auto err = last_error();
+            EXTPP_THROW(io_error(
+                fmt::format("Failed to close `{}`: {}.", name(), err.message())
+            ));
         }
     }
 }
@@ -162,8 +196,7 @@ void win32_file::close()
 void win32_file::check_open()
 {
     if (m_handle == INVALID_HANDLE_VALUE) {
-        // TODO: Own exception types.
-        throw std::runtime_error("File is closed.");
+        EXTPP_THROW(io_error("File is closed."));
     }
 }
 
@@ -199,8 +232,10 @@ std::unique_ptr<file> win32_vfs::open(const char* path, access_t access, flags_t
                                 win_flags,
                                 NULL);
     if (result == INVALID_HANDLE_VALUE) {
-        // TODO Own exception type
-        throw std::system_error(last_error(), __PRETTY_FUNCTION__);
+        auto err = last_error();
+        EXTPP_THROW(io_error(
+            fmt::format("Failed to open `{}`: {}.", path, err.message())
+        ));
     }
 
     auto guard = detail::rollback([&]{
