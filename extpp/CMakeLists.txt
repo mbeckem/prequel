@@ -9,6 +9,7 @@ set(HEADERS
     detail/operators.hpp
     detail/rollback.hpp
     detail/sequence_insert.hpp
+    detail/wal.hpp
 
     btree/base.hpp
     btree/iterator.hpp

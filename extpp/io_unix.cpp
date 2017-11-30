@@ -36,6 +36,8 @@ public:
 
     void truncate(u64 size) override;
 
+    void sync() override;
+
     void close() override;
 
 private:
@@ -141,6 +143,17 @@ void unix_file::truncate(u64 size)
         auto ec = get_errno();
         EXTPP_THROW(io_error(
             fmt::format("Failed to truncate `{}`: {}.",
+                        name(), ec.message())));
+    }
+}
+
+void unix_file::sync()
+{
+    check_open();
+    if (::fsync(m_fd) == -1) {
+        auto ec = get_errno();
+        EXTPP_THROW(io_error(
+            fmt::format("Failed to sync `{}`: {}.",
                         name(), ec.message())));
     }
 }

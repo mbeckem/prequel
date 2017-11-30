@@ -31,6 +31,7 @@ public:
     void write(u64 offset, const void* buffer, u32 count) override;
     u64 file_size() override;
     void truncate(u64 size) override;
+    void sync() override {}
     void close() override;
 
 private:

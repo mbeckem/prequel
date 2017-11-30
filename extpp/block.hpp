@@ -117,7 +117,7 @@ private:
     struct array_proto: Header {
         using Header::Header;
 
-        Value values[N];
+        Value values[N]{};  // Default construct arrays.
     };
 
 public:

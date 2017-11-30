@@ -24,6 +24,8 @@ public:
 
     /// Writes exactly `count` bytes at the given offset
     /// from the provided buffer into the file.
+    ///
+    /// Writing to beyond the end of the file automatically makes the file grow.
     virtual void write(u64 offset, const void* buffer, u32 count) = 0;
 
     /// Returns the size of the file, in bytes.
@@ -31,6 +33,9 @@ public:
 
     /// Resizes the file to the given number of bytes.
     virtual void truncate(u64 size) = 0;
+
+    /// Writes all buffered changes of the file to the disk.
+    virtual void sync() = 0;
 
     /// Closes this file handle.
     virtual void close() = 0;
