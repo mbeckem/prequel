@@ -15,6 +15,7 @@ set(SOURCES
     io_test.cpp
     list_test.cpp
     math_test.cpp
+    memory.cpp
     stack_test.cpp
     stream_test.cpp
     test_file.hpp

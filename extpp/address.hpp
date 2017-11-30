@@ -5,7 +5,7 @@
 #include <extpp/defs.hpp>
 #include <extpp/math.hpp>
 #include <extpp/type_traits.hpp>
-
+#include <extpp/detail/memory.hpp>
 #include <extpp/detail/operators.hpp>
 
 #include <ostream>
@@ -13,43 +13,6 @@
 #include <type_traits>
 
 namespace extpp {
-
-namespace detail {
-
-// We need a dummy object (not initialized), should be optimized out.
-template<typename T> struct ptr_adjust_holder { static T value; };
-
-// This code uses old-style compile time programming by design to get
-// around constexpr restrictions (i.e. forbidden casts at compile time).
-// Base must be a (non-virtual) base class of Derived.
-//
-// Inspired by the blog post at
-// https://thecppzoo.blogspot.de/2016/10/constexpr-offsetof-practical-way-to.html
-template<typename Derived, typename Base>
-struct ptr_adjust_helper {
-    using holder = ptr_adjust_holder<Derived>;
-
-    enum {
-        // The pointer offset for Derived -> Base casts.
-        // Note: this does not work with MSVC.
-        value = (char *)((Base *) &holder::value) - (char *) &holder::value
-    };
-
-// This technique doesn't seem to be required.
-//    char for_sizeof[
-//        (char *)((Base *) &holder::value) -
-//        (char *)&holder::value
-//    ];
-// later:
-//    sizeof(...::for_sizeof).
-};
-
-template<typename Derived, typename Base>
-constexpr ptrdiff_t ptr_adjust() {
-    return ptr_adjust_helper<Derived, Base>::value;
-}
-
-} // namespace detail
 
 template<u32 BlockSize>
 class raw_address;
@@ -263,9 +226,9 @@ address<To, BlockSize> address_cast(const address<From, BlockSize>& addr) {
     if (!addr)
         return {};
     if constexpr (std::is_base_of<To, From>::value) {
-        return raw_address_cast<To>(addr.raw() + detail::ptr_adjust<From, To>());
+        return raw_address_cast<To>(addr.raw() + detail::offset_of_base<From, To>());
     } else {
-        return raw_address_cast<To>(addr.raw() - detail::ptr_adjust<To, From>());
+        return raw_address_cast<To>(addr.raw() - detail::offset_of_base<To, From>());
     }
 }
 
