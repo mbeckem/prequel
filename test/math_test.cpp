@@ -45,3 +45,17 @@ TEST_CASE("log2", "[math]") {
     REQUIRE(extpp::log2(1025u) == 10);
     REQUIRE(extpp::log2(65535u) == 15);
 }
+
+TEST_CASE("overflow", "[math]") {
+    using limits = std::numeric_limits<int>;
+
+    REQUIRE(checked_add(1, 1) == 2);
+    REQUIRE(checked_add(-1, -5) == -6);
+    REQUIRE_THROWS(checked_add(limits::max(), 1));
+
+    REQUIRE(checked_sub(5000, 4000) == 1000);
+    REQUIRE_THROWS(checked_sub(limits::min(), 1000));
+
+    REQUIRE(checked_mul(4, 12) == 48);
+    REQUIRE_THROWS(checked_mul(limits::max(), 2));
+}

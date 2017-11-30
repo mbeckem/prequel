@@ -4,6 +4,7 @@
 #include <extpp/assert.hpp>
 #include <extpp/defs.hpp>
 
+#include <stdexcept>
 #include <type_traits>
 
 namespace extpp {
@@ -28,6 +29,7 @@ constexpr T round_towards_pow2(T v) noexcept {
 }
 
 /// Computes the base-2 logarithm of `v`.
+/// \pre `v > 0`.
 template<typename T, IsUnsigned<T>* = nullptr>
 constexpr T log2(T v) noexcept {
     EXTPP_CONSTEXPR_ASSERT(v != 0, "v must be greater than zero.");
@@ -74,6 +76,36 @@ constexpr std::make_signed_t<T> signed_difference(T a, T b) {
     } else {
         return -static_cast<U>(b - a);
     }
+}
+
+/// Performs checked addition of the passed arguments.
+/// Throws std::overflow_error if the operation would overflow.
+template<typename T, IsInteger<T>* = nullptr>
+constexpr T checked_add(T a, T b) {
+    T result = 0;
+    if (__builtin_add_overflow(a, b, &result))
+        throw std::overflow_error("Addition overflows.");
+    return result;
+}
+
+/// Performs checked addition of the passed arguments.
+/// Throws std::overflow_error if the operation would overflow.
+template<typename T, IsInteger<T>* = nullptr>
+constexpr T checked_sub(T a, T b) {
+    T result = 0;
+    if (__builtin_sub_overflow(a, b, &result))
+        throw std::overflow_error("Subtraction overflows.");
+    return result;
+}
+
+/// Performs checked addition of the passed arguments.
+/// Throws std::overflow_error if the operation would overflow.
+template<typename T, IsInteger<T>* = nullptr>
+constexpr T checked_mul(T a, T b) {
+    T result = 0;
+    if (__builtin_mul_overflow(a, b, &result))
+        throw std::overflow_error("Multiplication overflows.");
+    return result;
 }
 
 } // namespace extpp
