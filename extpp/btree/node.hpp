@@ -214,7 +214,7 @@ public:
         EXTPP_ASSERT(size() + left.size() <= max_size(), "Too many elements for merging.");
         EXTPP_ASSERT(size() > 0, "This node is empty.");
         EXTPP_ASSERT(left.size() > 0, "The other node is empty.");
-        unused(state);
+        unused(state, parent, index);
 
         detail::shift(m_block->values, size(), left.size());
         detail::copy(left.m_block->values, left.size(), m_block->values);
