@@ -13,7 +13,7 @@
 namespace extpp::btree_detail {
 
 template<typename Value, typename KeyExtract, typename KeyCompare, u32 BlockSize>
-class state {
+class state : public uses_allocator<BlockSize> {
 public:
     static constexpr u32 block_size = BlockSize;
 
@@ -55,9 +55,6 @@ public:
     };
 
 public:
-    extpp::engine<BlockSize>& engine() const { return *m_engine; }
-    extpp::allocator<BlockSize>& allocator() const { return *m_allocator; }
-
     key_type key(const value_type& v) const { return m_key_extract(v); }
 
     bool key_less(const key_type& a, const key_type& b) const {
@@ -85,27 +82,27 @@ public:
     }
 
     raw_address<block_size> allocate_internal() {
-        auto addr = m_allocator->allocate(1);
+        auto addr = this->get_allocator().allocate(1);
         m_anchor->internals++;
         m_anchor.dirty();
         return addr;
     }
 
     raw_address<block_size> allocate_leaf() {
-        auto addr = m_allocator->allocate(1);
+        auto addr = this->get_allocator().allocate(1);
         m_anchor->leaves++;
         m_anchor.dirty();
         return addr;
     }
 
     void free(internal_address addr) {
-        m_allocator->free(addr);
+        this->get_allocator().free(addr);
         m_anchor->internals--;
         m_anchor.dirty();
     }
 
     void free(leaf_address addr) {
-        m_allocator->free(addr);
+        this->get_allocator().free(addr);
         m_anchor->leaves--;
         m_anchor.dirty();
     }
@@ -120,23 +117,20 @@ public:
         return static_cast<internal_address>(node);
     }
 
-    leaf_type access(leaf_address addr) const { return extpp::access(engine(), addr); }
-    internal_type access(internal_address addr) const { return extpp::access(engine(), addr); }
+    leaf_type access(leaf_address addr) const { return extpp::access(this->get_engine(), addr); }
+    internal_type access(internal_address addr) const { return extpp::access(this->get_engine(), addr); }
 
 public:
-    state(anchor_ptr<anchor> anc, extpp::engine<BlockSize>& eng, extpp::allocator<BlockSize>& alloc,
+    state(anchor_ptr<anchor> anc, allocator<BlockSize>& alloc,
           KeyExtract key_extract, KeyCompare key_compare)
-        : m_anchor(std::move(anc))
-        , m_engine(&eng)
-        , m_allocator(&alloc)
+        : state::uses_allocator(alloc)
+        , m_anchor(std::move(anc))
         , m_key_extract(std::move(key_extract))
         , m_key_compare(std::move(key_compare))
     {}
 
 private:
     anchor_ptr<anchor> m_anchor;
-    extpp::engine<BlockSize>* m_engine;
-    extpp::allocator<BlockSize>* m_allocator;
     KeyExtract m_key_extract;
     KeyCompare m_key_compare;
 };

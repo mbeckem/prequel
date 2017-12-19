@@ -15,7 +15,7 @@
 namespace extpp {
 
 template<typename T, u32 BlockSize>
-class stack {
+class stack : public uses_allocator<BlockSize> {
 public:
     using value_type = T;
     using size_type = u64;
@@ -77,10 +77,9 @@ public:
     };
 
 public:
-    stack(handle<anchor, BlockSize> anc, extpp::engine<BlockSize>& eng, extpp::allocator<BlockSize>& alloc)
-        : m_anchor(std::move(anc))
-        , m_engine(&eng)
-        , m_alloc(&alloc)
+    stack(handle<anchor, BlockSize> anc, allocator<BlockSize>& alloc)
+        : stack::uses_allocator(alloc)
+        , m_anchor(std::move(anc))
     {
         // TODO: These blocks could be lazily loaded only when required.
         if (m_anchor->last) {
@@ -97,9 +96,6 @@ public:
 
     stack& operator=(const stack&) = delete;
     stack& operator=(stack&&) noexcept = default;
-
-    extpp::engine<BlockSize>& engine() const { return *m_engine; }
-    extpp::allocator<BlockSize>& allocator() const { return *m_alloc; }
 
     bool empty() const { return m_anchor->size == 0; }
     u64 size() const { return m_anchor->size; }
@@ -243,15 +239,15 @@ public:
 
 private:
     node_type create() const {
-        raw_address<BlockSize> node = m_alloc->allocate(1);
+        raw_address<BlockSize> node = this->get_allocator().allocate(1);
         m_anchor->nodes += 1;
         m_anchor.dirty();
 
-        return construct<node_block>(*m_engine, node);
+        return construct<node_block>(this->get_engine(), node);
     }
 
     void destroy(const node_type& node) {
-        m_alloc->free(node.address().raw());
+        this->get_allocator().free(node.address().raw());
         m_anchor->nodes -= 1;
         m_anchor.dirty();
     }
@@ -282,12 +278,10 @@ private:
 #endif
     }
 
-    node_type access(node_address node) const { return extpp::access(*m_engine, node); }
+    node_type access(node_address node) const { return extpp::access(this->get_engine(), node); }
 
 private:
     handle<anchor, BlockSize> m_anchor;
-    extpp::engine<BlockSize>* m_engine;
-    extpp::allocator<BlockSize>* m_alloc;
 
     /// The top two blocks are pinned and used as buffers.
     /// The topmost block might be empty.

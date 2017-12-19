@@ -394,7 +394,7 @@ private:
                     end = bitmap.size();
 
                 size_t size = end - read_cell;
-                copy(engine(), (base_cell + write_cell).raw(), (base_cell + read_cell).raw(), size * cell_size);
+                copy(get_engine(), (base_cell + write_cell).raw(), (base_cell + read_cell).raw(), size * cell_size);
                 write_cell += size;
 
                 if (end == bitmap.size())
@@ -457,7 +457,7 @@ private:
         }
     }
 
-    extpp::engine<BlockSize>& engine() const { return m_storage.engine(); }
+    engine<BlockSize>& get_engine() const { return m_storage.get_engine(); }
 
 private:
     gc_data_type& m_chunks;

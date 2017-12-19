@@ -27,15 +27,15 @@ public:
     using anchor = typename tree_type::anchor;
     using size_type = typename tree_type::size_type;
     using iterator = typename tree_type::iterator;
-    using const_iterator = typename iterator;
+    using const_iterator = iterator;
     using cursor = typename tree_type::cursor;
 
 public:
     set(handle<anchor, BlockSize> anc, allocator<BlockSize>& alloc, Compare comp = Compare())
         : m_tree(std::move(anc), alloc, key_extract(), std::move(comp)) {}
 
-    extpp::allocator<BlockSize>& allocator() const { return m_tree.allocator(); }
-    extpp::engine<BlockSize>& engine() const { return m_tree.engine(); }
+    allocator<BlockSize>& get_allocator() const { return m_tree.get_allocator(); }
+    engine<BlockSize>& get_engine() const { return m_tree.get_engine(); }
     const tree_type& tree() const { return m_tree; }
 
     iterator begin() const { return m_tree.begin(); }

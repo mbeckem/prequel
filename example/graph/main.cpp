@@ -87,8 +87,8 @@ public:
     using anchor = typename tree_type::anchor;
 
 public:
-    interned_strings(extpp::anchor_ptr<anchor> anc, engine& eng, allocator& alloc, heap_type& storage)
-        : m_tree(std::move(anc), eng, alloc)
+    interned_strings(extpp::anchor_ptr<anchor> anc, allocator& alloc, heap_type& storage)
+        : m_tree(std::move(anc), alloc)
         , m_storage(storage)
     {}
 
@@ -192,8 +192,8 @@ public:
     using anchor = tree_type::anchor;
 
 public:
-    property_map(extpp::anchor_ptr<anchor> anc, engine& eng, allocator& alloc)
-        : m_tree(std::move(anc), eng, alloc)
+    property_map(extpp::anchor_ptr<anchor> anc, allocator& alloc)
+        : m_tree(std::move(anc), alloc)
     {}
 
     template<typename Callback>
@@ -330,9 +330,9 @@ public:
     };
 
 public:
-    edge_map(extpp::anchor_ptr<anchor> anc, engine& eng, allocator& alloc)
-        : m_map(anc.member(&anchor::map), eng, alloc)
-        , m_reverse_map(anc.member(&anchor::reverse_map), eng, alloc)
+    edge_map(extpp::anchor_ptr<anchor> anc, allocator& alloc)
+        : m_map(anc.member(&anchor::map), alloc)
+        , m_reverse_map(anc.member(&anchor::reverse_map), alloc)
     {}
 
     template<typename Callback>
@@ -463,8 +463,8 @@ public:
     using anchor = tree_type::anchor;
 
 public:
-    node_index(extpp::anchor_ptr<anchor> anc, engine& eng, allocator& alloc)
-        : m_tree(std::move(anc), eng, alloc)
+    node_index(extpp::anchor_ptr<anchor> anc, allocator& alloc)
+        : m_tree(std::move(anc), alloc)
     {}
 
     std::uint64_t size() const { return m_tree.size(); }
@@ -511,17 +511,17 @@ public:
     database(extpp::file& f, std::uint32_t cache_size)
         : m_format(f, cache_size)
         , m_meta(m_format.user_data())
-        , m_heap(m_meta.member(&meta_block::heap), m_format.engine(), m_format.allocator())
-        , m_ids(m_meta.member(&meta_block::ids), m_format.engine(), m_format.allocator())
-        , m_strings(m_meta.member(&meta_block::strings), m_format.engine(), m_format.allocator(), m_heap)
-        , m_nodes(m_meta.member(&meta_block::nodes), m_format.engine(), m_format.allocator())
-        , m_properties(m_meta.member(&meta_block::properties), m_format.engine(), m_format.allocator())
-        , m_edges(m_meta.member(&meta_block::edges), m_format.engine(), m_format.allocator())
+        , m_heap(m_meta.member(&meta_block::heap), m_format.get_allocator())
+        , m_ids(m_meta.member(&meta_block::ids), m_format.get_allocator())
+        , m_strings(m_meta.member(&meta_block::strings), m_format.get_allocator(), m_heap)
+        , m_nodes(m_meta.member(&meta_block::nodes), m_format.get_allocator())
+        , m_properties(m_meta.member(&meta_block::properties), m_format.get_allocator())
+        , m_edges(m_meta.member(&meta_block::edges), m_format.get_allocator())
     {
         register_heap_types();
     }
 
-    auto& engine() { return m_format.engine(); }
+    auto& engine() { return m_format.get_engine(); }
 
     // Creates a new node and returns its id.
     // IDs of nodes that have been deleted can be reused.
@@ -664,7 +664,7 @@ public:
 
     void debug_print(std::ostream& o) {
         o << "Allocator state:\n";
-        m_format.allocator().debug_print(o);
+        m_format.get_allocator().debug_print(o);
         o << "\n";
 
         o << "Heap state:\n";

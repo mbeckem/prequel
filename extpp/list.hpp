@@ -19,7 +19,7 @@
 namespace extpp {
 
 template<typename T, u32 BlockSize>
-class list {
+class list : public uses_allocator<BlockSize> {
 public:
     using value_type = T;
     using size_type = u64;
@@ -55,12 +55,12 @@ private:
 
 private:
     node_type read_node(node_address ptr) const {
-        return access(*m_engine, ptr);
+        return access(this->get_engine(), ptr);
     }
 
     node_type create_node() {
-        raw_address<BlockSize> ptr = m_alloc->allocate(1);
-        node_type node = construct<node_block>(*m_engine, ptr);
+        raw_address<BlockSize> ptr = this->get_allocator().allocate(1);
+        node_type node = construct<node_block>(this->get_engine(), ptr);
 
         ++m_anchor->nodes;
         m_anchor.dirty();
@@ -69,7 +69,7 @@ private:
     }
 
     void free_node(node_address ptr) {
-        m_alloc.free(ptr.raw());
+        this->get_allocator.free(ptr.raw());
         --m_anchor->nodes;
         m_anchor.dirty();
     }
@@ -92,10 +92,9 @@ public:
     };
 
 public:
-    list(handle<anchor, BlockSize> a, extpp::engine<BlockSize>& eng, extpp::allocator<BlockSize>& alloc)
-        : m_anchor(std::move(a))
-        , m_engine(&eng)
-        , m_alloc(&alloc)
+    list(handle<anchor, BlockSize> a, allocator<BlockSize>& alloc)
+        : list::uses_allocator(alloc)
+        , m_anchor(std::move(a))
     {}
 
     list(const list& other) = delete;
@@ -103,9 +102,6 @@ public:
 
     list& operator=(const list& other) = delete;
     list& operator=(list&& other) noexcept = default;
-
-    extpp::engine<BlockSize>& engine() const { return *m_engine; }
-    extpp::allocator<BlockSize>& allocator() const { return *m_alloc; }
 
     bool empty() const { return m_anchor->size == 0; }
     u64 size() const { return m_anchor->size; }
@@ -433,8 +429,6 @@ private:
 
 private:
     handle<anchor, BlockSize> m_anchor;
-    extpp::engine<BlockSize>* m_engine;
-    extpp::allocator<BlockSize>* m_alloc;
 };
 
 template<typename T, u32 B>

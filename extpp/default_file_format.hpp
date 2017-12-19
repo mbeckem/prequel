@@ -27,11 +27,11 @@ public:
         init();
     }
 
-    extpp::engine<BlockSize>& engine() {
+    engine<BlockSize>& get_engine() {
         return m_engine;
     }
 
-    default_allocator<BlockSize>& allocator() {
+    default_allocator<BlockSize>& get_allocator() {
         EXTPP_ASSERT(m_allocator, "Invalid state.");
         return *m_allocator;
     }
@@ -69,9 +69,9 @@ private:
 
 private:
     file& m_file;
-    extpp::engine<BlockSize> m_engine;
+    engine<BlockSize> m_engine;
     handle<block, BlockSize> m_handle;
-    std::optional<extpp::default_allocator<BlockSize>> m_allocator;
+    std::optional<default_allocator<BlockSize>> m_allocator;
 };
 
 } // namespace extpp

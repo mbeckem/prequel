@@ -60,13 +60,13 @@ public:
     };
 
 public:
-    id_generator(anchor_ptr<anchor> anc, extpp::engine<BlockSize>& e, extpp::allocator<BlockSize>& a)
+    id_generator(anchor_ptr<anchor> anc, allocator<BlockSize>& a)
         : m_anchor(std::move(anc))
-        , m_tree(m_anchor.member(&anchor::tree), e, a)
+        , m_tree(m_anchor.member(&anchor::tree), a)
     {}
 
-    extpp::engine<BlockSize>& engine() const { return m_tree.engine(); }
-    extpp::allocator<BlockSize>& allocator() const { return m_tree.allocator(); }
+    engine<BlockSize>& get_engine() const { return m_tree.get_engine(); }
+    allocator<BlockSize>& get_allocator() const { return m_tree.get_allocator(); }
 
     /// Returns the highest allocated ID, which may be zero if no IDs are in use.
     T max() const { return m_anchor->max; }

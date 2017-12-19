@@ -83,9 +83,9 @@ public:
     };
 
 public:
-    segregated_free_list(anchor_ptr<anchor> anc, extpp::engine<BlockSize>& e, extpp::allocator<BlockSize>& a)
-        : m_lists_headers(anc.member(&anchor::lists), e, a)
-        , m_large_ranges(anc.member(&anchor::tree), e, a)
+    segregated_free_list(anchor_ptr<anchor> anc, allocator<BlockSize>& alloc)
+        : m_lists_headers(anc.member(&anchor::lists), alloc)
+        , m_large_ranges(anc.member(&anchor::tree), alloc)
     {
         m_lists_headers.growth(linear_growth(1));
         if (m_lists_headers.empty()) {
@@ -138,7 +138,7 @@ public:
             fmt::print(out, "Size [{}, {}):\n", size_classes[i], size_classes[i+1]);
 
             for (address<list_node, BlockSize> addr = ls->head; addr;) {
-                auto node = access(engine(), addr);
+                auto node = access(get_engine(), addr);
                 fmt::print(out, "  - Cell {}, Size {}\n", addr.raw(), node->size);
                 addr = node->next;
             }
@@ -157,7 +157,7 @@ private:
         EXTPP_ASSERT(index >= 0 && index < m_lists.size(), "Invalid list index.");
         static_assert(cell_size >= sizeof(list_node), "Cannot store a list node in a cell.");
 
-        auto new_tail = access(engine(), raw_address_cast<list_node>(range.addr.raw()));
+        auto new_tail = access(get_engine(), raw_address_cast<list_node>(range.addr.raw()));
         new (new_tail.get()) list_node({}, range.size);
         new_tail.dirty();
 
@@ -167,7 +167,7 @@ private:
             ls->head = ls->tail = new_tail.address();
             ls.dirty();
         } else {
-            auto old_tail = access(engine(), ls->tail);
+            auto old_tail = access(get_engine(), ls->tail);
             old_tail->next = new_tail.address();
             old_tail.dirty();
             ls->tail = new_tail.address();
@@ -182,7 +182,7 @@ private:
         if (!ls->head)
             return {};
 
-        auto head_node = access(engine(), ls->head);
+        auto head_node = access(get_engine(), ls->head);
         auto cell_addr = raw_address_cast<cell>(ls->head);
 
         ls->head = head_node->next;
@@ -204,7 +204,7 @@ private:
         address<list_node, BlockSize> curr_addr = ls->head;
         handle<list_node, BlockSize> prev_node;
         while (curr_addr) {
-            handle<list_node, BlockSize> curr_node = access(engine(), curr_addr);
+            handle<list_node, BlockSize> curr_node = access(get_engine(), curr_addr);
             if (curr_node->size >= size) {
                 // The node is large enough, unlink it.
                 if (prev_addr) {
@@ -295,7 +295,7 @@ private:
         return m_large_ranges.lower_bound(entry);
     }
 
-    extpp::engine<BlockSize>& engine() const { return m_lists_headers.engine(); }
+    engine<BlockSize>& get_engine() const { return m_lists_headers.get_engine(); }
 
 private:
     /// Stores the linked list headers.

@@ -527,9 +527,9 @@ public:
     block_handle() = default;
 
     /// Returns a reference to the block engine.
-    extpp::engine<BlockSize>& engine() const noexcept {
+    engine<BlockSize>& get_engine() const noexcept {
         EXTPP_ASSERT(m_ptr, "derefencing an invalid block handle");
-        return static_cast<extpp::engine<BlockSize>&>(*m_ptr->engine);
+        return static_cast<engine<BlockSize>&>(*m_ptr->engine);
     }
 
     /// The index of this block.

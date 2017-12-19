@@ -117,9 +117,9 @@ public:
     using iterator = typename storage_type::iterator;
 
 public:
-    object_table(anchor_ptr<anchor> anc, extpp::engine<BlockSize>& engine, extpp::allocator<BlockSize>& alloc)
+    object_table(anchor_ptr<anchor> anc, allocator<BlockSize>& alloc)
         : m_anchor(std::move(anc))
-        , m_objects(m_anchor.member(&anchor::objects), engine, alloc)
+        , m_objects(m_anchor.member(&anchor::objects), alloc)
     {}
 
     iterator begin() const { return m_objects.begin(); }

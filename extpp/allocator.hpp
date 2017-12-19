@@ -3,14 +3,22 @@
 
 #include <extpp/address.hpp>
 #include <extpp/defs.hpp>
+#include <extpp/engine.hpp>
 
 namespace extpp {
 
 template<u32 BlockSize>
 class allocator {
 public:
-    allocator() = default;
+    explicit allocator(engine<BlockSize>& e)
+        : m_engine(&e)
+    {}
+
     virtual ~allocator() = default;
+
+    /// Returns the engine in which the addresses allocated with this
+    /// instance can be used.
+    engine<BlockSize>& get_engine() const { return *m_engine; }
 
     /// Allocates a range of `n` consecutive blocks.
     /// Returns the address of the first block.
@@ -61,8 +69,8 @@ public:
         do_free(a);
     }
 
-    allocator(const allocator&) = delete;
-    allocator& operator=(const allocator&) = delete;
+    allocator(const allocator&) = default;
+    allocator& operator=(const allocator&) = default;
 
 protected:
     /// Implements the allocation function. `n` is not zero.
@@ -73,6 +81,28 @@ protected:
 
     /// Implements the free function.
     virtual void do_free(raw_address<BlockSize> a) = 0;
+
+private:
+    engine<BlockSize>* m_engine;
+};
+
+/// Utility base class for containers that keep a reference to an allocator
+/// in order to allocate and free dynamic block storage.
+template<u32 BlockSize>
+class uses_allocator {
+public:
+    explicit uses_allocator(allocator<BlockSize>& alloc)
+        : m_allocator(&alloc)
+        , m_engine(&alloc.get_engine())
+    {}
+
+    allocator<BlockSize>& get_allocator() const { return *m_allocator; }
+
+    engine<BlockSize>& get_engine() const { return *m_engine; }
+
+private:
+    allocator<BlockSize>* m_allocator;
+    engine<BlockSize>* m_engine;
 };
 
 } // namespace extpp

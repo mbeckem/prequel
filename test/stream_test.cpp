@@ -17,7 +17,7 @@ TEST_CASE("stream basics", "[stream]") {
     file_t file;
     file.open();
 
-    stream_t stream(file.anchor(), file.engine(), file.alloc());
+    stream_t stream(file.get_anchor(), file.get_allocator());
 
     SECTION("empty stream") {
         REQUIRE(stream.size() == 0);
@@ -125,7 +125,7 @@ TEST_CASE("stream state is persistent", "[stream]") {
 
     file.open();
     {
-        stream_t stream(file.anchor(), file.engine(), file.alloc());
+        stream_t stream(file.get_anchor(), file.get_allocator());
         stream.reserve(100000);
         for (int i = 0; i < 100000; ++i)
             stream.push_back(i);
@@ -134,7 +134,7 @@ TEST_CASE("stream state is persistent", "[stream]") {
 
     file.open();
     {
-        stream_t stream(file.anchor(), file.engine(), file.alloc());
+        stream_t stream(file.get_anchor(), file.get_allocator());
         REQUIRE(stream.size() == 100000);
         for (int i = 0; i < 100000; ++i) {
             if (stream[i] != i)
@@ -148,7 +148,7 @@ TEST_CASE("customizable stream growth", "[stream]") {
     file_t file;
     file.open();
     {
-        stream_t stream(file.anchor(), file.engine(), file.alloc());
+        stream_t stream(file.get_anchor(), file.get_allocator());
         REQUIRE(std::holds_alternative<exponential_growth>(stream.growth()));
 
         SECTION("exponential") {

@@ -61,12 +61,12 @@ public:
     using anchor = typename chunk_tree::anchor;
 
 public:
-    storage(anchor_ptr<anchor> anc, extpp::engine<BlockSize>& eng, extpp::allocator<BlockSize>& alloc)
-        : m_tree(std::move(anc), eng, alloc)
+    storage(anchor_ptr<anchor> anc, allocator<BlockSize>& alloc)
+        : m_tree(std::move(anc), alloc)
     {}
 
-    extpp::engine<BlockSize>& engine() const { return m_tree.engine(); }
-    extpp::allocator<BlockSize>& allocator() const { return m_tree.allocator(); }
+    engine<BlockSize>& get_engine() const { return m_tree.get_engine(); }
+    allocator<BlockSize>& get_allocator() const { return m_tree.get_allocator(); }
 
     chunk_iterator begin() const { return m_tree.begin(); }
     chunk_iterator end() const { return m_tree.end(); }
@@ -90,7 +90,7 @@ public:
     /// Allocates a new chunk, inserts it into the tree and returns the new entry.
     /// Invalidates iterators.
     chunk_entry allocate(u64 blocks, bool large_object) {
-        auto addr = allocator().allocate(blocks);
+        auto addr = get_allocator().allocate(blocks);
 
         chunk_entry entry(addr, blocks, large_object);
         auto [pos, inserted] = m_tree.insert(entry);
@@ -103,7 +103,7 @@ public:
     void free(const chunk_entry& entry) {
         bool removed = m_tree.erase(entry.addr);
         EXTPP_CHECK(removed, "Chunk with that address was not allocated by this instance.");
-        allocator().free(entry.addr);
+        get_allocator().free(entry.addr);
     }
 
 private:

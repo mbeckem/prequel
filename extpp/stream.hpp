@@ -76,9 +76,9 @@ public:
     // TODO Destroy
 
 public:
-    stream(anchor_ptr<anchor> h, extpp::engine<BlockSize>& e, extpp::allocator<BlockSize>& a)
+    stream(anchor_ptr<anchor> h, allocator<BlockSize>& alloc)
         : m_anchor(std::move(h))
-        , m_extent(m_anchor.member(&anchor::extent), e, a)
+        , m_extent(m_anchor.member(&anchor::extent), alloc)
     {}
 
     stream(const stream&) = delete;
@@ -87,8 +87,8 @@ public:
     stream& operator=(const stream&) = delete;
     stream& operator=(stream&&) noexcept = default;
 
-    extpp::engine<BlockSize>& engine() const { return m_extent.engine(); }
-    extpp::allocator<BlockSize>& allocator() const { return m_extent.allocator(); }
+    engine<BlockSize>& get_engine() const { return m_extent.get_engine(); }
+    allocator<BlockSize>& get_allocator() const { return m_extent.get_allocator(); }
 
     static constexpr u32 block_capacity() { return block_t::capacity; }
 

@@ -11,7 +11,7 @@
 namespace extpp {
 
 template<u32 BlockSize>
-class extent {
+class extent : public uses_allocator<BlockSize> {
 public:
     static constexpr u32 block_size = BlockSize;
 
@@ -27,18 +27,16 @@ public:
 
 public:
     /// Destroys any data used by the anchor. Must not use the anchor after calling `destroy()`.
-    static void destroy(const anchor& a, extpp::engine<BlockSize>& eng, extpp::allocator<BlockSize>& alloc) {
-        unused(eng);
+    static void destroy(const anchor& a, allocator<BlockSize>& alloc) {
         if (a.start) {
             alloc.free(a.start);
         }
     }
 
 public:
-    extent(anchor_ptr<anchor> anc, extpp::engine<BlockSize>& eng, extpp::allocator<BlockSize>& alloc)
-        : m_anchor(std::move(anc))
-        , m_engine(&eng)
-        , m_alloc(&alloc)
+    extent(anchor_ptr<anchor> anc, allocator<BlockSize>& alloc)
+        : extent::uses_allocator(alloc)
+        , m_anchor(std::move(anc))
     {}
 
     extent(const extent&) = delete;
@@ -46,9 +44,6 @@ public:
 
     extent& operator=(const extent&) = delete;
     extent& operator=(extent&&) noexcept = default;
-
-    extpp::engine<BlockSize>& engine() const { return *m_engine; }
-    extpp::allocator<BlockSize>& allocator() const { return *m_alloc; }
 
     /// Returns true if this extent does not contain any blocks.
     bool empty() const { return size() == 0; }
@@ -69,7 +64,7 @@ public:
     /// Returns a handle to the block with the given index.
     /// \pre `index < size()`.
     block_handle<BlockSize> access(u64 index) const {
-        return m_engine->read(get(index).get_block_index());
+        return this->get_engine().read(get(index).get_block_index());
     }
 
     /// Returns a handle to the block with the given index.
@@ -79,7 +74,7 @@ public:
     ///
     /// \pre `index < size()`.
     block_handle<BlockSize> zeroed(u64 index) const {
-        return m_engine->zeroed(get(index).get_block_index());
+        return this->get_engine().zeroed(get(index).get_block_index());
     }
 
     /// Returns a handle to the block with the given index.
@@ -91,7 +86,7 @@ public:
     /// \pre `data` has BlockSize readable bytes.
     /// \pre `index < size()`.
     block_handle<BlockSize> overwritten(u64 index, const byte* data) const {
-        return m_engine->overwritten(get(index).get_block_index(), data);
+        return this->get_engine().overwritten(get(index).get_block_index(), data);
     }
 
     /// Removes all blocks from this extent.
@@ -100,7 +95,7 @@ public:
         if (empty())
             return;
 
-        m_alloc->free(m_anchor->start);
+        this->get_allocator().free(m_anchor->start);
         m_anchor->start = {};
         m_anchor->size = 0;
         m_anchor.dirty();
@@ -119,15 +114,13 @@ public:
         if (new_size == size())
             return;
 
-        m_anchor->start = m_alloc->reallocate(m_anchor->start, new_size);
+        m_anchor->start = this->get_allocator().reallocate(m_anchor->start, new_size);
         m_anchor->size = new_size;
         m_anchor.dirty();
     }
 
 private:
     anchor_ptr<anchor> m_anchor;
-    extpp::engine<BlockSize>* m_engine;
-    extpp::allocator<BlockSize>* m_alloc;
 };
 
 } // namespace extpp

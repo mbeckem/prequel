@@ -115,9 +115,9 @@ public:
 
     /// Returns a reference to the block engine.
     /// \pre `*this`.
-    extpp::engine<BlockSize>& engine() const {
+    engine<BlockSize>& get_engine() const {
         EXTPP_ASSERT(*this, "invalid pointer");
-        return m_block.engine();
+        return m_block.get_engine();
     }
 
     /// The handle to the block that contains this value.

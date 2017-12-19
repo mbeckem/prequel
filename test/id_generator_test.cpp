@@ -17,7 +17,7 @@ TEST_CASE("ID generator", "[id_generator]") {
     file_t file;
     file.open();
     {
-        generator_t gen(file.anchor(), file.engine(), file.alloc());
+        generator_t gen(file.get_anchor(), file.get_allocator());
 
         SECTION("Sequential IDs") {
             REQUIRE(gen.allocate() == 1);

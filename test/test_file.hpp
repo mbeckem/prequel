@@ -27,15 +27,15 @@ private:
         handle<Anchor, BlockSize> anchor;
         default_allocator<BlockSize> alloc;
 
-        state(handle<block, BlockSize> hnd, extpp::engine<BlockSize>& eng)
+        state(handle<block, BlockSize> hnd, engine<BlockSize>& eng)
             : anchor(hnd.member(&block::anchor))
             , alloc(hnd.member(&block::alloc_anchor), eng)
         {}
     };
 
 public:
-    using engine_type = extpp::engine<BlockSize>;
-    using allocator_type = extpp::default_allocator<BlockSize>;
+    using engine_type = engine<BlockSize>;
+    using allocator_type = default_allocator<BlockSize>;
 
 public:
     test_file()
@@ -78,19 +78,19 @@ public:
         }
     }
 
-    extpp::engine<BlockSize>& engine() {
+    engine<BlockSize>& get_engine() {
         if (!m_engine)
             throw std::logic_error("not open");
         return *m_engine;
     }
 
-    const handle<Anchor, BlockSize>& anchor() const {
+    const handle<Anchor, BlockSize>& get_anchor() const {
         if (!m_engine)
             throw std::logic_error("not open");
         return m_state->anchor;
     }
 
-    default_allocator<BlockSize>& alloc() {
+    default_allocator<BlockSize>& get_allocator() {
         if (!m_engine)
             throw std::logic_error("not open");
         return m_state->alloc;

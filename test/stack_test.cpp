@@ -57,7 +57,7 @@ TEST_CASE("stack", "[stack]") {
     const int max = (small_stack::node_capacity() * 7) / 2;
 
     {
-        small_stack stack(file.anchor(), file.engine(), file.alloc());
+        small_stack stack(file.get_anchor(), file.get_allocator());
 
         REQUIRE(stack.empty());
         REQUIRE(stack.size() == 0);
@@ -74,7 +74,7 @@ TEST_CASE("stack", "[stack]") {
 
     file.open();
     {
-        small_stack stack(file.anchor(), file.engine(), file.alloc());
+        small_stack stack(file.get_anchor(), file.get_allocator());
 
         REQUIRE(stack.size() == max);
         REQUIRE(std::distance(stack.begin(), stack.end()) == max);

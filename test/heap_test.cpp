@@ -26,7 +26,7 @@ TEST_CASE("heap", "[heap]") {
     file_t file;
     file.open();
     {
-        heap_t heap(file.anchor(), file.engine(), file.alloc());
+        heap_t heap(file.get_anchor(), file.get_allocator());
         register_types(heap);
         heap.chunk_size(128);
 

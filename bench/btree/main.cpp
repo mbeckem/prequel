@@ -133,7 +133,7 @@ int main(int argc, char** argv) {
     auto file = extpp::system_vfs().open(opt.file.c_str(), extpp::vfs::read_write, extpp::vfs::open_create);
     format_type format(*file, opt.cache_size);
     {
-        tree_type tree(format.user_data(), format.engine(), format.allocator());
+        tree_type tree(format.user_data(), format.get_allocator());
         std::cout << "Tree attributes:\n"
                   << "  Height:          " << tree.height() << "\n"
                   << "  Size:            " << tree.size() << "\n"
@@ -158,7 +158,7 @@ int main(int argc, char** argv) {
     }
 
     format.flush();
-    extpp::engine_stats stats = format.engine().stats();
+    extpp::engine_stats stats = format.get_engine().stats();
 
     std::cout << "I/O statistics:\n"
               << "  Reads:      " << stats.reads << "\n"

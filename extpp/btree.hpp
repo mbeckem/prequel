@@ -35,7 +35,8 @@ namespace extpp {
 /// \tparam BlockSize
 ///     The block size of the underlying storage engine. Must be a power of two.
 template<typename Value, typename KeyExtract, typename KeyCompare, u32 BlockSize>
-class btree : btree_detail::state<Value, KeyExtract, KeyCompare, BlockSize> {
+class btree : private btree_detail::state<Value, KeyExtract, KeyCompare, BlockSize>
+{
     using state_type = typename btree::state;
 
 public:
@@ -115,7 +116,7 @@ private:
             cb(node.address(), child_index);
             addr = node.get_child(child_index);
         }
-        return access(engine(), state().cast_leaf(addr));
+        return access(this->get_engine(), state().cast_leaf(addr));
     }
 
     /// Recursively clears the subtree rooted at ptr.
@@ -137,11 +138,9 @@ private:
     }
 
 public:
-    btree(anchor_ptr<anchor> anch,
-          extpp::engine<BlockSize>& eng,
-          allocator<BlockSize>& alloc,
+    btree(anchor_ptr<anchor> anch, allocator<BlockSize>& alloc,
           KeyExtract extract = KeyExtract(), KeyCompare compare = KeyCompare())
-        : state_type(std::move(anch), eng, alloc, std::move(extract), std::move(compare))
+        : state_type(std::move(anch), alloc, std::move(extract), std::move(compare))
     {}
 
     btree(const btree&) = delete;
@@ -150,8 +149,8 @@ public:
     btree& operator=(const btree&) = delete;
     btree& operator=(btree&&) noexcept = default;
 
-    extpp::engine<BlockSize>& engine() const { return state().engine(); }
-    extpp::allocator<BlockSize>& allocator() const { return state().allocator(); }
+    using state_type::get_allocator;
+    using state_type::get_engine;
 
     bool empty() const { return height() == 0; }
     u64 size() const { return get_anchor()->size; }

@@ -16,13 +16,13 @@ TEST_CASE("freelist", "[freelist]") {
     file_t file;
     file.open();
 
-    extpp::file& fd = file.engine().fd();
+    extpp::file& fd = file.get_engine().fd();
     REQUIRE(fd.file_size() == block_size);
 
     fd.truncate(block_size * 1025);
 
     // block indices [1, 1024] are valid.
-    list_t list(file.anchor(), file.engine());
+    list_t list(file.get_anchor(), file.get_engine());
 
     REQUIRE(list.empty());
     REQUIRE_THROWS_AS(list.pop(), std::logic_error);

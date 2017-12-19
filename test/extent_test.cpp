@@ -21,12 +21,12 @@ TEST_CASE("extent", "[extent]") {
     file.open();
 
     auto extent_anchor = [&](u32 index) {
-        EXTPP_ASSERT(index < file.anchor()->extents.size(), "index out of bounds");
-        return file.anchor().neighbor(&file.anchor()->extents[index]);
+        EXTPP_ASSERT(index < file.get_anchor()->extents.size(), "index out of bounds");
+        return file.get_anchor().neighbor(&file.get_anchor()->extents[index]);
     };
 
     SECTION("basic usage") {
-        extent_t e1(extent_anchor(0), file.engine(), file.alloc());
+        extent_t e1(extent_anchor(0), file.get_allocator());
         REQUIRE(e1.empty());
         REQUIRE(e1.size() == 0);
 
@@ -44,7 +44,7 @@ TEST_CASE("extent", "[extent]") {
                 h.data()[i] = byte(255 - i);
         }
 
-        extent_t e2(extent_anchor(1), file.engine(), file.alloc());
+        extent_t e2(extent_anchor(1), file.get_allocator());
         e2.resize(8);
 
         e1.resize(4);

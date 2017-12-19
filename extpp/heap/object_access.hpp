@@ -42,7 +42,7 @@ public:
     };
 
 public:
-    object_access(extpp::engine<BlockSize>& eng)
+    object_access(engine<BlockSize>& eng)
         : m_engine(&eng)
     {}
 
@@ -86,7 +86,7 @@ public:
         u64 bytes_written = 0;
         auto write = [&](auto* ptr) {
             size_t n = sizeof(*ptr);
-            extpp::write(this->engine(), addr, ptr, n);
+            extpp::write(this->get_engine(), addr, ptr, n);
             addr += n;
             bytes_written += n;
         };
@@ -111,7 +111,7 @@ public:
         u64 bytes_read = 0;
         auto read = [&](auto* ptr) {
             size_t n = sizeof(*ptr);
-            extpp::read(this->engine(), addr, ptr, n);
+            extpp::read(this->get_engine(), addr, ptr, n);
             addr += n;
             bytes_read += n;
         };
@@ -141,10 +141,10 @@ public:
     }
 
 private:
-    extpp::engine<BlockSize>& engine() const { return *m_engine; }
+    engine<BlockSize>& get_engine() const { return *m_engine; }
 
 private:
-    extpp::engine<BlockSize>* m_engine;
+    engine<BlockSize>* m_engine;
 };
 
 } // namespace extpp::heap_detail

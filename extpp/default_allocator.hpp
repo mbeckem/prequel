@@ -54,7 +54,9 @@ private:
     };
 
     struct metadata_allocator : allocator<BlockSize> {
-        metadata_allocator(default_allocator* parent): parent(parent) {}
+        metadata_allocator(default_allocator* parent)
+            : allocator<BlockSize>(parent->get_engine())
+            , parent(parent) {}
 
         metadata_allocator(metadata_allocator&&) = delete;
         metadata_allocator& operator=(const metadata_allocator&) = delete;
@@ -113,13 +115,13 @@ public:
 
 public:
     default_allocator(anchor_ptr<anchor> anch, engine<BlockSize>& e)
-        : m_anchor(std::move(anch))
-        , m_engine(&e)
+        : allocator<BlockSize>(e)
+        , m_anchor(std::move(anch))
         , m_file(&e.fd())
         , m_meta_freelist(m_anchor.member(&anchor::meta_freelist), e)
         , m_meta_alloc(this)
-        , m_extents(m_anchor.member(&anchor::extents), *m_engine, m_meta_alloc)
-        , m_free_extents(m_anchor.member(&anchor::free_extents), *m_engine, m_meta_alloc)
+        , m_extents(m_anchor.member(&anchor::extents), m_meta_alloc)
+        , m_free_extents(m_anchor.member(&anchor::free_extents), m_meta_alloc)
     {}
 
     // The class contains children that point to itself.
@@ -447,8 +449,8 @@ private:
         auto i = source.get_block_index();
         auto j = dest.get_block_index();
         while (count-- > 0) {
-            block_handle<BlockSize> in = m_engine->read(i++);
-            m_engine->overwritten(j++, in.data());
+            block_handle<BlockSize> in = this->get_engine().read(i++);
+            this->get_engine().overwritten(j++, in.data());
         }
     }
 
@@ -548,7 +550,6 @@ private:
 
 private:
     anchor_ptr<anchor> m_anchor;
-    engine<BlockSize>* m_engine;
     file* m_file;
 
     /// Minimum allocation size for data blocks on file truncation.

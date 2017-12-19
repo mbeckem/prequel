@@ -48,7 +48,7 @@ class collector_base;
 namespace extpp {
 
 template<u32 BlockSize>
-class heap {
+class heap : public uses_allocator<BlockSize> {
 public:
     static constexpr u32 block_size = BlockSize;
 
@@ -181,14 +181,13 @@ public:
     using compactor_type = compactor<BlockSize>;
 
 public:
-    heap(anchor_ptr<anchor> h, extpp::engine<BlockSize>& e, extpp::allocator<BlockSize>& a)
-        : m_anchor(std::move(h))
-        , m_engine(&e)
-        , m_alloc(&a)
-        , m_access(e)
-        , m_storage(m_anchor.member(&anchor::storage), e, a)
-        , m_free_list(m_anchor.member(&anchor::free_list), e, a)
-        , m_table(m_anchor.member(&anchor::objects), e, a)
+    heap(anchor_ptr<anchor> h, allocator<BlockSize>& alloc)
+        : heap::uses_allocator(alloc)
+        , m_anchor(std::move(h))
+        , m_access(this->get_engine())
+        , m_storage(m_anchor.member(&anchor::storage), alloc)
+        , m_free_list(m_anchor.member(&anchor::free_list), alloc)
+        , m_table(m_anchor.member(&anchor::objects), alloc)
     {}
 
     heap(const heap&) = delete;
@@ -196,9 +195,6 @@ public:
 
     heap& operator=(const heap&) = delete;
     heap& operator=(heap&&) noexcept = default;
-
-    extpp::engine<BlockSize>& engine() const { return *m_engine; }
-    extpp::allocator<BlockSize>& allocator() const { return *m_alloc; }
 
     u64 chunk_size() const { return m_chunk_size; }
     void chunk_size(u64 blocks) {
@@ -230,7 +226,7 @@ public:
         const raw_address_t addr = allocate(cells);
 
         m_access.write_header(addr, allocation_size, header);
-        write(*m_engine, addr + header.header_size, object_data, object_size);
+        write(this->get_engine(), addr + header.header_size, object_data, object_size);
 
         return m_table.insert(object_entry_type::make_reference(addr));
     }
@@ -249,7 +245,7 @@ public:
                     "Cannot fit that object into main memory.");
 
         output.resize(body_size);
-        read(*m_engine, addr + header.header_size, output.data(), body_size);
+        read(this->get_engine(), addr + header.header_size, output.data(), body_size);
     }
 
     /// Returns the type of the object that `ref` points at.
@@ -351,8 +347,6 @@ private:
 
 private:
     anchor_ptr<anchor> m_anchor;
-    extpp::engine<BlockSize>* m_engine;
-    extpp::allocator<BlockSize>* m_alloc;
 
     /// The current state of the garbage collector.
     gc_phase m_gc_phase = gc_phase::none;

@@ -59,7 +59,7 @@ public:
     /// Create an empty node.
     static leaf_node create(state_type& state) {
         auto addr = state.allocate_leaf();
-        auto handle = construct<leaf_block>(state.engine(), addr);
+        auto handle = construct<leaf_block>(state.get_engine(), addr);
         return leaf_node(std::move(handle));
     }
 
@@ -288,7 +288,7 @@ public:
 
     static internal_node create(state_type& state) {
         auto addr = state.allocate_internal();
-        auto handle = construct<internal_block>(state.engine(), addr);
+        auto handle = construct<internal_block>(state.get_engine(), addr);
         return internal_node(std::move(handle));
     }
 

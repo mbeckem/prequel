@@ -83,7 +83,7 @@ void simple_tree_test(TreeTest&& test) {
     test_file<small_tree::anchor, 256> file;
     file.open();
     {
-        small_tree tree(file.anchor(), file.engine(), file.alloc());
+        small_tree tree(file.get_anchor(), file.get_allocator());
         test(tree);
     }
     file.close();
@@ -313,7 +313,7 @@ TEST_CASE("btree-fuzzy", "[btree][.slow]") {
     test_file<tree_t::anchor, 4096> file;
     file.open();
     {
-        tree_t tree(file.anchor(), file.engine(), file.alloc());
+        tree_t tree(file.get_anchor(), file.get_allocator());
 
         std::vector<u64> numbers;
         std::unordered_set<u64> seen;
