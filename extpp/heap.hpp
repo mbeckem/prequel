@@ -31,12 +31,18 @@ namespace extpp {
 template<u32 BlockSize>
 class heap;
 
-template<u32 BlockSize>
+template <u32 BlockSize>
 class collector;
 
-template<u32 BlockSize>
+template <u32 BlockSize>
 class compactor;
 
+namespace detail {
+
+template<typename SweepPass, u32 BlockSize>
+class collector_base;
+
+} // namespace detail
 } // namespace extpp
 
 namespace extpp {
@@ -134,7 +140,7 @@ private:
 
 private:
     enum class gc_phase {
-        none, mark, sweep, compact
+        none, mark, collect
     };
 
     using storage_type = heap_detail::storage<BlockSize>;
@@ -336,9 +342,8 @@ private:
     }
 
 private:
-    // private gc API
-    friend collector_type;
-    friend compactor_type;
+    template<typename S, u32 B>
+    friend class detail::collector_base;
 
     void set_gc_phase(gc_phase phase) {
         m_gc_phase = phase;
@@ -371,17 +376,18 @@ private:
     heap_detail::type_set m_types;
 };
 
-///// Marks the live object graph and then sweeps it.
-template<u32 BlockSize>
-class collector {
+namespace detail {
+
+template<typename CollectPass, u32 BlockSize>
+class collector_base {
 public:
     using heap_type = extpp::heap<BlockSize>;
 
 public:
-    collector(const collector&) = delete;
-    collector& operator=(const collector&) = delete;
+    collector_base(const collector_base&) = delete;
+    collector_base& operator=(const collector_base&) = delete;
 
-    ~collector() {
+    ~collector_base() {
         m_heap.set_gc_phase(heap_type::gc_phase::none);
     }
 
@@ -401,19 +407,19 @@ public:
     }
 
     void operator()() {
-        m_heap.set_gc_phase(heap_type::gc_phase::sweep);
-        m_sweep.run();
+        m_heap.set_gc_phase(heap_type::gc_phase::collect);
+        m_collect.run();
         m_heap.set_gc_phase(heap_type::gc_phase::none);
     }
 
-private:
+protected:
     friend heap_type;
 
-    collector(heap_type& b)
+    collector_base(heap_type& b)
         : m_heap(b)
         , m_data(m_heap.m_storage)
         , m_mark(m_data, m_heap.m_access, m_heap.m_table, m_heap.m_types)
-        , m_sweep(m_data, m_heap.m_access, m_heap.m_table, m_heap.m_free_list, m_heap.m_storage, m_heap.m_types)
+        , m_collect(m_data, m_heap.m_access, m_heap.m_table, m_heap.m_free_list, m_heap.m_storage, m_heap.m_types)
     {
         m_heap.set_gc_phase(heap_type::gc_phase::mark);
     }
@@ -423,62 +429,21 @@ private:
     bool m_in_visit = false;
     heap_detail::gc_data<BlockSize> m_data;
     heap_detail::mark_pass<BlockSize> m_mark;
-    heap_detail::sweep_pass<BlockSize> m_sweep;
+    CollectPass m_collect;
 };
 
-///// Marks the live object  graph and then compacts it.
+} // namespace detail
+
 template<u32 BlockSize>
-class compactor {
+class collector : public detail::collector_base<heap_detail::sweep_pass<BlockSize>, BlockSize> {
 public:
-    using heap_type = extpp::heap<BlockSize>;
+    using collector::collector_base::collector_base;
+};
 
+template<u32 BlockSize>
+class compactor : public detail::collector_base<heap_detail::compact_pass<BlockSize>, BlockSize> {
 public:
-    compactor(const compactor&) = delete;
-    compactor& operator=(const compactor&) = delete;
-
-    ~compactor() {
-        m_heap.set_gc_phase(heap_type::gc_phase::none);
-    }
-
-    /// Visit a root reference.
-    void visit(reference ref) {
-        EXTPP_CHECK(!m_in_visit,
-                    "visit() cannot be called recursively.");
-        EXTPP_CHECK(m_heap.phase() == heap_type::gc_phase::mark,
-                    "visit() can only be called while in the marking phase.");
-
-        m_in_visit = true;
-        detail::rollback rb = [&]{
-            m_in_visit = false;
-        };
-
-        m_mark.visit(ref);
-    }
-
-    void operator()() {
-        m_heap.set_gc_phase(heap_type::gc_phase::compact);
-        m_compact.run();
-        m_heap.set_gc_phase(heap_type::gc_phase::none);
-    }
-
-private:
-    friend heap_type;
-
-    compactor(heap_type& b)
-        : m_heap(b)
-        , m_data(m_heap.m_storage)
-        , m_mark(m_data, m_heap.m_access, m_heap.m_table, m_heap.m_types)
-        , m_compact(m_data, m_heap.m_access, m_heap.m_table, m_heap.m_free_list, m_heap.m_storage, m_heap.m_types)
-    {
-        m_heap.set_gc_phase(heap_type::gc_phase::mark);
-    }
-
-private:
-    heap_type& m_heap;
-    bool m_in_visit = false;
-    heap_detail::gc_data<BlockSize> m_data;
-    heap_detail::mark_pass<BlockSize> m_mark;
-    heap_detail::compact_pass<BlockSize> m_compact;
+    using compactor::collector_base::collector_base;
 };
 
 } // namespace extpp
