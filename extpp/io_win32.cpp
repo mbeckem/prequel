@@ -203,12 +203,14 @@ void win32_file::check_open()
 static std::wstring to_utf16(const char* path)
 {
     size_t length = std::strlen(path);
+    EXTPP_CHECK(length <= std::numeric_limits<int>::max(),
+                "Length cannot be represented as an int.");
 
     std::wstring result;
-    int wchars = MultiByteToWideChar(CP_UTF8, 0, path, length, NULL, 0);
+    int wchars = MultiByteToWideChar(CP_UTF8, 0, path, static_cast<int>(length), NULL, 0);
     if (wchars > 0) {
         result.resize(wchars);
-        MultiByteToWideChar(CP_UTF8, 0, path, length, &result[0], wchars);
+        MultiByteToWideChar(CP_UTF8, 0, path, static_cast<int>(length), &result[0], wchars);
     }
     return result;
 }

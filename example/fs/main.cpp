@@ -130,8 +130,8 @@ class file_system {
     directory m_root;
 
 public:
-    explicit file_system(std::unique_ptr<extpp::file> file, std::uint32_t cache_size)
-        : m_fmt(std::move(file), cache_size)
+    explicit file_system(extpp::file& file, std::uint32_t cache_size)
+        : m_fmt(file, cache_size)
         , m_header(m_fmt.user_data())
         , m_root(m_header.member(&header::root), m_fmt.engine(), m_fmt.allocator())
     {
@@ -500,6 +500,6 @@ int main(int argc, char* argv[]) {
     auto file = extpp::system_vfs().open(options.filename,
                                          extpp::vfs::read_write,
                                          extpp::vfs::open_create);
-    example::file_system fs(std::move(file), 128);
+    example::file_system fs(*file, 128);
     return fuse_main(args.argc, args.argv, &example::operations, &fs);
 }

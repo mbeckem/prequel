@@ -63,7 +63,7 @@ public:
 
         m_engine.emplace(*m_file, 16);
         {
-            auto first_block = cast<block>(m_engine->read(0));
+            auto first_block = cast<block>(m_engine->read(block_index(0)));
             m_state.emplace(first_block, *m_engine);
         }
 
@@ -101,7 +101,7 @@ private:
         if (m_file->file_size() == 0) {
             m_file->truncate(m_block_size);
             extpp::engine<BlockSize> be(*m_file, 1);
-            construct<block>(be.read(0));
+            construct<block>(be.read(block_index(0)));
             be.flush();
         }
     }

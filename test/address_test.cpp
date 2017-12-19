@@ -36,6 +36,8 @@ static_assert(std::is_convertible<address<t4, bs>, address<t2, bs>>::value,
 static_assert(std::is_convertible<address<t4, bs>, address<t1, bs>>::value,
               "convertible child->parent.");
 
+static_assert(sizeof(address<t1, bs>) == sizeof(u64), "Requires EBO.");
+
 TEST_CASE("basic address casts", "[address]") {
     {
         address<t2, bs> c = raw_address_cast<t2>(raw_address<bs>::byte_address(64));

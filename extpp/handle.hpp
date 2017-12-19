@@ -108,8 +108,8 @@ public:
     extpp::address<T, BlockSize> address() const {
         if (!valid())
             return {};
-        raw_address<BlockSize> raw(m_block.address().block_index(),
-                                   reinterpret_cast<const byte*>(m_data) - m_block.data());
+        auto raw = raw_address<BlockSize>::from_block(m_block.index());
+        raw += reinterpret_cast<const byte*>(m_data) - m_block.data();
         return raw_address_cast<T>(raw);
     }
 
@@ -202,17 +202,17 @@ handle<T, BlockSize> construct(block_handle<BlockSize> block, Args&&... args) {
 template<typename T, u32 BlockSize, typename... Args>
 handle<T, BlockSize> construct(engine<BlockSize>& e, raw_address<BlockSize> addr, Args&&... args) {
     // TODO: Allow non block-aligned addresses?
-    EXTPP_ASSERT(addr && addr.block_offset() == 0, "Address does not point to a valid block.");
-    return construct<T>(e.overwrite(addr.block_index()), std::forward<Args>(args)...);
+    EXTPP_ASSERT(addr && addr.get_offset_in_block() == 0, "Address does not point to a valid block.");
+    return construct<T>(e.zeroed(addr.get_block_index()), std::forward<Args>(args)...);
 }
 
 template<typename T, u32 BlockSize>
 handle<T, BlockSize> access(engine<BlockSize>& e, address<T, BlockSize> addr) {
     EXTPP_ASSERT(addr, "Accessing an invalid address.");
-    EXTPP_ASSERT(addr.raw().block_offset() + sizeof(T) <= BlockSize, "Object spans multiple blocks.");
+    EXTPP_ASSERT(addr.raw().get_offset_in_block() + sizeof(T) <= BlockSize, "Object spans multiple blocks.");
 
-    block_handle<BlockSize> block = e.read(addr.raw().block_index());
-    T* ptr = static_cast<T*>(static_cast<void*>(block.data() + addr.raw().block_offset()));
+    block_handle<BlockSize> block = e.read(addr.raw().get_block_index());
+    T* ptr = static_cast<T*>(static_cast<void*>(block.data() + addr.raw().get_offset_in_block()));
     return {std::move(block), ptr};
 }
 
@@ -225,39 +225,33 @@ void write(engine<BlockSize>& e, raw_address<BlockSize> address, const void* dat
         return;
 
     const byte* buffer = reinterpret_cast<const byte*>(data);
-    u64 block_index = address.block_index();
+    block_index index = address.get_block_index();
 
     // Partial write at the start.
-    if (u32 offset = address.block_offset(); offset != 0) {
-        auto block = e.read(block_index);
+    if (u32 offset = address.get_offset_in_block(); offset != 0) {
+        auto block = e.read(index);
         size_t n = std::min(size, size_t(BlockSize - offset));
         std::memmove(block.data() + offset, buffer, n);
         block.dirty();
 
         buffer += n;
         size -= n;
-        block_index += 1;
+        index += 1;
     }
     // Write as many full blocks as possible.
     while (size >= BlockSize) {
-        e.overwrite(block_index, buffer);
+        e.overwritten(index, buffer);
 
         buffer += BlockSize;
         size -= BlockSize;
-        block_index += 1;
+        index += 1;
     }
     // Partial write at the end.
     if (size > 0) {
-        auto block = e.read(block_index);
+        auto block = e.read(index);
         std::memmove(block.data(), buffer, size);
         block.dirty();
     }
-}
-
-template<typename T, u32 BlockSize>
-void write(engine<BlockSize>& e, address<T, BlockSize> address, const T* data, size_t size) {
-    static_assert(is_trivial<T>::value, "Type must be trivial.");
-    return write(e, address.raw(), data, sizeof(T) * size);
 }
 
 /// Perform a linear read, starting from the given disk address.
@@ -269,70 +263,155 @@ void read(engine<BlockSize>& e, raw_address<BlockSize> address, void* data, size
         return;
 
     byte* buffer = reinterpret_cast<byte*>(data);
-    u64 block_index = address.block_index();
+    block_index index = address.get_block_index();
 
     // Partial read at the start.
-    if (u32 offset = address.block_offset(); offset != 0) {
-        auto block = e.read(block_index);
+    if (u32 offset = address.get_offset_in_block(); offset != 0) {
+        auto block = e.read(index);
         size_t n = std::min(size, size_t(BlockSize - offset));
         std::memmove(buffer, block.data() + offset, n);
 
         buffer += n;
         size -= n;
-        block_index += 1;
+        index += 1;
     }
     // Full block reads.
     while (size >= BlockSize) {
-        auto block = e.read(block_index);
+        auto block = e.read(index);
         std::memmove(buffer, block.data(), BlockSize);
 
         buffer += BlockSize;
         size -= BlockSize;
-        block_index += 1;
+        index += 1;
     }
     // Partial read at the end.
     if (size > 0) {
-        auto block = e.read(block_index);
+        auto block = e.read(index);
         std::memmove(buffer, block.data(), size);
     }
 }
 
-template<typename T, u32 BlockSize>
-void read(engine<BlockSize>& e, address<T, BlockSize> address, T* data, size_t size) {
-    static_assert(is_trivial<T>::value, "Type must be trivial.");
-    return read(e, address.raw(), data, sizeof(T) * size);
-}
-
+/// Zeroes `size` bytes, starting from the given address.
 template<u32 BlockSize>
 void zero(engine<BlockSize>& e, raw_address<BlockSize> address, u64 size) {
     if (size == 0)
         return;
 
-    u64 block_index = address.block_index();
+    block_index index = address.get_block_index();
 
     // Partial write at the start.
-    if (u32 offset = address.block_offset(); offset != 0) {
-        auto block = e.read(block_index);
+    if (u32 offset = address.get_offset_in_block(); offset != 0) {
+        auto block = e.read(index);
         u64 n = std::min(size, u64(BlockSize - offset));
         std::memset(block.data() + offset, 0, n);
         block.dirty();
 
         size -= n;
-        block_index += 1;
+        index += 1;
     }
     // Write as many full blocks as possible.
     while (size >= BlockSize) {
-        e.overwrite(block_index);
+        e.zeroed(index);
 
         size -= BlockSize;
-        block_index += 1;
+        index += 1;
     }
     // Partial write at the end.
     if (size > 0) {
-        auto block = e.read(block_index);
+        auto block = e.read(index);
         std::memset(block.data(), 0, size);
         block.dirty();
     }
+}
+
+namespace detail {
+
+template<u32 BlockSize>
+void copy_forward(engine<BlockSize>& e, raw_address<BlockSize> dest, raw_address<BlockSize> src, u64 size) {
+    const bool can_overwrite = distance(src, dest) >= BlockSize;
+
+    block_handle<BlockSize> src_handle, dest_handle;
+    while (size > 0) {
+        if (!dest_handle || dest.get_offset_in_block() == 0) {
+            if (can_overwrite && dest.get_offset_in_block() == 0 && size > BlockSize) {
+                dest_handle = e.zeroed(dest.get_block_index());
+            } else {
+                dest_handle = e.read(dest.get_block_index());
+                dest_handle.dirty();
+            }
+        }
+
+        if (!src_handle || src.get_offset_in_block() == 0) {
+            src_handle = e.read(src.get_block_index());
+        }
+
+        u32 chunk = std::min(BlockSize - src.get_offset_in_block(),
+                             BlockSize - dest.get_offset_in_block());
+        if (chunk > size)
+            chunk = size;
+
+        EXTPP_ASSERT(dest_handle.index() == dest.get_block_index(), "Correct destination block.");
+        EXTPP_ASSERT(src_handle.index() == src.get_block_index(), "Correct source block.");
+        std::memmove(dest_handle.data() + dest.get_offset_in_block(),
+                     src_handle.data() + src.get_offset_in_block(), chunk);
+        src += chunk;
+        dest += chunk;
+        size -= chunk;
+    }
+}
+
+template<u32 BlockSize>
+void copy_backward(engine<BlockSize>& e, raw_address<BlockSize> dest, raw_address<BlockSize> src, u64 size) {
+    const bool can_overwrite = distance(src, dest) >= BlockSize;
+
+    src += size;
+    dest += size;
+    block_handle<BlockSize> src_handle, dest_handle;
+    while (size > 0) {
+        if (!dest_handle || dest.get_offset_in_block() == 0) {
+            if (can_overwrite && dest.get_offset_in_block() == 0 && size > BlockSize) {
+                dest_handle = e.zeroed((dest-1).get_block_index());
+            } else {
+                dest_handle = e.read((dest-1).get_block_index());
+                dest_handle.dirty();
+            }
+        }
+
+        if (!src_handle || src.get_offset_in_block() == 0) {
+            src_handle = e.read((src-1).get_block_index());
+        }
+
+        u32 chunk = std::min(src.get_offset_in_block() ? src.get_offset_in_block() : BlockSize,
+                             dest.get_offset_in_block() ? dest.get_offset_in_block() : BlockSize);
+        if (chunk > size)
+            chunk = size;
+
+        src -= chunk;
+        dest -= chunk;
+        size -= chunk;
+
+        EXTPP_ASSERT(dest_handle.index() == dest.get_block_index(), "Correct destination block.");
+        EXTPP_ASSERT(src_handle.index() == src.get_block_index(), "Correct source block.");
+        std::memmove(dest_handle.data() + dest.get_offset_in_block(),
+                     src_handle.data() + src.get_offset_in_block(), chunk);
+    }
+}
+
+}  // namespace detail
+
+/// Copies `size` bytes from `src` to `dest`. The two ranges can overlap.
+/// \pre `src` and `dest` are valid addresses.
+template<u32 BlockSize>
+void copy(engine<BlockSize>& e, raw_address<BlockSize> dest, raw_address<BlockSize> src, u64 size) {
+    EXTPP_ASSERT(dest, "Invalid destination address.");
+    EXTPP_ASSERT(src, "Invalid source address.");
+
+    if (dest == src || size == 0)
+        return;
+    if (src > dest || (src + size <= dest)) {
+        return detail::copy_forward(e, dest, src, size);
+    }
+    return detail::copy_backward(e, dest, src, size);
 }
 
 } // namespace extpp

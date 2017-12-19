@@ -6,7 +6,7 @@
 #include <memory>
 #include <stdexcept>
 
-namespace extpp::detail::btree {
+namespace extpp::btree_detail {
 
 template<typename State>
 void verify(const State& state) {
@@ -167,6 +167,6 @@ void verify(const State& state) {
     checker(state).run();
 }
 
-} // namespace extpp::detail::btree
+} // namespace extpp::btree_detail
 
 #endif // EXTPP_BTREE_VERIFY_HPP

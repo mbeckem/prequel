@@ -34,12 +34,12 @@ TEST_CASE("extent", "[extent]") {
         REQUIRE(e1.size() == 2);
         REQUIRE(!e1.empty());
         REQUIRE(e1.data());
-        REQUIRE(e1.get(0).block_index() + 1 == e1.get(1).block_index());
+        REQUIRE(e1.get(0).get_block_index() + 1 == e1.get(1).get_block_index());
         {
-            auto h = e1.overwrite(0);
+            auto h = e1.zeroed(0);
             for (u32 i = 0; i < 256; ++i)
                 h.data()[i] = byte(i);
-            h = e1.overwrite(1);
+            h = e1.zeroed(1);
             for (u32 i = 0; i < 256; ++i)
                 h.data()[i] = byte(255 - i);
         }

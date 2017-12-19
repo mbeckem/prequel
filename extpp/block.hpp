@@ -49,7 +49,7 @@ struct select_capacity_impl<Proto, BlockSize, Capacity, false>
 
 template<template<u32 N> class Proto, u32 BlockSize, bool fits>
 struct select_capacity_impl<Proto, BlockSize, 0, fits> {
-    static_assert(always_false_v<select_capacity_impl>,
+    static_assert(always_false<select_capacity_impl>::value,
                   "The block prototype cannot fit the provided BlockSize.");
 };
 
@@ -58,7 +58,7 @@ struct make_block;
 
 template<typename T, u32 BlockSize>
 struct make_block<T, BlockSize, false> {
-    static_assert(always_false_v<T>,
+    static_assert(always_false<T>::value,
                   "T is too large to fit into the given block size.");
 };
 

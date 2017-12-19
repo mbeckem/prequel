@@ -7,8 +7,7 @@
 
 #include <map>
 
-namespace extpp {
-namespace detail {
+namespace extpp::btree_detail {
 
 template<typename Container, typename BaseIterator, typename Derived>
 class safe_iterator_base;
@@ -170,6 +169,18 @@ private:
         return this->base() == other.base();
     }
 
+    friend bool operator==(const safe_iterator_base& lhs, const safe_iterator_base& rhs) {
+        if (lhs.valid() != rhs.valid())
+            return false;
+        if (lhs.valid())
+            return lhs.base() == rhs.base();
+        return true;
+    }
+
+    friend bool operator!=(const safe_iterator_base& lhs, const safe_iterator_base& rhs) {
+        return !(lhs == rhs);
+    }
+
     friend bool operator==(const safe_iterator_base& lhs, const BaseIterator& rhs) {
         if (!lhs.valid())
             return false;
@@ -296,7 +307,6 @@ private:
     map_t m_map;
 };
 
-} // namespace detail
-} // namespace extpp
+} // namespace extpp::btree_detail
 
 #endif // EXTPP_BTREE_SAFE_ITERATOR_HPP

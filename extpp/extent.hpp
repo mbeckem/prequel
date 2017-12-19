@@ -69,7 +69,7 @@ public:
     /// Returns a handle to the block with the given index.
     /// \pre `index < size()`.
     block_handle<BlockSize> access(u64 index) const {
-        return m_engine->read(get(index).block_index());
+        return m_engine->read(get(index).get_block_index());
     }
 
     /// Returns a handle to the block with the given index.
@@ -78,8 +78,8 @@ public:
     /// the content immediately.
     ///
     /// \pre `index < size()`.
-    block_handle<BlockSize> overwrite(u64 index) const {
-        return m_engine->overwrite(get(index).block_index());
+    block_handle<BlockSize> zeroed(u64 index) const {
+        return m_engine->zeroed(get(index).get_block_index());
     }
 
     /// Returns a handle to the block with the given index.
@@ -90,8 +90,8 @@ public:
     ///
     /// \pre `data` has BlockSize readable bytes.
     /// \pre `index < size()`.
-    block_handle<BlockSize> overwrite(u64 index, const byte* data) const {
-        return m_engine->overwrite(get(index).block_index(), data);
+    block_handle<BlockSize> overwritten(u64 index, const byte* data) const {
+        return m_engine->overwritten(get(index).get_block_index(), data);
     }
 
     /// Removes all blocks from this extent.

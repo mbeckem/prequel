@@ -11,7 +11,7 @@
 
 #include <tuple>
 
-namespace extpp::detail::btree {
+namespace extpp::btree_detail {
 
 template<typename State>
 class leaf_node;
@@ -513,6 +513,6 @@ private:
     handle_type m_block;
 };
 
-} // namespace extpp::detail::btree
+} // namespace extpp::btree_detail
 
 #endif // EXTPP_BTREE_NODE_HPP

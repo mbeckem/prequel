@@ -11,10 +11,10 @@ namespace extpp {
 assertion_failure_impl_::assertion_failure_impl_(
         const char* file, int line,
         const char* cond, const char* message) {
-    check_impl_(file, line, cond, message);
+    assert_impl(file, line, cond, message);
 }
 
-void check_impl_(const char* file, int line, const char* condition, const char* message) {
+void assert_impl(const char* file, int line, const char* condition, const char* message) {
     std::cerr << "Assertion `" << condition << "` failed";
     if (message && std::strlen(message) > 0) {
         std::cerr << ": " << message;
@@ -32,6 +32,18 @@ void unreachable_impl_(const char* file, int line, const char* message) {
     }
     std::cerr << ".\n";
     std::cerr << "    (in " << file << ":" << line << ")"
+              << std::endl;
+    std::abort();
+}
+
+void abort_impl(const char* file, int line, const char* message) {
+    if (message) {
+        std::cerr << "Abort: " << message;
+    } else {
+        std::cerr << "Abort.";
+    }
+    std::cerr << "\n"
+              << "    (in " << file << ":" << line << ")"
               << std::endl;
     std::abort();
 }

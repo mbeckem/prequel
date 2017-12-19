@@ -5,6 +5,7 @@
 #include <extpp/anchor_ptr.hpp>
 #include <extpp/defs.hpp>
 #include <extpp/engine.hpp>
+#include <extpp/identity_key.hpp>
 #include <extpp/handle.hpp>
 #include <extpp/type_traits.hpp>
 #include <extpp/btree/iterator.hpp>
@@ -34,8 +35,8 @@ namespace extpp {
 /// \tparam BlockSize
 ///     The block size of the underlying storage engine. Must be a power of two.
 template<typename Value, typename KeyExtract, typename KeyCompare, u32 BlockSize>
-class btree : detail::btree::state<Value, KeyExtract, KeyCompare, BlockSize> {
-    using state_type = detail::btree::state<Value, KeyExtract, KeyCompare, BlockSize>;
+class btree : btree_detail::state<Value, KeyExtract, KeyCompare, BlockSize> {
+    using state_type = typename btree::state;
 
 public:
     using value_type = Value;
@@ -44,7 +45,7 @@ public:
     using key_compare = KeyCompare;
     using size_type = u64;
 
-    using iterator = detail::btree::iterator<state_type>;
+    using iterator = btree_detail::iterator<state_type>;
     using const_iterator = iterator;
 
     class cursor;
@@ -62,15 +63,15 @@ public:
                   "The key type must be trivial.");
 
 private:
-    using cursor_map = detail::safe_iterator_map<btree, cursor>;
+    using cursor_map = btree_detail::safe_iterator_map<btree, cursor>;
     using cursor_buffer_t = boost::container::small_vector<cursor*, 16>;
 
     using node_address = typename state_type::node_address;
 
-    using leaf_type = detail::btree::leaf_node<state_type>;
+    using leaf_type = btree_detail::leaf_node<state_type>;
     using leaf_address = typename leaf_type::address_type;
 
-    using internal_type = detail::btree::internal_node<state_type>;
+    using internal_type = btree_detail::internal_node<state_type>;
     using internal_address = typename internal_type::address_type;
 
     // For each parent: node address and the index within that node.
@@ -180,6 +181,10 @@ public:
     /// by the number of bytes required to store `size()` instances of `value_type`.
     double overhead() const {
         return empty() ? 0 : double(byte_size()) / (size() * sizeof(value_type));
+    }
+
+    key_type key(const value_type& value) const {
+        return state().key(value);
     }
 
     iterator begin() const {
@@ -323,6 +328,24 @@ public:
         return c.iterator();
     }
 
+    /// Erases all elements in the range [first, last).
+    /// `last` must be reachable from `first` using forward iteration.
+    void erase(iterator first, iterator last) {
+        check_instance(first);
+        check_instance(last);
+
+        // TODO: Implement bulk erase; this is as slow as it gets.
+        cursor current = first;
+        cursor end = last;
+        for(; current != end;) {
+            check_valid(current);
+
+            key_type key = state().key(*current);
+            ++current;
+            erase(key);
+        }
+    }
+
     /// Modify the value at `*iter` using the given Operation function.
     /// A mutable reference to the value will be passed to `op` which may in turn
     /// modify the value. However, the key derived from the modified value
@@ -354,7 +377,7 @@ public:
     }
 
     void verify() const {
-        detail::btree::verify(state());
+        btree_detail::verify(state());
     }
 
     // TODO: Other variants.
@@ -670,7 +693,7 @@ private:
 };
 
 template<typename V, typename K, typename C, u32 B>
-class btree<V, K, C, B>::cursor : public detail::safe_iterator_base<btree, iterator, cursor> {
+class btree<V, K, C, B>::cursor : public btree_detail::safe_iterator_base<btree, iterator, cursor> {
 public:
     cursor() = default;
 

@@ -15,13 +15,17 @@
 
 #ifdef EXTPP_DEBUG
 
+/// When in debug mode, check against the given condition
+/// and abort the program with a message if the check fails.
+/// Does nothing in release mode.
 #define EXTPP_ASSERT(cond, message)                                     \
     do {                                                                \
         if (!(cond)) {                                                  \
-            ::extpp::check_impl_(__FILE__, __LINE__, #cond, (message)); \
+            ::extpp::assert_impl(__FILE__, __LINE__, #cond, (message)); \
         }                                                               \
     } while (0)
 
+/// Same as EXTPP_ASSERT, but usable in constexpr functions.
 #define EXTPP_CONSTEXPR_ASSERT(cond, message)                           \
     do {                                                                \
         if (!(cond)) {                                                  \
@@ -38,13 +42,19 @@
 
 #endif
 
+/// Always check against a (rare) error condition and abort the program
+/// with a message if the check fails.
 #define EXTPP_CHECK(cond, message)                                      \
     do {                                                                \
         if (EXTPP_UNLIKELY(!(cond))) {                                  \
-            ::extpp::check_impl_(__FILE__, __LINE__, #cond, (message)); \
+            ::extpp::assert_impl(__FILE__, __LINE__, #cond, (message)); \
         }                                                               \
     } while (0)
 
+/// Unconditionally abort the program with a message.
+#define EXTPP_ABORT(message) (::extpp::abort_impl(__FILE__, __LINE__, (message)))
+
+/// Unconditionally terminate the program when unreachable code is executed.
 #define EXTPP_UNREACHABLE(message) (::extpp::unreachable_impl_(__FILE__, __LINE__, (message)))
 
 namespace extpp {
@@ -55,9 +65,9 @@ struct assertion_failure_impl_ {
     assertion_failure_impl_(const char* file, int line, const char* cond, const char* message);
 };
 
-[[noreturn]] void check_impl_(const char* file, int line, const char* cond, const char* message);
-
+[[noreturn]] void assert_impl(const char* file, int line, const char* cond, const char* message);
 [[noreturn]] void unreachable_impl_(const char* file, int line, const char* message);
+[[noreturn]] void abort_impl(const char* file, int line, const char* message);
 
 } // namespace extpp
 

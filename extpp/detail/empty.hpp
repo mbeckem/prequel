@@ -9,6 +9,6 @@ struct empty_t {};
 constexpr inline empty_t empty{};
 
 } // namespace detail
-} // namespace name
+} // namespace extpp
 
 #endif // EXTPP_DETAIL_EMPTY_HPP

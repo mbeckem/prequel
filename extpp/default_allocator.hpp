@@ -175,7 +175,7 @@ protected:
     }
 
     void do_free(raw_address<BlockSize> addr) override {
-        extents_iterator pos = m_extents.find(addr.block_index());
+        extents_iterator pos = m_extents.find(addr.get_block_index().value());
         EXTPP_CHECK(pos != m_extents.end(),
                     "The pointer passed to free() does not point "
                     "to a previous allocation.");
@@ -193,7 +193,7 @@ protected:
     }
 
     raw_address<BlockSize> do_reallocate(raw_address<BlockSize> addr, u64 request) override {
-        extents_cursor pos = m_extents.find(addr.block_index());
+        extents_cursor pos = m_extents.find(addr.get_block_index().value());
         EXTPP_CHECK(pos != m_extents.end(),
                     "The pointer passed to reallocate() does not point "
                     "to a previous allocation.");
@@ -285,7 +285,7 @@ private:
     raw_address<BlockSize> allocate_new_extent(const extent_t& extent, u64 request) {
         const u64 block = allocate_from_extent(extent, request);
         add_extent(extent_t(block, request, false));
-        return raw_address<BlockSize>::from_block(block);
+        return raw_address<BlockSize>::from_block(block_index(block));
     }
 
     /// Allocates the first `request` blocks in the extent pointed to by `pos`.
@@ -415,7 +415,7 @@ private:
         const u64 chunk = chunk_size(2, m_min_meta_chunk);
         const u64 block = allocate_chunk(chunk);
         for (u64 b = block + chunk; b --> block;) {
-            m_meta_freelist.push(raw_address<BlockSize>::from_block(b));
+            m_meta_freelist.push(raw_address<BlockSize>::from_block(block_index(b)));
         }
 
         m_anchor->meta_allocated += chunk;
@@ -444,11 +444,11 @@ private:
 private:
     /// Copies the given number of blocks from `source` to `dest`.
     void copy_blocks(raw_address<BlockSize> source, raw_address<BlockSize> dest, u64 count) {
-        u64 i = source.block_index();
-        u64 j = dest.block_index();
+        auto i = source.get_block_index();
+        auto j = dest.get_block_index();
         while (count-- > 0) {
             block_handle<BlockSize> in = m_engine->read(i++);
-            m_engine->overwrite(j++, in.data());
+            m_engine->overwritten(j++, in.data());
         }
     }
 

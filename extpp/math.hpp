@@ -78,6 +78,27 @@ constexpr std::make_signed_t<T> signed_difference(T a, T b) {
     }
 }
 
+/// Returns true if the addition `a+b` would overflow.
+template<typename T, IsInteger<T>* = nullptr>
+constexpr bool add_overflows(T a, T b) {
+    T dummy = 0;
+    return __builtin_add_overflow(a, b, &dummy);
+}
+
+/// Returns true if the subtraction `a-b` would overflow.
+template<typename T, IsInteger<T>* = nullptr>
+constexpr bool sub_overflows(T a, T b) {
+    T dummy = 0;
+    return __builtin_sub_overflow(a, b, &dummy);
+}
+
+/// Returns true if the multiplication `a*b` would overflow.
+template<typename T, IsInteger<T>* = nullptr>
+constexpr bool mul_overflows(T a, T b) {
+    T dummy = 0;
+    return __builtin_mul_overflow(a, b, &dummy);
+}
+
 /// Performs checked addition of the passed arguments.
 /// Throws std::overflow_error if the operation would overflow.
 template<typename T, IsInteger<T>* = nullptr>

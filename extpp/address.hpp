@@ -2,6 +2,7 @@
 #define EXTPP_ADDRESS_HPP
 
 #include <extpp/assert.hpp>
+#include <extpp/block_index.hpp>
 #include <extpp/defs.hpp>
 #include <extpp/math.hpp>
 #include <extpp/type_traits.hpp>
@@ -42,12 +43,12 @@ public:
     static constexpr u32 block_size_log2 = log2(block_size);
     static constexpr u64 invalid_value = u64(-1);
 
-    static raw_address from_block(u64 block_index) {
-        return raw_address(block_index, 0);
+    static raw_address from_block(block_index block) {
+        return block ? raw_address(block.value(), 0) : raw_address();
     }
 
-    static raw_address byte_address(u64 index) {
-        return raw_address(byte_addr_t(), index);
+    static raw_address byte_address(u64 address) {
+        return raw_address(byte_addr_t(), address);
     }
 
 public:
@@ -67,14 +68,12 @@ public:
 
     explicit operator bool() const { return valid(); }
 
-    u64 block_index() const {
-        EXTPP_ASSERT(valid(), "Invalid address.");
-        return value() >> block_size_log2;
+    block_index get_block_index() const {
+        return valid() ? block_index(value() >> block_size_log2) : block_index();
     }
 
-    u32 block_offset() const {
-        EXTPP_ASSERT(valid(), "Invalid address.");
-        return mod_pow2(value(), u64(BlockSize));
+    u32 get_offset_in_block() const {
+        return static_cast<u32>(mod_pow2(value(), u64(BlockSize)));
     }
 
     raw_address& operator+=(i64 offset) {
@@ -101,7 +100,7 @@ public:
     friend std::ostream& operator<<(std::ostream& o, const raw_address& addr) {
         if (!addr)
             return o << "INVALID";
-        return o << "(" << addr.block_index() << ", " << addr.block_offset() << ")";
+        return o << "(" << addr.get_block_index() << ", " << addr.get_offset_in_block() << ")";
     }
 
 private:
@@ -191,14 +190,27 @@ private:
 };
 
 template<u32 BlockSize>
-i64 distance(const raw_address<BlockSize>& from, const raw_address<BlockSize>& to) {
+i64 difference(const raw_address<BlockSize>& from, const raw_address<BlockSize>& to) {
     EXTPP_ASSERT(from, "From address is invalid.");
     EXTPP_ASSERT(to, "To address is invalid.");
     return signed_difference(to.value(), from.value());
 }
 
 template<typename T, u32 BlockSize>
-i64 distance(const address<T, BlockSize>& from, const address<T, BlockSize>& to) {
+i64 difference(const address<T, BlockSize>& from, const address<T, BlockSize>& to) {
+    return distance(from.raw(), to.raw()) / sizeof(T);
+}
+
+template<u32 BlockSize>
+u64 distance(const raw_address<BlockSize>& from, const raw_address<BlockSize>& to) {
+    EXTPP_ASSERT(from, "From address is invalid.");
+    EXTPP_ASSERT(to, "To address is invalid.");
+    return from <= to ? to.value() - from.value() : from.value() - to.value();
+}
+
+/// \pre `from <= to`.
+template<typename T, u32 BlockSize>
+u64 distance(const address<T, BlockSize>& from, const address<T, BlockSize>& to) {
     return distance(from.raw(), to.raw()) / sizeof(T);
 }
 

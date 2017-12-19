@@ -73,6 +73,8 @@ public:
         friend class stream;
     };
 
+    // TODO Destroy
+
 public:
     stream(anchor_ptr<anchor> h, extpp::engine<BlockSize>& e, extpp::allocator<BlockSize>& a)
         : m_anchor(std::move(h))
@@ -250,7 +252,7 @@ private:
 
     block_type create(u64 blk_index) const {
         // The 'construct' call should be a no-op but we do it anyway just to be safe.
-        return construct<block_t>(m_extent.overwrite(blk_index));
+        return construct<block_t>(m_extent.zeroed(blk_index));
     }
 
     block_type access(u64 blk_index) const {
@@ -318,7 +320,7 @@ private:
 
     const stream* parent_stream() const { return m_stream; }
 
-    u32 index() const { return m_index; }
+    u64 index() const { return m_index; }
     u32 block_offset() const { return m_block_offset; }
 
     const block_type& block() const {

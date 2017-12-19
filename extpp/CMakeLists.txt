@@ -11,6 +11,14 @@ set(HEADERS
     detail/sequence_insert.hpp
     detail/wal.hpp
 
+    heap/base.hpp
+    heap/gc.hpp
+    heap/object_access.hpp
+    heap/object_table.hpp
+    heap/segregated_free_list.hpp
+    heap/storage.hpp
+    heap/type_set.hpp
+
     btree/base.hpp
     btree/iterator.hpp
     btree/node.hpp
@@ -22,8 +30,8 @@ set(HEADERS
     allocator.hpp
     anchor_ptr.hpp
     assert.hpp
-    bin.hpp
     block.hpp
+    block_index.hpp
     btree.hpp
     default_allocator.hpp
     default_file_format.hpp
@@ -32,6 +40,7 @@ set(HEADERS
     exception.hpp
     extent.hpp
     handle.hpp
+    heap.hpp
     identity_key.hpp
     id_generator.hpp
     io.hpp

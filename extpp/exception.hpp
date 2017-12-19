@@ -27,18 +27,14 @@ public:
     source_location() = default;
 
     source_location(const char* file, int line, const char* function)
-        : m_available(true), m_file(file), m_line(line), m_function(function)
+        : m_file(file), m_line(line), m_function(function)
     {}
 
     const char* file() const { return m_file; }
     int line() const { return m_line; }
     const char* function() { return m_function; }
 
-    bool availabe() const { return m_available; }
-    explicit operator bool() const { return m_available; }
-
 private:
-    bool m_available = false;
     const char* m_file = "";
     int m_line = 0;
     const char* m_function = "";

@@ -19,9 +19,6 @@ struct is_trivial {
 template<typename T>
 struct always_false : std::false_type {};
 
-template<typename T>
-bool always_false_v = always_false<T>::value;
-
 template<bool c, typename T = void>
 using disable_if_t = std::enable_if_t<!c, T>;
 

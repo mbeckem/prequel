@@ -6,7 +6,7 @@
 
 #include <boost/iterator/iterator_facade.hpp>
 
-namespace extpp::detail::btree {
+namespace extpp::btree_detail {
 
 /// An iterator points to a single value inside the btree or past the end.
 /// Iterators contain a reference to the leaf node that contains their value; the
@@ -124,6 +124,6 @@ private:
     }
 };
 
-} // namespace extpp::detail::btree
+} // namespace extpp::btree_detail
 
 #endif // EXTPP_BTREE_ITERATOR_HPP

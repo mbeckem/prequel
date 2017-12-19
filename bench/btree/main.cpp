@@ -91,11 +91,6 @@ using value_type = int;
 using tree_type = extpp::btree<value_type, extpp::identity_key, std::less<>, block_size>;
 using format_type = extpp::default_file_format<tree_type::anchor, block_size>;
 
-static format_type open(const std::string& path, std::uint32_t cache_size) {
-    auto file = extpp::system_vfs().open(path.c_str(), extpp::vfs::read_write, extpp::vfs::open_create);
-    return format_type(std::move(file), cache_size);
-}
-
 static void run_insert(tree_type& tree, std::uint64_t n) {
     std::default_random_engine engine(std::random_device{}());
     std::uniform_int_distribution<value_type> dist;
@@ -135,10 +130,10 @@ int main(int argc, char** argv) {
               << "\n"
               << std::flush;
 
-    format_type file = open(opt.file, opt.cache_size);
-
+    auto file = extpp::system_vfs().open(opt.file.c_str(), extpp::vfs::read_write, extpp::vfs::open_create);
+    format_type format(*file, opt.cache_size);
     {
-        tree_type tree(file.user_data(), file.engine(), file.allocator());
+        tree_type tree(format.user_data(), format.engine(), format.allocator());
         std::cout << "Tree attributes:\n"
                   << "  Height:          " << tree.height() << "\n"
                   << "  Size:            " << tree.size() << "\n"
@@ -162,8 +157,8 @@ int main(int argc, char** argv) {
         }
     }
 
-    file.engine().flush();
-    extpp::engine_stats stats = file.engine().stats();
+    format.flush();
+    extpp::engine_stats stats = format.engine().stats();
 
     std::cout << "I/O statistics:\n"
               << "  Reads:      " << stats.reads << "\n"

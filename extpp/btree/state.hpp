@@ -10,7 +10,7 @@
 #include <extpp/btree/base.hpp>
 #include <extpp/btree/node.hpp>
 
-namespace extpp::detail::btree {
+namespace extpp::btree_detail {
 
 template<typename Value, typename KeyExtract, typename KeyCompare, u32 BlockSize>
 class state {
@@ -141,6 +141,6 @@ private:
     KeyCompare m_key_compare;
 };
 
-} // namespace extpp::detail::btree
+} // namespace extpp::btree_detail
 
 #endif // EXTPP_BTREE_STATE_HPP

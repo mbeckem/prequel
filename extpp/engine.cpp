@@ -237,6 +237,14 @@ block_engine::~block_engine()
     m_pool.clear();
 }
 
+boost::intrusive_ptr<block> block_engine::access(u64 index)
+{
+    if (block* blk = m_blocks.find(index)) {
+        return boost::intrusive_ptr<block>(blk);
+    }
+    return {};
+}
+
 boost::intrusive_ptr<block> block_engine::read(u64 index)
 {
     return read_impl(index, [&](byte* data) {
@@ -245,7 +253,7 @@ boost::intrusive_ptr<block> block_engine::read(u64 index)
     });
 }
 
-boost::intrusive_ptr<block> block_engine::overwrite(u64 index)
+boost::intrusive_ptr<block> block_engine::overwrite_zero(u64 index)
 {
     // The read function is a no-op. Everything else is the same as in read().
     auto blk = read_impl(index, [&](byte*) {});
@@ -255,7 +263,7 @@ boost::intrusive_ptr<block> block_engine::overwrite(u64 index)
     return blk;
 }
 
-boost::intrusive_ptr<block> block_engine::overwrite(u64 index, const byte* data)
+boost::intrusive_ptr<block> block_engine::overwrite_with(u64 index, const byte* data)
 {
     auto blk = read_impl(index, [&](byte*) {});
 

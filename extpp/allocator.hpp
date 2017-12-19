@@ -42,7 +42,7 @@ public:
             return allocate(n);
         }
         EXTPP_CHECK(a, "The address passed to reallocate() is invalid.");
-        EXTPP_CHECK(a.block_offset() == 0, "The address passed to reallocate() does not point to a block.");
+        EXTPP_CHECK(a.get_offset_in_block() == 0, "The address passed to reallocate() does not point to a block.");
         if (n == 0) {
             free(a);
             return {};
@@ -57,7 +57,7 @@ public:
     /// Frees blocks previously allocated using `allocate()` or `reallocate()`.
     void free(raw_address<BlockSize> a) {
         EXTPP_CHECK(a, "The address passed to free() is invalid.");
-        EXTPP_CHECK(a.block_offset() == 0, "The address passed to free() does not point to a block.");
+        EXTPP_CHECK(a.get_offset_in_block() == 0, "The address passed to free() does not point to a block.");
         do_free(a);
     }
 

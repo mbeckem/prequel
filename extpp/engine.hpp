@@ -3,6 +3,7 @@
 
 #include <extpp/address.hpp>
 #include <extpp/assert.hpp>
+#include <extpp/block_index.hpp>
 #include <extpp/defs.hpp>
 #include <extpp/math.hpp>
 
@@ -180,7 +181,7 @@ public:
 
     u32 max_size() const noexcept { return m_max_size; }
 
-    u32 size() const noexcept { return m_list.size(); }
+    u32 size() const noexcept { return static_cast<u32>(m_list.size()); }
 
     block_cache(const block_cache&) = delete;
     block_cache& operator=(const block_cache&) = delete;
@@ -274,7 +275,7 @@ public:
     }
 
     /// Returns the number of blocks in this map.
-    u32 size() const noexcept { return m_map.size(); }
+    u32 size() const noexcept { return static_cast<u32>(m_map.size()); }
 
     block_map(const block_map&) = delete;
     block_map& operator=(const block_map&) = delete;
@@ -311,7 +312,7 @@ public:
     block* remove() noexcept;
 
     /// The number of block instances in the pool
-    u32 size() const noexcept { return m_list.size(); }
+    u32 size() const noexcept { return static_cast<u32>(m_list.size()); }
 
     /// True iff the pool is empty.
     bool empty() const noexcept { return m_list.empty(); }
@@ -420,6 +421,12 @@ public:
     /// Returns performance statistics for this engine.
     const engine_stats& stats() const noexcept { return m_stats; }
 
+    /// Accesses the block with the given index if its already in memory.
+    /// Otherwise, returns an invalid pointer. Never performs I/O.
+    ///
+    /// \note A successful access does not count as a cache-hit.
+    boost::intrusive_ptr<block> access(u64 index);
+
     /// Reads the block at the given address and returns a handle to it.
     /// No actual I/O is performed if the block is already in memory.
     ///
@@ -444,11 +451,11 @@ public:
     ///
     /// Throws if an I/O error occurs (this can still happen if the new block
     /// evicts an old block from the cache).
-    boost::intrusive_ptr<block> overwrite(u64 index);
+    boost::intrusive_ptr<block> overwrite_zero(u64 index);
 
     /// Like `overwrite(index)`, but sets the content to that of `data`.
     /// Data must be at least `block_size()` bytes long.
-    boost::intrusive_ptr<block> overwrite(u64 index, const byte* data);
+    boost::intrusive_ptr<block> overwrite_with(u64 index, const byte* data);
 
     /// Writes all dirty blocks back to disk.
     /// Throws if an I/O error occurs.
@@ -525,7 +532,11 @@ public:
         return static_cast<extpp::engine<BlockSize>&>(*m_ptr->engine);
     }
 
-    /// The address of this block.
+    /// The index of this block.
+    block_index index() const noexcept {
+        return m_ptr ? block_index(m_ptr->index) : block_index();
+    }
+
     raw_address<BlockSize> address() const noexcept {
         return m_ptr ? raw_address<BlockSize>::from_block(m_ptr->index)
                      : raw_address<BlockSize>();
@@ -580,16 +591,24 @@ public:
 
     const engine_stats& stats() const { return block_engine::stats(); }
 
-    block_handle<BlockSize> read(u64 index) {
-        return {block_engine::read(index)};
+    block_handle<BlockSize> access(block_index index) {
+        EXTPP_CHECK(index, "Invalid index.");
+        return {block_engine::access(index.value())};
     }
 
-    block_handle<BlockSize> overwrite(u64 index) {
-        return {block_engine::overwrite(index)};
+    block_handle<BlockSize> read(block_index index) {
+        EXTPP_CHECK(index, "Invalid index.");
+        return {block_engine::read(index.value())};
     }
 
-    block_handle<BlockSize> overwrite(u64 index, const byte* data) {
-        return {block_engine::overwrite(index, data)};
+    block_handle<BlockSize> zeroed(block_index index) {
+        EXTPP_CHECK(index, "Invalid index.");
+        return {block_engine::overwrite_zero(index.value())};
+    }
+
+    block_handle<BlockSize> overwritten(block_index index, const byte* data) {
+        EXTPP_CHECK(index, "Invalid index.");
+        return {block_engine::overwrite_with(index.value(), data)};
     }
 
     void flush() {

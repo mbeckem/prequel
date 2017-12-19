@@ -366,6 +366,16 @@ TEST_CASE("btree-fuzzy", "[btree][.slow]") {
                 FAIL("Iterator points to wrong value " << *pos);
             }
         }
+
+        for (u64 n : numbers) {
+            bool removed = tree.erase(n);
+            if (!removed) {
+                FAIL("Failed to remove " << n);
+            }
+        }
+        REQUIRE(tree.size() == 0);
+        REQUIRE(tree.height() == 0);
+        REQUIRE(tree.nodes() == 0);
     }
 }
 
