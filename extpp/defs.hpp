@@ -6,6 +6,9 @@
 
 namespace extpp {
 
+/// \defgroup defs Definitions
+/// @{
+
 using u8 = std::uint8_t;
 using u16 = std::uint32_t;
 using u32 = std::uint32_t;
@@ -27,6 +30,8 @@ static_assert(CHAR_BIT == 8,
 
 template<typename... Args>
 void unused(Args&&...) {}
+
+/// @}
 
 } // namespace extpp
 

@@ -1,16 +1,12 @@
 Datastructures
 ==============
 
-B-Tree: ``extp::btree.hpp``
----------------------------
-
-.. doxygenclass:: extpp::btree
-    :members:
+asdasd
 
 
-Heap: ``extpp/heap.hpp``
-------------------------
+.. toctree::
+   stream
+   btree
+   heap
 
-..  doxygenclass:: extpp::heap
-    :members:
 

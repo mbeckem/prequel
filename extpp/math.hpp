@@ -9,6 +9,9 @@
 
 namespace extpp {
 
+/// \defgroup math Math functions
+/// @{
+
 template<typename T>
 using IsUnsigned = std::enable_if_t<std::is_unsigned<T>::value, T>;
 
@@ -52,7 +55,7 @@ constexpr T mod_pow2(T a, T b) noexcept {
     return a & (b - 1);
 }
 
-/// Returns true if a is aligned, i.e. if it is divisible by b.
+/// \brief Returns true if a is aligned, i.e. if it is divisible by b.
 /// b must be a power of two.
 template<typename T, IsUnsigned<T>* = nullptr>
 constexpr bool is_aligned(T a, T b) noexcept {
@@ -109,7 +112,7 @@ constexpr T checked_add(T a, T b) {
     return result;
 }
 
-/// Performs checked addition of the passed arguments.
+/// Performs checked subtraction of the passed arguments.
 /// Throws std::overflow_error if the operation would overflow.
 template<typename T, IsInteger<T>* = nullptr>
 constexpr T checked_sub(T a, T b) {
@@ -119,7 +122,7 @@ constexpr T checked_sub(T a, T b) {
     return result;
 }
 
-/// Performs checked addition of the passed arguments.
+/// Performs checked multiplication of the passed arguments.
 /// Throws std::overflow_error if the operation would overflow.
 template<typename T, IsInteger<T>* = nullptr>
 constexpr T checked_mul(T a, T b) {
@@ -128,6 +131,8 @@ constexpr T checked_mul(T a, T b) {
         throw std::overflow_error("Multiplication overflows.");
     return result;
 }
+
+/// @}
 
 } // namespace extpp
 

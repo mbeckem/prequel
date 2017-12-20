@@ -35,6 +35,8 @@ struct exponential_growth {};
 
 using growth_strategy = std::variant<linear_growth, exponential_growth>;
 
+/// A stream is a dynamic array of objects in external storage and is
+/// similar to `std::vector` in most aspects.
 template<typename T, u32 BlockSize>
 class stream {
 public:
@@ -90,18 +92,24 @@ public:
     engine<BlockSize>& get_engine() const { return m_extent.get_engine(); }
     allocator<BlockSize>& get_allocator() const { return m_extent.get_allocator(); }
 
+    /// \name Stream capacity
+    /// @{
+
+    /// Returns the maximum number of values per block.
     static constexpr u32 block_capacity() { return block_t::capacity; }
 
-    iterator begin() const { return iterator(this, 0); }
-    iterator end() const { return iterator(this, size()); }
-
+    /// Whether the stream is empty.
     bool empty() const { return size() == 0; }
-    u64 size() const { return m_anchor->size; }
-    u64 capacity() const { return blocks() * block_capacity(); }
-    u64 blocks() const { return m_extent.size(); }
 
-    growth_strategy growth() const { return m_growth; }
-    void growth(const growth_strategy& g) { m_growth = g; }
+    /// The number of elements in the stream.
+    u64 size() const { return m_anchor->size; }
+
+    /// The maximum number of elements the stream can store
+    /// without reallocting its storage.
+    u64 capacity() const { return blocks() * block_capacity(); }
+
+    /// The number of blocks occupied by this stream.
+    u64 blocks() const { return m_extent.size(); }
 
     /// The relative space utilization (memory used by elements
     /// divided by the total allocated memory).
@@ -118,6 +126,40 @@ public:
         return capacity() == 0 ? 0 : double(byte_size()) / (size * sizeof(value_type));
     }
 
+    /// Returns the current growth strategy. Defaults to exponential growth.
+    growth_strategy growth() const { return m_growth; }
+
+    /// Alters the stream's growth strategy.
+    void growth(const growth_strategy& g) { m_growth = g; }
+
+    /// Reserves enough space for at least `n` elements.
+    /// Does nothing if the capacity is already sufficient.
+    /// Invalidates all existing iterators and references if new space
+    /// has to be allocated. Storage is expanded as specified
+    /// by the current growth strategy (see \ref growth()).
+    ///
+    /// \post `capacity() >= n`.
+    void reserve(u64 n) {
+        u64 blocks = ceil_div(n, u64(block_capacity()));
+        if (blocks > m_extent.size())
+            grow_extent(blocks);
+    }
+
+    /// @}
+
+    /// \name Iteration
+    /// @{
+
+    /// Returns an iterator to the first element, or end() if the stream is empty.
+    iterator begin() const { return iterator(this, 0); }
+
+    /// Returns the past-the-end iterator.
+    iterator end() const { return iterator(this, size()); }
+    /// @}
+
+    /// \name Element Access
+    /// @{
+
     /// Returns the element at the given index.
     /// \pre `index < size()`.
     // TODO: This could be a reference if the stream would pin the most recently used block
@@ -129,23 +171,19 @@ public:
         auto block = access(block_index(index));
         return *block->get(block_offset(index));
     }
+    /// @}
 
-    /// Reserves enough space for at least `n` elements.
-    /// Does nothing if the capacity is already sufficient.
-    /// Invalidates all existing iterators and references if new space
-    /// has to be allocated.
-    ///
-    /// \post `capacity() >= n`.
-    void reserve(u64 n) {
-        u64 blocks = ceil_div(n, u64(block_capacity()));
-        if (blocks > m_extent.size())
-            grow_extent(blocks);
-    }
+    /// \name Modifiers
+    /// @{
 
+    /// Removes all elements from this stream. Does not free any space.
+    // TODO: Shrink to fit
     void clear() {
         resize(0);
     }
 
+    /// Resizes this stream to size `n`.
+    /// New elements are initialized as copies of `value`.
     void resize(u64 n, value_type value = value_type()) {
         if (n == size())
             return;
@@ -224,8 +262,13 @@ public:
             v = value;
         });
     }
+    /// @}
 
-    /// TODO: Other forms.
+    /// Returns a raw handle to the object pointed to by `pos`.
+    /// The object can be modified freely.
+    ///
+    /// \warning Handles are invalidated when the iterators are invalidated, i.e.
+    /// when the storage is moved.
     handle<value_type, BlockSize> pointer_to(iterator pos) {
         EXTPP_ASSERT(pos.index() < size(), "Iterator points to an invalid index.");
         block_type h = pos.block();

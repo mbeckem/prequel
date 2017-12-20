@@ -3,8 +3,10 @@
 
 #include <cassert>
 
-// TODO: Other compilers.
+/// \defgroup assertions Assertion Macros
+/// @{
 
+// TODO: Other compilers.
 /// Evaluates the expression `x` and gives a hint to the compiler
 /// that it is likely to be true.
 #define EXTPP_LIKELY(x)      (__builtin_expect(!!(x), 1))
@@ -15,10 +17,12 @@
 
 // TODO: Own debugging macro
 #ifndef NDEBUG
-#define EXTPP_DEBUG
-#endif
 
 /// EXTPP_DEBUG is defined when this library was built in debug mode.
+#define EXTPP_DEBUG
+
+#endif
+
 #ifdef EXTPP_DEBUG
 
 /// When in debug mode, check against the given condition
@@ -64,6 +68,8 @@
 
 /// Unconditionally terminate the program when unreachable code is executed.
 #define EXTPP_UNREACHABLE(message) (::extpp::detail::unreachable_impl_(__FILE__, __LINE__, (message)))
+
+/// @}
 
 /// \cond INTERNAL
 namespace extpp::detail {

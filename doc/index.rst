@@ -10,9 +10,10 @@ Welcome to extpp's documentation!
    :maxdepth: 2
    :caption: Table of Contents
    :numbered:
-   :glob:
+   :includehidden:
 
    datastructures
+   file_io
    utility
 
 

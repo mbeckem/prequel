@@ -152,18 +152,36 @@ public:
     using state_type::get_allocator;
     using state_type::get_engine;
 
-    bool empty() const { return height() == 0; }
-    u64 size() const { return get_anchor()->size; }
-    u32 height() const { return get_anchor()->height; }
-    u64 leaf_nodes() const { return get_anchor()->leaves; }
-    u64 internal_nodes() const { return get_anchor()->internals; }
-    u64 nodes() const { return internal_nodes() + leaf_nodes(); }
+    /// \name Tree size
+    ///
+    /// Functions that are related to the tree size
+    /// and its space usage.
+    ///
+    /// @{
 
     /// Maximum number of children per internal node.
     static constexpr u32 internal_fanout() { return internal_type::max_size(); }
 
     /// Maximum number of values per leaf node.
     static constexpr u32 leaf_fanout() { return leaf_type::max_size(); }
+
+    /// Whether the tree is empty or not.
+    bool empty() const { return height() == 0; }
+
+    /// Number of values in the tree.
+    u64 size() const { return get_anchor()->size; }
+
+    /// Height of the tree.
+    u32 height() const { return get_anchor()->height; }
+
+    /// Number of leaf nodes.
+    u64 leaf_nodes() const { return get_anchor()->leaves; }
+
+    /// Number of internal nodes.
+    u64 internal_nodes() const { return get_anchor()->internals; }
+
+    /// Total number of tree nodes.
+    u64 nodes() const { return internal_nodes() + leaf_nodes(); }
 
     /// The average leaf fill factor. Computed by dividing the number of elements
     /// by the number of available element slots (leaves * leaf fanout).
@@ -182,21 +200,35 @@ public:
         return empty() ? 0 : double(byte_size()) / (size() * sizeof(value_type));
     }
 
-    key_type key(const value_type& value) const {
-        return state().key(value);
-    }
+    /// @}
 
+    /// \name Iteration
+    /// @{
+
+    /// Returns an iterator to the first element. Returns `end()` if the
+    /// tree is empty.
     iterator begin() const {
         if (empty())
             return end();
         return iterator(state(), state().access(get_anchor()->leftmost), 0);
     }
 
+    /// Returns the past-the-end iterator.
     iterator end() const { return iterator(state()); }
 
     /// Returns a visitor for the nodes of this tree.
     /// The visitor starts at the root (if any).
     visitor visit() const { return visitor(this); }
+
+    /// @}
+
+    /// \name Lookup
+    /// @{
+
+    /// Applies the key extractor to the given value and returns the key.
+    key_type key(const value_type& value) const {
+        return state().key(value);
+    }
 
     /// Searches the tree for the first value greater than or equal to `key` and returns
     /// an iterator pointing to it, or `end()` if no such value was found.
@@ -224,6 +256,7 @@ public:
         return iterator(state(), std::move(leaf), index);
     }
 
+    /// Returns the lower bound and the upper bound for the given key.
     std::pair<iterator, iterator> equal_range(const key_type& key) const {
         auto lower = lower_bound(key);
         auto upper = lower;
@@ -241,6 +274,13 @@ public:
             return pos;
         return end();
     }
+
+    /// @}
+
+    /// \name Modifiers
+    ///
+    /// These functions mutate the state of the tree.
+    /// @{
 
     /// Removes all elements from this tree. All disk blocks
     /// allocated by this tree are freed.
@@ -356,7 +396,7 @@ public:
         }
     }
 
-    /// Modify the value at `*iter` using the given Operation function.
+    /// Modify the value at `*pos` using the given Operation function.
     /// A mutable reference to the value will be passed to `op` which may in turn
     /// modify the value. However, the key derived from the modified value
     /// *must* be equivalent to the key before the modification.
@@ -385,12 +425,21 @@ public:
             v = value;
         });
     }
+    /// @}
 
+    /// Verifies the tree's invariants. Useful for debugging.
     void verify() const {
         btree_detail::verify(state());
     }
 
-    // TODO: Other variants.
+    /// Returns a raw handle to the value pointed to by `pos`.
+    /// The value may be mutated through this pointer, but it *must not*
+    /// change its key.
+    ///
+    /// \warning Changing the key without using \ref modify or \ref replace
+    /// destorys the tree's invariants.
+    ///
+    /// \warning Handles are invalidated when iterators are invalidated.
     handle<value_type, BlockSize> pointer_to(const iterator& pos) {
         check_valid(pos);
         return pos.leaf().block().neighbor(&pos.leaf().get(pos.index()));

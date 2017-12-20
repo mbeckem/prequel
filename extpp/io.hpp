@@ -44,8 +44,10 @@ public:
     file& operator=(const file&) = delete;
 };
 
+/// The virtual file system provides the bare necessities for opening files.
 class vfs {
 public:
+    /// Access mode for the open() function.
     enum access_t {
         /// Whether the file should be read-only.
         read_only,
@@ -80,7 +82,7 @@ public:
     vfs& operator=(const vfs&) = delete;
 };
 
-/// Returns the system's file system.
+/// Returns the current platform's file system.
 ///
 /// \relates vfs
 vfs& system_vfs();

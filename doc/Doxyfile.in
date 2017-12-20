@@ -21,7 +21,7 @@ HIDE_UNDOC_CLASSES      = YES
 INTERNAL_DOCS           = NO
 
 ENABLE_PREPROCESSING    = YES
-PREDEFINED              = NDEBUG
+PREDEFINED              = EXTPP_DEBUG
 
 
 VERBATIM_HEADERS        = NO
@@ -31,3 +31,4 @@ GENERATE_MAN            = NO
 GENERATE_HTML           = NO
 GENERATE_RTF            = NO
 GENERATE_XML            = YES
+QUIET 					= YES
