@@ -6,7 +6,7 @@
 #include <cstring>
 #include <iostream>
 
-namespace extpp {
+namespace extpp::detail {
 
 assertion_failure_impl_::assertion_failure_impl_(
         const char* file, int line,
@@ -48,4 +48,4 @@ void abort_impl(const char* file, int line, const char* message) {
     std::abort();
 }
 
-} // namespace extpp
+} // namespace extpp::detail

@@ -7,16 +7,18 @@
 
 #include <fmt/format.h>
 
+/// Expends to the current source location (file, line, function).
 #define EXTPP_SOURCE_LOCATION \
     (::extpp::source_location(__FILE__, __LINE__, __func__))
 
+/// Augments an \ref extpp::exception with the current source location.
 #define EXTPP_AUGMENT_EXCEPTION(e) \
     (::extpp::detail::with_location((e), EXTPP_SOURCE_LOCATION))
 
-/// Throw the given exception with added source location information.
+/// Throw the given \ref extpp::exception with added source location information.
 #define EXTPP_THROW(e) throw (EXTPP_AUGMENT_EXCEPTION(e))
 
-/// Throw a new exception `e` with added source location information
+/// Throw a new \ref extpp::exception `e` with added source location information
 /// and the currently active exception (if any) as its cause.
 #define EXTPP_THROW_NESTED(e) (::std::throw_with_nested(EXTPP_AUGMENT_EXCEPTION(e)))
 

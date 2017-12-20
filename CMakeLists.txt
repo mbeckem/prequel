@@ -17,6 +17,7 @@ find_package(Boost 1.60 COMPONENTS program_options REQUIRED)
 
 find_package(fmt REQUIRED)
 
+add_subdirectory(doc)
 add_subdirectory(extpp)
 add_subdirectory(test)
 add_subdirectory(bench)

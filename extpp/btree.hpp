@@ -242,7 +242,10 @@ public:
         return end();
     }
 
-    /// Removes all elements from this tree.
+    /// Removes all elements from this tree. All disk blocks
+    /// allocated by this tree are freed.
+    ///
+    /// \note Invalidates *all* iterators, with the exception of the end iterator.
     void clear() {
         if (empty())
             return;
@@ -258,7 +261,8 @@ public:
     /// Inserts the given value into the tree.
     /// Does not change the tree if a value with the same key already exists.
     ///
-    /// \note Inserting a value invalidates *all* other iterators.
+    /// \note Inserting a value invalidates *all* other iterators,
+    /// with the exception of the end iterator.
     std::pair<iterator, bool> insert(value_type value) {
         // TODO: Copy of value necessary?
         // It might point into the container itself.
@@ -294,6 +298,8 @@ public:
 
     /// Searches for a value with the given key and then removes it.
     /// Returns true if such a value existed, false otherwise.
+    ///
+    /// \note Invalidates *all* iterators, with the exception of the end iterator.
     bool erase(key_type key) {
         node_stack_type& stack = m_stack_buf;
         leaf_type leaf = find_leaf(key, stack);
@@ -316,6 +322,9 @@ public:
     /// `pos` must point to a valid element.
     ///
     /// Returns an iterator following the removed element.
+    ///
+    /// \note Invalidates *all* iterators, with the exception of the end iterator
+    /// and the returned iterator.
     iterator erase(const iterator& pos) {
         check_valid(pos);
         key_type key = state().key(*pos);
@@ -329,6 +338,8 @@ public:
 
     /// Erases all elements in the range [first, last).
     /// `last` must be reachable from `first` using forward iteration.
+    ///
+    /// \note Invalidates *all* iterators, with the exception of the end iterator.
     void erase(iterator first, iterator last) {
         check_instance(first);
         check_instance(last);
