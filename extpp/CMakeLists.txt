@@ -15,7 +15,7 @@ set(HEADERS
     heap/gc.hpp
     heap/object_access.hpp
     heap/object_table.hpp
-    heap/segregated_free_list.hpp
+    heap/free_space.hpp
     heap/storage.hpp
     heap/type_set.hpp
 

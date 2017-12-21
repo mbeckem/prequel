@@ -8,7 +8,7 @@
 
 using namespace extpp;
 
-constexpr u32 block_size = 4096;
+constexpr u32 block_size = 512;
 using heap_t = heap<block_size>;
 using file_t = test_file<heap_t::anchor, block_size>;
 
@@ -43,14 +43,16 @@ TEST_CASE("heap", "[heap]") {
             refs = new_refs;
         }
 
+
         auto collector = heap.begin_compaction();
         for (auto ref : refs)
             collector.visit(ref);
         collector();
 
-        //heap.debug_print(std::cout);
+        // heap.debug_print(std::cout);
+
         std::cout << "\n";
     }
-    // file.alloc().debug_print(std::cout);
+    //file.alloc().debug_print(std::cout);
     file.close();
 }

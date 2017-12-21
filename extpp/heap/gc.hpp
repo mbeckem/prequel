@@ -7,6 +7,7 @@
 #include <extpp/math.hpp>
 #include <extpp/detail/bitset.hpp>
 #include <extpp/detail/rollback.hpp>
+#include <extpp/heap/free_space.hpp>
 #include <extpp/heap/storage.hpp>
 #include <extpp/heap/object_access.hpp>
 #include <extpp/heap/object_table.hpp>
@@ -243,7 +244,7 @@ public:
     using object_header_type = typename object_access_type::object_header;
 
     using object_table_type = object_table<BlockSize>;
-    using free_list_type = segregated_free_list<BlockSize>;
+    using free_space_type = free_space<BlockSize>;
 
     using gc_data_type = gc_data<BlockSize>;
     using chunk_entry_type = typename gc_data_type::entry;
@@ -254,13 +255,13 @@ public:
     sweep_pass(gc_data_type& chunks,
                object_access_type& access,
                object_table_type& table,
-               free_list_type& free_list,
+               free_space_type& free_list,
                storage_type& storage,
                type_set& types)
         : m_chunks(chunks)
         , m_access(access)
         , m_table(table)
-        , m_free_list(free_list)
+        , m_free_space(free_list)
         , m_storage(storage)
         , m_types(types)
     {}
@@ -274,7 +275,7 @@ private:
     /// Rebuild the free list from scratch by iterating over the bitmap
     /// associated with each chunk.
     void build_free_list() {
-        m_free_list.clear();
+        m_free_space.clear();
 
         for (auto ent = m_chunks.begin(), e = m_chunks.end(); ent != e; ++ent) {
             // Large object chunks are simply returned to the allocator.
@@ -302,7 +303,7 @@ private:
                 if (j == detail::bitset::npos)
                     j = bitmap.size();
 
-                m_free_list.free(base_cell + static_cast<u64>(i), static_cast<u64>(j - i));
+                m_free_space.free(base_cell + static_cast<u64>(i), static_cast<u64>(j - i));
                 if (j == bitmap.size())
                     break;
                 i = bitmap.find_unset(j + 1);
@@ -314,7 +315,7 @@ private:
     gc_data_type& m_chunks;
     object_access_type& m_access;
     object_table_type& m_table;
-    free_list_type& m_free_list;
+    free_space_type& m_free_space;
     storage_type& m_storage;
     type_set& m_types;
 };
@@ -328,7 +329,7 @@ public:
     using object_table_type = object_table<BlockSize>;
     using object_entry_type = object_entry<BlockSize>;
 
-    using free_list_type = segregated_free_list<BlockSize>;
+    using free_list_type = free_space<BlockSize>;
 
     using gc_data_type = gc_data<BlockSize>;
     using chunk_entry_type = typename gc_data_type::entry;

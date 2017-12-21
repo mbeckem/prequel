@@ -874,7 +874,7 @@ void parse(settings& s, int argc, char** argv) {
     );
     auto cmd_debug = command("debug").set(s.cmd, subcommand::debug);
 
-    auto cli = (general & (
+    auto cli = (general, (
             cmd_create  | cmd_delete
         |   cmd_set     | cmd_unset
         |   cmd_link    | cmd_unlink
@@ -882,28 +882,33 @@ void parse(settings& s, int argc, char** argv) {
         |   cmd_gc      | cmd_debug
     )) | help;
 
-    auto print_help = [&]{
+    auto print_usage = [&](bool include_help){
         auto fmt = doc_formatting()
                 .start_column(0)
                 .doc_column(30)
                 .max_flags_per_param_in_usage(1);
 
         std::cout << "Usage:\n"
-                  << usage_lines(cli, argv[0], doc_formatting(fmt).start_column(4)) << "\n\n"
-                  << documentation(cli, fmt)
-                  << std::endl;
-        std::exit(1);
+                  << usage_lines(cli, argv[0], doc_formatting(fmt).start_column(4))
+                  << "\n";
+        if (include_help) {
+            std::cout << "\n"
+                      << documentation(cli, fmt)
+                      << "\n";
+        }
     };
 
     parsing_result result = parse(argc, argv, cli);
     if (show_help) {
-        print_help();
+        print_usage(true);
+        std::exit(1);
     }
     if (!result) {
         if (!result.missing().empty()) {
             std::cout << "Required parameters are missing.\n\n";
         }
-        print_help();
+        print_usage(false);
+        std::exit(1);
     }
 }
 

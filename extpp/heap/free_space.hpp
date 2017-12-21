@@ -1,5 +1,5 @@
-#ifndef EXTPP_HEAP_SEGREGATED_FREE_LIST_HPP
-#define EXTPP_HEAP_SEGREGATED_FREE_LIST_HPP
+#ifndef EXTPP_HEAP_FREEP_SPACE_HPP
+#define EXTPP_HEAP_FREEP_SPACE_HPP
 
 #include <extpp/address.hpp>
 #include <extpp/allocator.hpp>
@@ -10,6 +10,7 @@
 #include <extpp/identity_key.hpp>
 #include <extpp/stream.hpp>
 #include <extpp/heap/base.hpp>
+#include <extpp/heap/storage.hpp>
 
 #include <fmt/ostream.h>
 
@@ -18,9 +19,9 @@
 
 namespace extpp::heap_detail {
 
-// TODO: Pick large contiguous regions for bump-ptr allocations.
+/// Manages all free space in the heap.
 template<u32 BlockSize>
-class segregated_free_list {
+class free_space {
     using cell_address_t = address<cell, BlockSize>;
     using raw_address_t = raw_address<BlockSize>;
 
@@ -78,14 +79,20 @@ public:
     class anchor {
         typename stream_type::anchor lists;
         typename free_tree::anchor tree;
+        cell_range current;
 
-        friend class segregated_free_list;
+        friend class free_space;
     };
 
+    /// Everything above this size is a large object and cannot be allocated by this class.
+    /// This value is arbitrary and needs experimentation. TODO
+    static constexpr u64 max_small_object_cells = 8 * storage<BlockSize>::cells_per_block;
+
 public:
-    segregated_free_list(anchor_ptr<anchor> anc, allocator<BlockSize>& alloc)
-        : m_lists_headers(anc.member(&anchor::lists), alloc)
-        , m_large_ranges(anc.member(&anchor::tree), alloc)
+    free_space(anchor_ptr<anchor> anc, allocator<BlockSize>& alloc)
+        : m_anchor(std::move(anc))
+        , m_lists_headers(m_anchor.member(&anchor::lists), alloc)
+        , m_large_ranges(m_anchor.member(&anchor::tree), alloc)
     {
         m_lists_headers.growth(linear_growth(1));
         if (m_lists_headers.empty()) {
@@ -96,6 +103,9 @@ public:
     }
 
     void clear() {
+        m_anchor->current = {};
+        m_anchor.dirty();
+
         for (auto& i : m_lists) {
             *i = list_header();
             i.dirty();
@@ -103,35 +113,52 @@ public:
         m_large_ranges.clear();
     }
 
-    void free(cell_address_t cell, u64 size) {
+    void free(cell_address_t cell, u64 size_in_cells) {
         EXTPP_ASSERT(cell, "Cell pointer must be valid.");
-        EXTPP_ASSERT(size > 0, "Invalid region size.");
+        EXTPP_ASSERT(size_in_cells > 0, "Invalid region size.");
 
-        const size_t sc = size_class_index(size);
+        const size_t sc = size_class_index(size_in_cells);
         EXTPP_ASSERT(sc < size_classes.size(), "Invalid size class.");
-        EXTPP_ASSERT(size_classes[sc] <= size, "Size class invariant.");
-        EXTPP_ASSERT(sc == size_classes.size() - 1 || size_classes[sc+1] > size, "Size class invariant.");
+        EXTPP_ASSERT(size_classes[sc] <= size_in_cells, "Size class invariant.");
+        EXTPP_ASSERT(sc == size_classes.size() - 1 || size_classes[sc+1] > size_in_cells, "Size class invariant.");
 
         if (sc == size_classes.size() - 1) {
-            insert_large_run({cell, size});
+            insert_large_run({cell, size_in_cells});
         } else {
-            insert_into_list(sc, {cell, size});
+            insert_into_list(sc, {cell, size_in_cells});
         }
     }
 
-    cell_address_t allocate(u64 size) {
-        cell_range range = get_free(size);
-        if (!range.addr)
-            return {};
+    cell_address_t allocate(u64 size_in_cells) {
+        EXTPP_ASSERT(size_in_cells <= max_small_object_cells, "Object is too big.");
 
-        EXTPP_ASSERT(range.size >= size, "Range does not satisfy the size request.");
-        if (range.size > size) {
-            free(range.addr + size, range.size - size);
+        // Find a range of at least `size` cells and and perform
+        // bump-pointer allocation in it until it is exhausted.
+        cell_range& current = m_anchor->current;
+        if (current.size < size_in_cells) {
+            if (current.size > 0)
+                free(current.addr, current.size);
+
+            current = get_range(size_in_cells);
+            m_anchor.dirty();
+
+            if (!current.addr)
+                return {};
         }
-        return range.addr;
+
+        EXTPP_ASSERT(current.size >= size_in_cells,
+                     "Range must have at least the requested size.");
+        cell_address_t result = current.addr;
+        current.addr += size_in_cells;
+        current.size -= size_in_cells;
+        m_anchor.dirty();
+
+        return result;
     }
 
     void debug_stats(std::ostream& out) {
+        fmt::print(out, "Current range: {} (size {})\n\n", m_anchor->current.addr, m_anchor->current.size);
+
         for (size_t i = 0; i < size_classes.size() - 1; ++i) {
             auto& ls = m_lists[i];
 
@@ -238,39 +265,38 @@ private:
         return p - size_classes.begin();
     }
 
-    /// Find a free range of the given size or more (if possible) and remove it
-    /// from its datastructure.
-    cell_range get_free(u64 size) {
-        if (size >= size_classes.back()) {
-            if (auto pos = find_large_run(size); pos != m_large_ranges.end()) {
-                cell_range result = *pos;
-                m_large_ranges.erase(pos);
+    /// Finds a contiguous range of at least `size` cells and removes
+    /// it from the free list. This function prefers the largest available
+    /// cell range because we want to do as many linear allocations as possible.
+    cell_range get_range(u64 size) {
+        if (!m_large_ranges.empty()) {
+            if (auto last = std::prev(m_large_ranges.end()); last->size >= size) {
+                cell_range result = *last;
+                m_large_ranges.erase(last);
                 return result;
             }
             return {};
         }
+        // m_large_ranges.empty():
+
+        if (size >= size_classes.back())
+            return {};
 
         // Test all segmented lists that are guaranteed
         // to satisfy the request (if they're not empty).
+        // Start with the larger size classes.
         const size_t si = size_class_index(size);
-        const size_t sj = size_classes[si] == size ? si : si + 1;
-        for (size_t i = sj; i < m_lists.size(); ++i) {
-            if (cell_range range = remove_list_head(i); range.addr)
+        const size_t sj = size_classes[si] < size ? si + 1 : si;
+        for (size_t i = m_lists.size(); i-- > sj; ) {
+            if (cell_range range = remove_list_head(i); range.addr) {
+                EXTPP_ASSERT(range.size >= size, "Size class invariant.");
                 return range;
+            }
         }
 
-        // Any large object would be big enough.
-        if (auto pos = m_large_ranges.begin(); pos != m_large_ranges.end()) {
-            cell_range range = *pos;
-            m_large_ranges.erase(pos);
-            return range;
-        }
-
-        // Otherwise, do a first fit search in the list that *might*
-        // be able to satisfy the request. We may have already visited the list above.
+        // This is a an odd cell size, do first fit search in its bucket.
         if (si != sj) {
-            if (cell_range range = remove_first_fit(si, size); range.addr)
-                return range;
+            return remove_first_fit(si, size);
         }
         return {};
     }
@@ -285,19 +311,11 @@ private:
         EXTPP_ASSERT(inserted, "Entry was not inserted.");
     }
 
-    free_tree_iterator find_large_run(u64 size) {
-        if (size <= size_classes.back())
-            return m_large_ranges.begin();
-
-        cell_range entry;
-        entry.size = size;
-        entry.addr = raw_address_cast<cell>(raw_address_t(0, 0));
-        return m_large_ranges.lower_bound(entry);
-    }
-
     engine<BlockSize>& get_engine() const { return m_lists_headers.get_engine(); }
 
 private:
+    anchor_ptr<anchor> m_anchor;
+
     /// Stores the linked list headers.
     stream_type m_lists_headers;
 
@@ -310,4 +328,4 @@ private:
 
 } // namespace extpp::heap_detail
 
-#endif // EXTPP_HEAP_SEGREGATED_FREE_LIST_HPP
+#endif // EXTPP_HEAP_FREEP_SPACE_HPP

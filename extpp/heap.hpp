@@ -12,7 +12,7 @@
 #include <extpp/heap/gc.hpp>
 #include <extpp/heap/object_access.hpp>
 #include <extpp/heap/object_table.hpp>
-#include <extpp/heap/segregated_free_list.hpp>
+#include <extpp/heap/free_space.hpp>
 #include <extpp/heap/storage.hpp>
 #include <extpp/heap/type_set.hpp>
 
@@ -154,7 +154,7 @@ private:
     using object_access_type = heap_detail::object_access<BlockSize>;
     using object_header_type = typename object_access_type::object_header;
 
-    using freelist_type = heap_detail::segregated_free_list<BlockSize>;
+    using free_space_type = heap_detail::free_space<BlockSize>;
 
     using cell = heap_detail::cell;
     static constexpr auto cell_size = heap_detail::cell_size;
@@ -163,16 +163,11 @@ private:
 
     static constexpr auto cells_per_block = storage_type::cells_per_block;
 
-    /// Everything above this size is a large object.
-    /// This value is arbitrary and needs experimentation. TODO
-    static constexpr u64 max_small_object_blocks = 8;
-    static constexpr u64 max_small_object_cells = max_small_object_blocks * cells_per_block;
-
 public:
     class anchor {
         typename storage_type::anchor storage;
         typename object_table_type::anchor objects;
-        typename freelist_type::anchor free_list;
+        typename free_space_type::anchor free_space;
 
         friend class heap;
     };
@@ -186,7 +181,7 @@ public:
         , m_anchor(std::move(h))
         , m_access(this->get_engine())
         , m_storage(m_anchor.member(&anchor::storage), alloc)
-        , m_free_list(m_anchor.member(&anchor::free_list), alloc)
+        , m_free_space(m_anchor.member(&anchor::free_space), alloc)
         , m_table(m_anchor.member(&anchor::objects), alloc)
     {}
 
@@ -198,7 +193,7 @@ public:
 
     u64 chunk_size() const { return m_chunk_size; }
     void chunk_size(u64 blocks) {
-        m_chunk_size = std::max(4 * max_small_object_blocks, blocks);
+        m_chunk_size = std::max(4 * block_count(free_space_type::max_small_object_cells), blocks);
     }
 
     /// Inserts a new object into the heap.
@@ -276,7 +271,7 @@ public:
         fmt::print(out, "\n");
 
         fmt::print(out, "Free list:\n");
-        m_free_list.debug_stats(out);
+        m_free_space.debug_stats(out);
         fmt::print(out, "\n");
 
         fmt::print(out, "Object table:\n");
@@ -310,30 +305,30 @@ private:
         // cannot satisfy the request, a new chunk is allocated and
         // the attempt is repeated.
 
-        if (cells > max_small_object_cells) {
+        if (cells > free_space_type::max_small_object_cells) {
             const u64 blocks = block_count(cells);
             chunk_entry entry = m_storage.allocate(blocks, true);
             return raw_address_cast<cell>(entry.addr);
         }
 
-        if (auto addr = m_free_list.allocate(cells))
+        if (auto addr = m_free_space.allocate(cells))
             return addr;
 
         chunk_entry entry = m_storage.allocate(m_chunk_size, false);
-        m_free_list.free(raw_address_cast<cell>(entry.addr), entry.cell_count());
+        m_free_space.free(raw_address_cast<cell>(entry.addr), entry.cell_count());
 
-        auto addr = m_free_list.allocate(cells);
+        auto addr = m_free_space.allocate(cells);
         EXTPP_ASSERT(addr, "Allocation failed.");
         return addr;
     }
 
     /// Returns the number of cells occupied by an object with the given byte size.
-    static u64 cell_count(u64 byte_size) {
+    static constexpr u64 cell_count(u64 byte_size) {
         return ceil_div(byte_size, u64(cell_size));
     }
 
     /// Returns the number of blocks required for the given number of cells.
-    static u64 block_count(u64 cells) {
+    static constexpr u64 block_count(u64 cells) {
         return ceil_div(cells, u64(cells_per_block));
     }
 
@@ -361,7 +356,7 @@ private:
     storage_type m_storage;
 
     /// Contains free cell ranges. Built during the sweeping phase.
-    freelist_type m_free_list;
+    free_space_type m_free_space;
 
     /// Contains the mappings from reference to real disk address.
     object_table_type m_table;
@@ -413,7 +408,7 @@ protected:
         : m_heap(b)
         , m_data(m_heap.m_storage)
         , m_mark(m_data, m_heap.m_access, m_heap.m_table, m_heap.m_types)
-        , m_collect(m_data, m_heap.m_access, m_heap.m_table, m_heap.m_free_list, m_heap.m_storage, m_heap.m_types)
+        , m_collect(m_data, m_heap.m_access, m_heap.m_table, m_heap.m_free_space, m_heap.m_storage, m_heap.m_types)
     {
         m_heap.set_gc_phase(heap_type::gc_phase::mark);
     }
