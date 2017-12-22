@@ -1900,7 +1900,6 @@ public:
         return *this;
     }
 
-
     //---------------------------------------------------------------
     /** @brief returns parameter label;
      *         will be used for documentation, if flags are empty
@@ -3030,7 +3029,6 @@ public:
         return std::all_of(children_.begin(), children_.end(),
             [](const child& n){ return n.required(); });
     }
-
 
     //---------------------------------------------------------------
     /** @brief returns true if any child is optional (=non-required) */

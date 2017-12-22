@@ -42,7 +42,7 @@ public:
 
     void flush() {
         m_engine.flush();
-        // TODO: m_file->flush();
+        m_file.sync();
     }
 
 private:
