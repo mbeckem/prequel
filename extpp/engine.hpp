@@ -3,6 +3,7 @@
 
 #include <extpp/address.hpp>
 #include <extpp/assert.hpp>
+#include <extpp/block_handle.hpp>
 #include <extpp/block_index.hpp>
 #include <extpp/defs.hpp>
 #include <extpp/math.hpp>
@@ -61,65 +62,66 @@ class block_test;
 /// Block instances that have been "destroyed" (i.e. their refcount has become zero)
 /// are linked to together in a free list and will be reused for
 /// future allocations.
-struct block {
+class block final : public detail::block_handle_impl {
+public:
     /// The engine this block belongs to.
-    block_engine* const engine;
+    block_engine* const m_engine;
 
     /// The block size.
-    const u32 block_size;
+    const u32 m_block_size;
 
     /// Number of references to this block.
-    u32 refcount = 0;
+    u32 m_refcount = 0;
 
     /// Used by the free list in block_pool.
-    boost::intrusive::list_member_hook<> free_hook;
+    boost::intrusive::list_member_hook<> m_free_hook;
 
     /// Used by the block_cache.
-    boost::intrusive::list_member_hook<> lru_hook;
+    boost::intrusive::list_member_hook<> m_lru_hook;
 
     /// Used by the block_map.
-    boost::intrusive::unordered_set_member_hook<> map_hook;
+    boost::intrusive::unordered_set_member_hook<> m_map_hook;
 
     /// Marks the block as dirty and links all dirty blocks together
     /// in a list. Used by the block_dirty_set.
-    boost::intrusive::list_member_hook<> dirty_hook;
+    boost::intrusive::list_member_hook<> m_dirty_hook;
 
     /// The index of this block on disk.
-    u64 index = -1;
+    u64 m_index = -1;
 
     /// The block's raw data.
-    byte* const buffer = nullptr;
+    byte* const m_buffer = nullptr;
 
     explicit block(block_engine* engine, u32 block_size)
-        : engine(engine)
-        , block_size(block_size)
-        , buffer(static_cast<byte*>(std::malloc(block_size)))
+        : m_engine(engine)
+        , m_block_size(block_size)
+        , m_buffer(static_cast<byte*>(std::malloc(block_size)))
     {
-        if (!buffer)
+        if (!m_buffer)
             throw std::bad_alloc();
     }
 
     ~block() {
-        free(buffer);
+        free(m_buffer);
     }
 
     /// Puts the block into a state where it can be reused.
     void reset() noexcept {
         // The block must not be in any of the containers
         // when it is being reset.
-        EXTPP_ASSERT(!free_hook.is_linked(), "in free list");
-        EXTPP_ASSERT(!lru_hook.is_linked(), "in lru list");
-        EXTPP_ASSERT(!map_hook.is_linked(), "in block map");
-        EXTPP_ASSERT(!dirty_hook.is_linked(), "in dirty list");
+        EXTPP_ASSERT(!m_free_hook.is_linked(), "in free list");
+        EXTPP_ASSERT(!m_lru_hook.is_linked(), "in lru list");
+        EXTPP_ASSERT(!m_map_hook.is_linked(), "in block map");
+        EXTPP_ASSERT(!m_dirty_hook.is_linked(), "in dirty list");
 
-        index = -1;
+        m_index = -1;
         // Not zeroing the data array because it will
         // be overwritten by a read() anyway.
     }
 
     void ref() noexcept {
-        ++refcount;
-        EXTPP_ASSERT(refcount >= 1, "invalid refcount");
+        ++m_refcount;
+        EXTPP_ASSERT(m_refcount >= 1, "invalid refcount");
     }
 
     inline void unref() noexcept;
@@ -129,6 +131,26 @@ struct block {
 
     block(const block&) = delete;
     block& operator=(const block&) = delete;
+
+public:
+    // Interface implementation (detail::block_handle_impl)
+
+    virtual u64 index() const noexcept override { return m_index; }
+
+    virtual byte* data() const noexcept override { return m_buffer; }
+
+    virtual u32 block_size() const noexcept override { return m_block_size; }
+
+    virtual void dirty() override { set_dirty(); }
+
+    virtual block* copy() override {
+        ref();
+        return this;
+    }
+
+    virtual void destroy() override {
+        unref();
+    }
 
 private:
     friend void intrusive_ptr_add_ref(block* b) {
@@ -148,7 +170,7 @@ private:
     using list_t = boost::intrusive::list<
         block,
         boost::intrusive::member_hook<
-            block, boost::intrusive::list_member_hook<>, &block::lru_hook
+            block, boost::intrusive::list_member_hook<>, &block::m_lru_hook
         >
     >;
 
@@ -170,7 +192,7 @@ public:
 
     /// True if the block is in the cache.
     bool contains(block& blk) const noexcept {
-        return blk.lru_hook.is_linked();
+        return blk.m_lru_hook.is_linked();
     }
 
     /// Marks the block as used, inserting it into the cache
@@ -204,7 +226,7 @@ class block_map {
         using type = u64;
 
         u64 operator()(const block& blk) const noexcept {
-            return blk.index;
+            return blk.m_index;
         }
     };
 
@@ -219,7 +241,7 @@ class block_map {
         boost::intrusive::member_hook<
             block,
             boost::intrusive::unordered_set_member_hook<>,
-            &block::map_hook
+            &block::m_map_hook
         >,
         boost::intrusive::power_2_buckets<true>,
         boost::intrusive::key_of_value<block_key>,
@@ -271,7 +293,7 @@ public:
 
     /// Returns true if the block is inside this map.
     bool contains(block& blk) const noexcept {
-        return blk.map_hook.is_linked();
+        return blk.m_map_hook.is_linked();
     }
 
     /// Returns the number of blocks in this map.
@@ -286,7 +308,7 @@ class block_pool {
     using list_t = boost::intrusive::list<
         block,
         boost::intrusive::member_hook<
-            block, boost::intrusive::list_member_hook<>, &block::free_hook
+            block, boost::intrusive::list_member_hook<>, &block::m_free_hook
         >
     >;
 
@@ -330,7 +352,7 @@ class block_dirty_set {
     using list_t = boost::intrusive::list<
         block,
         boost::intrusive::member_hook<
-            block, boost::intrusive::list_member_hook<>, &block::dirty_hook
+            block, boost::intrusive::list_member_hook<>, &block::m_dirty_hook
         >
     >;
 
@@ -351,7 +373,7 @@ public:
     void add(block& blk) noexcept;
 
     /// Returns true if the block has been marked as dirty.
-    bool contains(block& blk) const noexcept { return blk.dirty_hook.is_linked(); }
+    bool contains(block& blk) const noexcept { return blk.m_dirty_hook.is_linked(); }
 
     /// Marks the block as clean.
     /// \pre `contains(blk)`.
@@ -501,15 +523,15 @@ private:
 };
 
 inline void block::unref() noexcept {
-    EXTPP_ASSERT(refcount >= 1, "invalid refcount");
-    if (--refcount == 0) {
-        engine->finalize_block(*this);
+    EXTPP_ASSERT(m_refcount >= 1, "invalid refcount");
+    if (--m_refcount == 0) {
+        m_engine->finalize_block(*this);
     }
 }
 
 inline void block::set_dirty() noexcept {
-    if (!engine->is_dirty(*this)) {
-        engine->set_dirty(*this);
+    if (!m_engine->is_dirty(*this)) {
+        m_engine->set_dirty(*this);
     }
 }
 
@@ -526,20 +548,15 @@ public:
     /// Constructs an invalid handle.
     block_handle() = default;
 
-    /// Returns a reference to the block engine.
-    engine<BlockSize>& get_engine() const noexcept {
-        EXTPP_ASSERT(m_ptr, "derefencing an invalid block handle");
-        return static_cast<engine<BlockSize>&>(*m_ptr->engine);
-    }
 
     /// The index of this block.
     block_index index() const noexcept {
-        return m_ptr ? block_index(m_ptr->index) : block_index();
+        return m_handle.index();
     }
 
     raw_address<BlockSize> address() const noexcept {
-        return m_ptr ? raw_address<BlockSize>::from_block(m_ptr->index)
-                     : raw_address<BlockSize>();
+        return m_handle ? raw_address<BlockSize>::from_block(index())
+                        : raw_address<BlockSize>();
     }
 
     /// Pointer to the beginning of this block's data.
@@ -548,8 +565,7 @@ public:
     ///
     /// \pre `*this`.
     byte* data() const noexcept {
-        EXTPP_ASSERT(m_ptr, "derefencing an invalid block handle");
-        return m_ptr->buffer;
+        return m_handle.data();
     }
 
     /// Marks this block as dirty.
@@ -557,24 +573,22 @@ public:
     /// are flushed from memory.
     /// If the memory was modified by the application,
     /// the dirty flag should be set to persist the changes.
-    void dirty() const noexcept {
-        EXTPP_ASSERT(m_ptr, "derefencing an invalid block handle");
-        m_ptr->set_dirty();
+    void dirty() const {
+        m_handle.dirty();
     }
 
     /// Returns true if this handle refers to a valid block.
-    explicit operator bool() const noexcept { return m_ptr != nullptr; }
+    explicit operator bool() const noexcept { return m_handle.valid(); }
 
 private:
     friend class engine<BlockSize>;
 
     block_handle(boost::intrusive_ptr<detail::block> blk) noexcept
-        : m_ptr(std::move(blk))
+        : m_handle(blk.detach())
     {}
 
 private:
-    // the reference count keeps the block alive.
-    boost::intrusive_ptr<detail::block> m_ptr;
+    new_block_handle m_handle;
 };
 
 template<u32 BlockSize>

@@ -17,13 +17,37 @@ vfs::~vfs() {
 
 }
 
+void* vfs::memory_map(file& f, u64 offset, u64 length) {
+    unused(offset, length);
+
+    check_vfs(f);
+    EXTPP_THROW(unsupported("mmap is not supported by this vfs."));
+}
+
+void vfs::memory_unmap(void* addr, u64 length) {
+    unused(addr, length);
+    EXTPP_THROW(unsupported("mmap is not supported by this vfs."));
+}
+
+class in_memory_vfs : public vfs {
+public:
+    in_memory_vfs() = default;
+
+    virtual const char* name() const noexcept override { return "memory"; }
+
+    virtual std::unique_ptr<file> open(const char* path,
+                                       access_t access = read_only,
+                                       flags_t mode = open_normal) override;
+};
+
 class memory_file : public file {
     std::string m_name;
     std::vector<byte> m_data;
 
 public:
-    memory_file(std::string name)
-        : m_name(std::move(name)) {}
+    memory_file(in_memory_vfs& v, std::string name)
+        : file(v)
+        , m_name(std::move(name)) {}
 
     const char* name() const noexcept override { return m_name.c_str(); }
 
@@ -86,9 +110,18 @@ void memory_file::close()
     m_data.clear();
 }
 
-std::unique_ptr<file> create_memory_file(std::string name)
+std::unique_ptr<file> in_memory_vfs::open(const char* path,
+                                          access_t access,
+                                          flags_t mode)
 {
-    return std::make_unique<memory_file>(std::move(name));
+    // TODO: Respect flags
+    unused(access, mode);
+    return std::make_unique<memory_file>(*this, path);
+}
+
+vfs& memory_vfs() {
+    static in_memory_vfs v;
+    return v;
 }
 
 } // namespace extpp

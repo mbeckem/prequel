@@ -39,7 +39,7 @@ public:
 
 public:
     test_file()
-        : m_file(create_memory_file("test-file"))
+        : m_file(memory_vfs().open("testfile.bin", vfs::read_write, vfs::open_create))
         , m_block_size(BlockSize)
     {
         init();

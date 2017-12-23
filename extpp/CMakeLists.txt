@@ -31,6 +31,7 @@ set(HEADERS
     anchor_ptr.hpp
     assert.hpp
     block.hpp
+    block_handle.hpp
     block_index.hpp
     btree.hpp
     default_allocator.hpp
@@ -41,8 +42,8 @@ set(HEADERS
     extent.hpp
     handle.hpp
     heap.hpp
-    identity_key.hpp
     id_generator.hpp
+    identity_key.hpp
     io.hpp
     list.hpp
     log.hpp
@@ -69,6 +70,8 @@ if (WIN32)
 elseif(UNIX)
     list(APPEND SOURCES
         io_unix.cpp
+        mmap_engine.cpp
+        mmap_engine.hpp
     )
 endif()
 

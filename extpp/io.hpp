@@ -1,6 +1,7 @@
 #ifndef EXTPP_IO_HPP
 #define EXTPP_IO_HPP
 
+#include <extpp/assert.hpp>
 #include <extpp/defs.hpp>
 
 #include <memory>
@@ -8,12 +9,17 @@
 
 namespace extpp {
 
+class file;
+class vfs;
+
 // TODO: Mechanism for fadvice() and sync()
 class file {
 public:
-    file() = default;
+    file(extpp::vfs& v): m_vfs(v) {}
 
     virtual ~file();
+
+    extpp::vfs& get_vfs() const { return m_vfs; }
 
     /// Returns the name of this file (for error reporting only).
     virtual const char* name() const noexcept = 0;
@@ -42,6 +48,9 @@ public:
 
     file(const file&) = delete;
     file& operator=(const file&) = delete;
+
+private:
+    extpp::vfs& m_vfs;
 };
 
 /// The virtual file system provides the bare necessities for opening files.
@@ -78,8 +87,21 @@ public:
                                        access_t access = read_only,
                                        flags_t mode = open_normal) = 0;
 
+    /// Maps a portion of the file into the process address space.
+    /// Throws if not supported by the platform.
+    virtual void* memory_map(file& f, u64 offset, u64 length);
+
+    /// Unmaps a memory mapping created using map().
+    virtual void memory_unmap(void* addr, u64 length);
+
     vfs(const vfs&) = delete;
     vfs& operator=(const vfs&) = delete;
+
+protected:
+    void check_vfs(file& f) const {
+        EXTPP_CHECK(&f.get_vfs() == this,
+                    "The file does not belong to this filesystem.");
+    }
 };
 
 /// Returns the current platform's file system.
@@ -87,8 +109,10 @@ public:
 /// \relates vfs
 vfs& system_vfs();
 
-// TODO: in-memory vfs.
-std::unique_ptr<file> create_memory_file(std::string name);
+/// Returns the in-memory file system.
+///
+/// \relates vfs
+vfs& memory_vfs();
 
 } // namespace extpp
 

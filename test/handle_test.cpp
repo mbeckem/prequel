@@ -9,7 +9,7 @@ using namespace extpp;
 static constexpr u32 bs = 32;
 
 TEST_CASE("copy", "[handle]") {
-    auto file = create_memory_file("test");
+    auto file = memory_vfs().open("testfile.bin", vfs::read_write, vfs::open_create);
     file->truncate(100 * bs);
 
     engine<bs> e(*file, 2);

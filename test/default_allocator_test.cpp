@@ -17,7 +17,7 @@ TEST_CASE("default allocator", "[default-allocator]") {
     constexpr u32 data_chunk = 32;
     constexpr u32 metadata_chunk = 16;
 
-    auto file = create_memory_file("test");
+    auto file = memory_vfs().open("testfile.bin", vfs::read_write, vfs::open_create);
     file->truncate(bs);
 
     engine_t engine(*file, 16);

@@ -14,7 +14,7 @@ protected:
     std::vector<block*> allocated;
 
     block_test()
-        : fd(create_memory_file("testfile.bin"))
+        : fd(memory_vfs().open("testfile.bin", vfs::read_write, vfs::open_create))
         , engine(*fd, 4096, 8)
         , next_address(0)
     {}
@@ -27,14 +27,14 @@ protected:
 
     block& new_block(int index) {
         block* blk = new block(&engine, engine.m_block_size);
-        blk->index = index;
+        blk->m_index = index;
         blk->ref(); // Manual management.
         allocated.push_back(blk);
         return *blk;
     }
 
     u32 refcount(block& blk) const {
-        return blk.refcount;
+        return blk.m_refcount;
     }
 };
 

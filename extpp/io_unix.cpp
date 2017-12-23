@@ -2,14 +2,18 @@
 
 #include <extpp/assert.hpp>
 #include <extpp/exception.hpp>
+#include <extpp/math.hpp>
 #include <extpp/detail/rollback.hpp>
 
 #include <fcntl.h>
 #include <unistd.h>
 #include <sys/stat.h>
+#include <sys/mman.h>
 #include <sys/types.h>
 
 namespace extpp {
+
+class unix_vfs;
 
 class unix_file : public file {
 private:
@@ -17,16 +21,15 @@ private:
     std::string m_name;
 
 public:
-    unix_file(int fd, std::string name)
-        : m_fd(fd)
-        , m_name(std::move(name))
-    {}
+    unix_file(unix_vfs& vfs, int fd, std::string name);
 
     unix_file() = default;
 
     ~unix_file();
 
     const char* name() const noexcept override { return m_name.c_str(); }
+
+    int fd() const;
 
     void read(u64 offset, void* buffer, u32 count) override;
 
@@ -41,7 +44,7 @@ public:
     void close() override;
 
 private:
-    void check_open();
+    void check_open() const;
 };
 
 class unix_vfs : public vfs {
@@ -52,6 +55,10 @@ public:
     const char* name() const noexcept override { return "unix_vfs"; }
 
     std::unique_ptr<file> open(const char* path, access_t access, flags_t mode) override;
+
+    void* memory_map(file& f, u64 offset, u64 length) override;
+
+    void memory_unmap(void* addr, u64 length) override;
 };
 
 static std::error_code get_errno()
@@ -63,10 +70,22 @@ static std::error_code get_errno()
 
 namespace extpp {
 
+unix_file::unix_file(unix_vfs& v, int fd, std::string name)
+    : file(v)
+    , m_fd(fd)
+    , m_name(std::move(name))
+{}
+
 unix_file::~unix_file()
 {
     if (m_fd != -1)
         ::close(m_fd);
+}
+
+int unix_file::fd() const {
+    check_open();
+
+    return m_fd;
 }
 
 void unix_file::read(u64 offset, void* buffer, u32 count)
@@ -171,7 +190,7 @@ void unix_file::close()
     }
 }
 
-void unix_file::check_open()
+void unix_file::check_open() const
 {
     if (m_fd == -1) {
         EXTPP_THROW(io_error("File is closed."));
@@ -200,9 +219,33 @@ std::unique_ptr<file> unix_vfs::open(const char* path, access_t access, flags_t 
         ::close(fd);
     };
 
-    auto ret = std::make_unique<unix_file>(fd, path);
+    auto ret = std::make_unique<unix_file>(*this, fd, path);
     guard.commit();
     return ret;
+}
+
+void* unix_vfs::memory_map(file& f, u64 offset, u64 length) {
+    check_vfs(f);
+
+    unix_file& uf = static_cast<unix_file&>(f);
+    int prot = PROT_READ | PROT_WRITE; // TODO: Not writable if file is read only
+    int flags = MAP_SHARED;
+
+    void* result = ::mmap(nullptr, narrow<size_t>(length), prot, flags, uf.fd(), narrow<size_t>(offset));
+    if (result == MAP_FAILED) {
+        auto ec = get_errno();
+        EXTPP_THROW(io_error(
+            fmt::format("Failed to map `{}`: {}.", f.name(), ec.message())
+        ));
+    }
+    return result;
+}
+
+void unix_vfs::memory_unmap(void* addr, u64 length) {
+    if (::munmap(addr, narrow<size_t>(length)) == -1) {
+        auto ec = get_errno();
+        EXTPP_THROW(io_error(fmt::format("Failed to unmap: {}.", ec.message())));
+    }
 }
 
 vfs& system_vfs()

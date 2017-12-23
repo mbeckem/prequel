@@ -18,6 +18,17 @@ using IsUnsigned = std::enable_if_t<std::is_unsigned<T>::value, T>;
 template<typename T>
 using IsInteger = std::enable_if_t<std::is_integral<T>::value, T>;
 
+template<typename T, typename U>
+T narrow(U u)
+{
+    T t = static_cast<T>(u);
+    if (static_cast<U>(t) != u)
+        throw std::overflow_error("Failed to convert the value to the target type.");
+    if ((std::is_signed<T>::value != std::is_signed<U>::value) && ((t < T{}) != (u < U{})))
+        throw std::overflow_error("Failed to convert the value to the target type.");
+    return t;
+}
+
 /// Rounds `v` towards the next power of two. Returns `v` if it is already a power of two.
 /// Note: returns 0 if `v == 0`.
 ///

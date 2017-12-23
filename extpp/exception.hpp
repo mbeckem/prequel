@@ -72,6 +72,11 @@ private:
     source_location m_where;
 };
 
+class unsupported : public exception {
+public:
+    using exception::exception;
+};
+
 class io_error : public exception {
 public:
     using exception::exception;

@@ -137,8 +137,8 @@ void block_pool::clear() noexcept
 
 void block_pool::add(block& blk) noexcept
 {
-    EXTPP_ASSERT(blk.refcount == 0, "block must not be referenced.");
-    EXTPP_ASSERT(!blk.free_hook.is_linked(), "block must not be in the pool.");
+    EXTPP_ASSERT(blk.m_refcount == 0, "block must not be referenced.");
+    EXTPP_ASSERT(!blk.m_free_hook.is_linked(), "block must not be in the pool.");
     m_list.push_back(blk);
 }
 
@@ -217,7 +217,7 @@ block_engine::~block_engine()
         // The engine is going to be destroyed; the user must not have
         // any remaining block handles. However, the LRU cache may
         // still hold some blocks.
-        EXTPP_ASSERT(b.refcount == 1 && m_cache.contains(b),
+        EXTPP_ASSERT(b.m_refcount == 1 && m_cache.contains(b),
                     "Blocks must not be referenced from the outside.");
 
     }
@@ -258,7 +258,7 @@ boost::intrusive_ptr<block> block_engine::overwrite_zero(u64 index)
     // The read function is a no-op. Everything else is the same as in read().
     auto blk = read_impl(index, [&](byte*) {});
 
-    std::memset(blk->buffer, 0, m_block_size);
+    std::memset(blk->m_buffer, 0, m_block_size);
     blk->set_dirty();
     return blk;
 }
@@ -267,7 +267,7 @@ boost::intrusive_ptr<block> block_engine::overwrite_with(u64 index, const byte* 
 {
     auto blk = read_impl(index, [&](byte*) {});
 
-    std::memcpy(blk->buffer, data, m_block_size);
+    std::memcpy(blk->m_buffer, data, m_block_size);
     blk->set_dirty();
     return blk;
 }
@@ -286,11 +286,11 @@ boost::intrusive_ptr<block> block_engine::read_impl(u64 index, ReadAction&& read
         free_block(blk);
     };
 
-    EXTPP_ASSERT(blk.block_size == m_block_size,
+    EXTPP_ASSERT(blk.m_block_size == m_block_size,
                 "block size invariant");
     {
-        blk.index = index;
-        read(blk.buffer);
+        blk.m_index = index;
+        read(blk.m_buffer);
     }
     guard.commit();
 
@@ -324,11 +324,11 @@ void block_engine::set_dirty(block& blk) noexcept {
 
 void block_engine::flush_block(block& blk)
 {
-    EXTPP_ASSERT(blk.block_size == m_block_size,
+    EXTPP_ASSERT(blk.m_block_size == m_block_size,
                 "block size invariant");
 
     if (m_dirty.contains(blk)) {
-        m_file->write(blk.index * m_block_size, blk.buffer, m_block_size);
+        m_file->write(blk.m_index * m_block_size, blk.m_buffer, m_block_size);
         m_dirty.remove(blk);
         ++m_stats.writes;
     }
@@ -336,8 +336,8 @@ void block_engine::flush_block(block& blk)
 
 void block_engine::finalize_block(block& blk) noexcept
 {
-    EXTPP_ASSERT(blk.refcount == 0, "refcount must be zero");
-    EXTPP_ASSERT(blk.engine == this, "block belongs to wrong engine");
+    EXTPP_ASSERT(blk.m_refcount == 0, "refcount must be zero");
+    EXTPP_ASSERT(blk.m_engine == this, "block belongs to wrong engine");
 
     try {
         flush_block(blk);
