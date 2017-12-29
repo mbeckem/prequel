@@ -22,5 +22,11 @@ set(SOURCES
     test_file.hpp
 )
 
+if (UNIX)
+    list(APPEND SOURCES
+        mmap_engine_test.cpp
+    )
+endif()
+
 add_executable(unit-tests ${SOURCES})
 target_link_libraries(unit-tests extpp)

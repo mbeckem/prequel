@@ -539,50 +539,52 @@ inline void block::set_dirty() noexcept {
 } // namespace detail
 
 template<u32 BlockSize>
-class file_engine :
-        public engine<BlockSize>,
-        private detail::block_engine
+class file_engine : public engine<BlockSize>
 {
     static_assert(is_pow2(BlockSize),
                   "BlockSize must be a power of two.");
 
 public:
     file_engine(file& fd, u32 cache_size)
-        : block_engine(fd, BlockSize, cache_size)
+        : m_impl(fd, BlockSize, cache_size)
     {}
 
-    file& fd() const { return block_engine::fd(); }
+    file& fd() const { return m_impl.fd(); }
 
-    u64 size() const override {
+    const file_engine_stats& stats() const { return m_impl.stats(); }
+
+private:
+    u64 do_size() const override {
         return fd().file_size() / BlockSize;
     }
 
-    void grow(u64 n) override {
-        u64 new_size_blocks = checked_add(size(), n);
+    void do_grow(u64 n) override {
+        u64 new_size_blocks = checked_add(do_size(), n);
         u64 new_size_bytes = checked_mul<u64>(new_size_blocks, BlockSize);
         fd().truncate(new_size_bytes);
     }
 
-    const file_engine_stats& stats() const { return block_engine::stats(); }
-
-    block_handle read(block_index index) override {
+    block_handle do_read(block_index index) override {
         EXTPP_CHECK(index, "Invalid index.");
-        return {block_engine::read(index.value()).detach()};
+        return {m_impl.read(index.value()).detach()};
     }
 
-    block_handle zeroed(block_index index) override {
+    block_handle do_zeroed(block_index index) override {
         EXTPP_CHECK(index, "Invalid index.");
-        return {block_engine::overwrite_zero(index.value()).detach()};
+        return {m_impl.overwrite_zero(index.value()).detach()};
     }
 
-    block_handle overwritten(block_index index, const byte* data) override {
+    block_handle do_overwritten(block_index index, const byte* data) override {
         EXTPP_CHECK(index, "Invalid index.");
-        return {block_engine::overwrite_with(index.value(), data).detach()};
+        return {m_impl.overwrite_with(index.value(), data).detach()};
     }
 
-    void flush() override {
-        block_engine::flush();
+    void do_flush() override {
+        m_impl.flush();
     }
+
+private:
+    detail::block_engine m_impl;
 };
 
 } // namespace extpp
