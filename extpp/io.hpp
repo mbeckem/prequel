@@ -91,6 +91,9 @@ public:
     /// Throws if not supported by the platform.
     virtual void* memory_map(file& f, u64 offset, u64 length);
 
+    /// Synchronize (part of) a mapped address range with the disk.
+    virtual void memory_sync(void* addr, u64 length);
+
     /// Unmaps a memory mapping created using map().
     virtual void memory_unmap(void* addr, u64 length);
 

@@ -24,6 +24,11 @@ void* vfs::memory_map(file& f, u64 offset, u64 length) {
     EXTPP_THROW(unsupported("mmap is not supported by this vfs."));
 }
 
+void vfs::memory_sync(void* addr, u64 length) {
+    unused(addr, length);
+    EXTPP_THROW(unsupported("mmap is not supported by this vfs."));
+}
+
 void vfs::memory_unmap(void* addr, u64 length) {
     unused(addr, length);
     EXTPP_THROW(unsupported("mmap is not supported by this vfs."));

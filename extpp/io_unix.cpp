@@ -58,6 +58,8 @@ public:
 
     void* memory_map(file& f, u64 offset, u64 length) override;
 
+    void memory_sync(void* addr, u64 length) override;
+
     void memory_unmap(void* addr, u64 length) override;
 };
 
@@ -239,6 +241,13 @@ void* unix_vfs::memory_map(file& f, u64 offset, u64 length) {
         ));
     }
     return result;
+}
+
+void unix_vfs::memory_sync(void* addr, u64 length) {
+    if (::msync(addr, length, MS_SYNC) == -1) {
+        auto ec = get_errno();
+        EXTPP_THROW(io_error(fmt::format("Failed to sync: {}.", ec.message())));
+    }
 }
 
 void unix_vfs::memory_unmap(void* addr, u64 length) {

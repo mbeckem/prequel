@@ -27,8 +27,9 @@ mmap_backend::mmap_backend(file& f, u32 block_size)
 
 mmap_backend::~mmap_backend() {
     try {
+        vfs& v = m_file->get_vfs();
         for (void* mapping : m_maps)
-            m_file->get_vfs().memory_unmap(mapping, mmap_region_size);
+            v.memory_unmap(mapping, mmap_region_size);
     } catch (...) {}
 }
 
@@ -51,18 +52,19 @@ byte* mmap_backend::access(u64 block) const {
 
 void mmap_backend::update() {
     u64 file_size = m_file->file_size();
+    vfs& v = m_file->get_vfs();
 
     size_t required_mappings = ceil_div(file_size, mmap_region_size);
     if (required_mappings < m_maps.size()) {
         while (m_maps.size() > required_mappings) {
             void* addr = m_maps.back();
-            m_file->get_vfs().memory_unmap(addr, mmap_region_size);
+            v.memory_unmap(addr, mmap_region_size);
             m_maps.pop_back();
         }
     } else if (required_mappings > m_maps.size()) {
         m_maps.reserve(required_mappings);
         while (m_maps.size() < required_mappings) {
-            void* addr = m_file->get_vfs().memory_map(*m_file, m_maps.size() * mmap_region_size, mmap_region_size);
+            void* addr = v.memory_map(*m_file, m_maps.size() * mmap_region_size, mmap_region_size);
             m_maps.push_back(addr);
         }
     }
@@ -71,8 +73,10 @@ void mmap_backend::update() {
 }
 
 void mmap_backend::sync() {
-    // TODO
-    EXTPP_UNREACHABLE("TODO");
+    vfs& v = m_file->get_vfs();
+    for (void* mapping : m_maps) {
+        v.memory_sync(mapping, mmap_region_size);
+    }
 }
 
 mmap_engine::mmap_engine(file& fd, u32 block_size)
