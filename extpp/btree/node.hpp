@@ -9,6 +9,7 @@
 #include <extpp/detail/memory.hpp>
 #include <extpp/detail/sequence_insert.hpp>
 
+#include <algorithm>
 #include <tuple>
 
 namespace extpp::btree_detail {

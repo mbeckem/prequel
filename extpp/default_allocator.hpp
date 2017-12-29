@@ -117,7 +117,6 @@ public:
     default_allocator(anchor_ptr<anchor> anch, engine<BlockSize>& e)
         : allocator<BlockSize>(e)
         , m_anchor(std::move(anch))
-        , m_file(&e.fd())
         , m_meta_freelist(m_anchor.member(&anchor::meta_freelist), e)
         , m_meta_alloc(this)
         , m_extents(m_anchor.member(&anchor::extents), m_meta_alloc)
@@ -467,8 +466,10 @@ private:
     /// Allocates a new chunk of exactly the size `blocks`
     /// and returns the index of the first block in that chunk.
     u64 allocate_chunk(u64 blocks) {
+        EXTPP_ASSERT(blocks > 0, "Zero sized allocation.");
+
         const u64 chunk_start = file_size();
-        set_file_size(chunk_start + blocks);
+        this->get_engine().grow(blocks);
         return chunk_start;
     }
 
@@ -526,16 +527,7 @@ private:
 
     /// Returns the file size in blocks.
     u64 file_size() {
-        u64 size = m_file->file_size();
-        if (EXTPP_UNLIKELY(size % BlockSize != 0))
-            throw std::logic_error("Current file size is not a multiple of the block size.");
-        return size / BlockSize;
-    }
-
-    /// Sets the file size in blocks.
-    void set_file_size(u64 blocks) {
-        // TODO Overflow check.
-        m_file->truncate(blocks * BlockSize);
+        return this->get_engine().size();
     }
 
     /// Returns true iff `left...right` forms a contiguous region.
@@ -550,7 +542,6 @@ private:
 
 private:
     anchor_ptr<anchor> m_anchor;
-    file* m_file;
 
     /// Minimum allocation size for data blocks on file truncation.
     u32 m_min_chunk = 128;

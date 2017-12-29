@@ -1,6 +1,7 @@
 #include <catch.hpp>
 
 #include <extpp/default_allocator.hpp>
+#include <extpp/file_engine.hpp>
 
 #include <iostream>
 #include <random>
@@ -11,7 +12,7 @@ using namespace extpp;
 
 constexpr u32 bs = 1024;
 using alloc_t = default_allocator<bs>;
-using engine_t = engine<bs>;
+using engine_t = file_engine<bs>;
 
 TEST_CASE("default allocator", "[default-allocator]") {
     constexpr u32 data_chunk = 32;

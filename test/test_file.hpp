@@ -2,7 +2,7 @@
 #define TEST_FILE_HPP
 
 #include <extpp/default_allocator.hpp>
-#include <extpp/engine.hpp>
+#include <extpp/file_engine.hpp>
 #include <extpp/handle.hpp>
 #include <extpp/io.hpp>
 
@@ -34,7 +34,7 @@ private:
     };
 
 public:
-    using engine_type = engine<BlockSize>;
+    using engine_type = file_engine<BlockSize>;
     using allocator_type = default_allocator<BlockSize>;
 
 public:
@@ -100,7 +100,7 @@ private:
     void init() {
         if (m_file->file_size() == 0) {
             m_file->truncate(m_block_size);
-            extpp::engine<BlockSize> be(*m_file, 1);
+            extpp::file_engine<BlockSize> be(*m_file, 1);
             construct<block>(be.read(block_index(0)));
             be.flush();
         }
@@ -109,7 +109,7 @@ private:
 private:
     std::unique_ptr<file> m_file;
     u32 m_block_size = 0;
-    boost::optional<extpp::engine<BlockSize>> m_engine;
+    boost::optional<engine_type> m_engine;
     boost::optional<state> m_state;
 };
 

@@ -1,7 +1,7 @@
 #include <catch.hpp>
 
 #include <extpp/io.hpp>
-#include <extpp/engine.hpp>
+#include <extpp/file_engine.hpp>
 #include <extpp/handle.hpp>
 
 using namespace extpp;
@@ -12,7 +12,7 @@ TEST_CASE("copy", "[handle]") {
     auto file = memory_vfs().open("testfile.bin", vfs::read_write, vfs::open_create);
     file->truncate(100 * bs);
 
-    engine<bs> e(*file, 2);
+    file_engine<bs> e(*file, 2);
 
     std::vector<byte> test_data(256);
     for (int i = 0; i < 256; ++i)

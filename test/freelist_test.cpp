@@ -16,10 +16,9 @@ TEST_CASE("freelist", "[freelist]") {
     file_t file;
     file.open();
 
-    extpp::file& fd = file.get_engine().fd();
-    REQUIRE(fd.file_size() == block_size);
+    REQUIRE(file.get_engine().size() == 1);
 
-    fd.truncate(block_size * 1025);
+    file.get_engine().grow(1024);
 
     // block indices [1, 1024] are valid.
     list_t list(file.get_anchor(), file.get_engine());

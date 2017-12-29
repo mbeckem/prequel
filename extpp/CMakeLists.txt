@@ -40,6 +40,7 @@ set(HEADERS
     engine.hpp
     exception.hpp
     extent.hpp
+    file_engine.hpp
     handle.hpp
     heap.hpp
     id_generator.hpp
@@ -58,7 +59,7 @@ set(HEADERS
 
 set(SOURCES
     assert.cpp
-    engine.cpp
+    file_engine.cpp
     exception.cpp
     io.cpp
 )

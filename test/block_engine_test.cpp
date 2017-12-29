@@ -1,7 +1,7 @@
 #include <catch.hpp>
 
 #include <extpp/io.hpp>
-#include <extpp/engine.hpp>
+#include <extpp/file_engine.hpp>
 
 namespace extpp {
 namespace detail {

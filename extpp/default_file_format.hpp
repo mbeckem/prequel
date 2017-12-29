@@ -3,7 +3,7 @@
 
 #include <extpp/block.hpp>
 #include <extpp/io.hpp>
-#include <extpp/engine.hpp>
+#include <extpp/file_engine.hpp>
 #include <extpp/default_allocator.hpp>
 
 #include <optional>
@@ -27,7 +27,7 @@ public:
         init();
     }
 
-    engine<BlockSize>& get_engine() {
+    file_engine<BlockSize>& get_engine() {
         return m_engine;
     }
 
@@ -69,7 +69,7 @@ private:
 
 private:
     file& m_file;
-    engine<BlockSize> m_engine;
+    file_engine<BlockSize> m_engine;
     handle<block> m_handle;
     std::optional<default_allocator<BlockSize>> m_allocator;
 };

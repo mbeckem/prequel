@@ -199,7 +199,7 @@ int main(int argc, char** argv) {
     }
 
     format.flush();
-    extpp::engine_stats stats = format.get_engine().stats();
+    extpp::file_engine_stats stats = format.get_engine().stats();
 
     std::cout << "I/O statistics:\n"
               << "  Reads:      " << stats.reads << "\n"
