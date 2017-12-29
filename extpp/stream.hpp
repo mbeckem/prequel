@@ -62,7 +62,7 @@ private:
         }
     };
 
-    using block_type = handle<block_t, BlockSize>;
+    using block_type = handle<block_t>;
 
 public:
     class anchor {
@@ -269,7 +269,7 @@ public:
     ///
     /// \warning Handles are invalidated when the iterators are invalidated, i.e.
     /// when the storage is moved.
-    handle<value_type, BlockSize> pointer_to(iterator pos) {
+    handle<value_type> pointer_to(iterator pos) {
         EXTPP_ASSERT(pos.index() < size(), "Iterator points to an invalid index.");
         block_type h = pos.block();
         return h.neighbor(h->get(pos.block_offset()));

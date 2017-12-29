@@ -3,6 +3,7 @@
 
 #include <extpp/address.hpp>
 #include <extpp/allocator.hpp>
+#include <extpp/anchor_ptr.hpp>
 #include <extpp/assert.hpp>
 #include <extpp/block.hpp>
 #include <extpp/defs.hpp>
@@ -36,7 +37,7 @@ public:
 private:
     struct node_block;
 
-    using node_address = address<node_block, BlockSize>;
+    using node_address = address<node_block>;
 
     struct node_header {
         node_address prev;   /// invalid if first.
@@ -46,7 +47,7 @@ private:
 
     struct node_block : make_array_block_t<node_header, raw<value_type>, BlockSize> {};
 
-    using node_type = handle<node_block, BlockSize>;
+    using node_type = handle<node_block>;
 
     static constexpr u32 max_count = node_block::capacity;
 
@@ -59,7 +60,7 @@ private:
     }
 
     node_type create_node() {
-        raw_address<BlockSize> ptr = this->get_allocator().allocate(1);
+        raw_address ptr = this->get_allocator().allocate(1);
         node_type node = construct<node_block>(this->get_engine(), ptr);
 
         ++m_anchor->nodes;
@@ -92,7 +93,7 @@ public:
     };
 
 public:
-    list(handle<anchor, BlockSize> a, allocator<BlockSize>& alloc)
+    list(anchor_ptr<anchor> a, allocator<BlockSize>& alloc)
         : list::uses_allocator(alloc)
         , m_anchor(std::move(a))
     {}
@@ -286,25 +287,25 @@ public:
 
     /// Returns a pointer that points to same element as the one referenced by `pos`.
     /// \pre `pos` points to a valid element of this list.
-    handle<T, BlockSize> pointer_to(const iterator& pos) {
+    handle<T> pointer_to(const iterator& pos) {
         return pointer_to_impl<T>(pos);
     }
 
     /// Returns a pointer that points to same element as the one referenced by `pos`.
     /// \pre `pos` points to a valid element of this list.
-    handle<const T, BlockSize> pointer_to(const iterator& pos) const {
+    handle<const T> pointer_to(const iterator& pos) const {
         return pointer_to_impl<const T>(pos);
     }
 
     /// Returns an iterator pointing to the same list element as `ptr`.
     /// The value *must* be stored in this list, otherwise this is undefined behaviour.
-    iterator iterator_to(const handle<T, BlockSize>& ptr) const {
+    iterator iterator_to(const handle<T>& ptr) const {
         return iterator_to_impl(ptr);
     }
 
     /// Returns an iterator pointing to the same list element as `ptr`.
     /// The value *must* be stored in this list, otherwise this is undefined behaviour.
-    iterator iterator_to(const handle<const T, BlockSize>& ptr) const {
+    iterator iterator_to(const handle<const T>& ptr) const {
         return iterator_to_impl(ptr);
     }
 
@@ -413,7 +414,7 @@ private:
     }
 
     template<typename Target>
-    handle<Target, BlockSize> pointer_to_impl(const iterator& pos) const {
+    handle<Target> pointer_to_impl(const iterator& pos) const {
         EXTPP_ASSERT(pos.get_list() == this, "iterator does not belong to this list");
         EXTPP_ASSERT(pos.valid(), "iterator does not point to a valid element");
         Target* value = pos().node()->values[pos.index()];
@@ -421,14 +422,14 @@ private:
     }
 
     template<typename Source>
-    iterator iterator_to_impl(const handle<Source, BlockSize>& ptr) const {
+    iterator iterator_to_impl(const handle<Source>& ptr) const {
         node_type node = cast<node_block>(ptr.block());
         u32 index = ptr.get() - node->values;
         return iterator(this, std::move(node), index);
     }
 
 private:
-    handle<anchor, BlockSize> m_anchor;
+    anchor_ptr<anchor> m_anchor;
 };
 
 template<typename T, u32 B>

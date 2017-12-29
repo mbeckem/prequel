@@ -41,40 +41,39 @@ protected:
 /// A block handle is a (possibly invalid) reference to a block
 /// loaded into memory by the block engine.
 /// The handle gives access to the block's raw data and it's dirty flag.
-class new_block_handle {
+class block_handle {
 public:
     /// Constructs an invalid handle.
-    new_block_handle() = default;
+    block_handle() = default;
 
     /// Constructor used by the block engine.
     /// The handle object takes ownership of the pointer.
     /// \pre `base != nullptr`.
-    new_block_handle(detail::block_handle_impl* base)
+    block_handle(detail::block_handle_impl* base)
         : m_impl(base) {
         EXTPP_ASSERT(base, "Null pointer.");
     }
 
-    new_block_handle(const new_block_handle& other)
+    block_handle(const block_handle& other)
         : m_impl(other.m_impl ? other.m_impl->copy() : nullptr)
     {}
 
-    new_block_handle(new_block_handle&& other) noexcept
+    block_handle(block_handle&& other) noexcept
         : m_impl(std::exchange(other.m_impl, nullptr))
     {}
 
-    ~new_block_handle() {
+    ~block_handle() {
         if (m_impl)
             m_impl->destroy();
     }
 
-
-    new_block_handle& operator=(const new_block_handle& other) {
-        new_block_handle hnd(other);
+    block_handle& operator=(const block_handle& other) {
+        block_handle hnd(other);
         *this = std::move(hnd);
         return *this;
     }
 
-    new_block_handle& operator=(new_block_handle&& other) noexcept {
+    block_handle& operator=(block_handle&& other) noexcept {
         if (this != &other) {
             if (m_impl)
                 m_impl->destroy();
@@ -94,6 +93,11 @@ public:
     block_index index() const noexcept {
         check_valid();
         return block_index(m_impl->index());
+    }
+
+    raw_address address() const noexcept {
+        check_valid();
+        return raw_address::block_address(index(), block_size());
     }
 
     /// Returns a pointer to the block's data.

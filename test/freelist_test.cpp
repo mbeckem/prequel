@@ -28,12 +28,12 @@ TEST_CASE("freelist", "[freelist]") {
     REQUIRE_THROWS_AS(list.pop(), std::logic_error);
 
     for (u32 i = 1; i <= 1024; ++i) {
-        list.push(raw_address<block_size>::from_block(block_index(i)));
+        list.push(raw_address::block_address(block_index(i), block_size));
     }
 
     for (u32 i = 1024; i >= 1; --i) {
         auto addr = list.pop();
-        auto expected = raw_address<block_size>::from_block(block_index(i));
+        auto expected = raw_address::block_address(block_index(i), block_size);
         if (addr != expected)
             FAIL("Expected address " << expected << " but saw " << addr);
     }

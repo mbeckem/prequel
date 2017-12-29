@@ -440,7 +440,7 @@ public:
     /// destorys the tree's invariants.
     ///
     /// \warning Handles are invalidated when iterators are invalidated.
-    handle<value_type, BlockSize> pointer_to(const iterator& pos) {
+    handle<value_type> pointer_to(const iterator& pos) {
         check_valid(pos);
         return pos.leaf().block().neighbor(&pos.leaf().get(pos.index()));
     }

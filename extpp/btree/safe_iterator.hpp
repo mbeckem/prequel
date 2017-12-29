@@ -222,7 +222,7 @@ private:
 template<typename Container, typename Iterator>
 class safe_iterator_map {
     struct key_t {
-        raw_address<Container::block_size> node;
+        raw_address node;
         u32 index;
 
         bool operator<(const key_t& other) const {
@@ -235,8 +235,6 @@ class safe_iterator_map {
             return node == other.node && index == other.index;
         }
     };
-
-    static constexpr u32 block_size = Container::block_size;
 
     // TODO: This could be an intrusive map that uses the storage
     // within the iterators to link them together.
@@ -264,7 +262,7 @@ public:
 
     /// Finds all iterators to `block` values with indices in [first, last).
     template<typename OutputContainer>
-    void find_iterators(raw_address<block_size> block, u32 first, u32 last, OutputContainer& out) {
+    void find_iterators(raw_address block, u32 first, u32 last, OutputContainer& out) {
         auto begin = m_map.lower_bound(key_t{block, first});
         auto end = m_map.lower_bound(key_t{block, last});
         for (; begin != end; ++begin)
@@ -275,20 +273,20 @@ private:
     template<typename C, typename I, typename D>
     friend class safe_iterator_base;
 
-    void register_iterator(raw_address<block_size> block, u32 index, Iterator* iter) {
+    void register_iterator(raw_address block, u32 index, Iterator* iter) {
         m_map.emplace(key_t{block, index}, iter);
     }
 
-    void replace_iterator(raw_address<block_size> block, u32 index, Iterator* olditer, Iterator* newiter) {
+    void replace_iterator(raw_address block, u32 index, Iterator* olditer, Iterator* newiter) {
         find_iter(block, index, olditer)->second = newiter;
     }
 
-    void unregister_iterator(raw_address<block_size> block, u32 index, Iterator* iter) {
+    void unregister_iterator(raw_address block, u32 index, Iterator* iter) {
         m_map.erase(find_iter(block, index, iter));
     }
 
 private:
-    auto find_iter(raw_address<block_size> addr, u32 index, Iterator* iter) {
+    auto find_iter(raw_address addr, u32 index, Iterator* iter) {
         auto range = m_map.equal_range(key_t{addr, index});
         EXTPP_ASSERT(range.first != range.second,
                      "No registered iterators for that address.");

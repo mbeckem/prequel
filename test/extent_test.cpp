@@ -34,7 +34,7 @@ TEST_CASE("extent", "[extent]") {
         REQUIRE(e1.size() == 2);
         REQUIRE(!e1.empty());
         REQUIRE(e1.data());
-        REQUIRE(e1.get(0).get_block_index() + 1 == e1.get(1).get_block_index());
+        REQUIRE(e1.get(0).get_block_index(block_size) + 1 == e1.get(1).get_block_index(block_size));
         {
             auto h = e1.zeroed(0);
             for (u32 i = 0; i < 256; ++i)

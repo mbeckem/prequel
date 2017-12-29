@@ -71,9 +71,9 @@ public:
 
 
     /// Returns the chunk entry for that object, i.e. the chunk that contains that object.
-    const entry& entry_for(raw_address<BlockSize> object) const {
+    const entry& entry_for(raw_address object) const {
         auto pos = std::upper_bound(m_entries.begin(), m_entries.end(), object,
-                                    [&](const raw_address<BlockSize>& obj, const entry& entry) {
+                                    [&](const raw_address& obj, const entry& entry) {
             return obj < entry.chunk.addr;
         });
         EXTPP_ASSERT(pos != m_entries.begin(), "No chunk for that object.");
@@ -85,7 +85,7 @@ public:
         return e;
     }
 
-    entry& entry_for(raw_address<BlockSize> object) {
+    entry& entry_for(raw_address object) {
         return const_cast<entry&>(const_cast<const gc_data*>(this)->entry_for(object));
     }
 
@@ -155,7 +155,7 @@ private:
                     "it during garbage collection or that your storage is corrupted.");
 
         object_entry_type obj = m_table[ref];
-        raw_address<BlockSize> addr = obj.get_address();
+        raw_address addr = obj.get_address();
         object_header_type header = m_access.read_header(addr, m_types);
         u64 cells = ceil_div(header.total_size(), cell_size);
         if (mark(addr, cells) && header.type->visit_references) {
@@ -166,7 +166,7 @@ private:
     /// Marks the object at the given address (which consists of the given number of cells)
     /// as live. Returns true if the object was previously unmarked, i.e. if this is the first
     /// time the object was marked.
-    bool mark(raw_address<BlockSize> object, u64 cells) {
+    bool mark(raw_address object, u64 cells) {
         chunk_entry& ent = m_chunks.entry_for(object);
         EXTPP_ASSERT(object + cells * cell_size <= ent.chunk.end_addr(),
                      "Object must be fully contained in chunk.");
@@ -426,7 +426,7 @@ private:
 
     /// Computes the forward address (the new object location) by looking at
     /// the precomputed table and manually computing a small remainder.
-    raw_address<BlockSize> forward_address(const chunk_entry_type& ent, raw_address<BlockSize> old_address) const {
+    raw_address forward_address(const chunk_entry_type& ent, raw_address old_address) const {
         EXTPP_ASSERT(!ent.chunk.large_object, "Large objects do not relocate.");
 
         const u64 old_index = ent.chunk.cell_index(raw_address_cast<cell>(old_address));

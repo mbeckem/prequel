@@ -21,7 +21,7 @@ TEST_CASE("default allocator", "[default-allocator]") {
     file->truncate(bs);
 
     engine_t engine(*file, 16);
-    auto anchor = construct<alloc_t::anchor>(engine, raw_address<bs>::from_block(block_index(0)));
+    auto anchor = construct<alloc_t::anchor>(engine, raw_address::block_address(block_index(0), bs));
 
     alloc_t alloc(anchor, engine);
     alloc.min_chunk(data_chunk);
@@ -35,22 +35,22 @@ TEST_CASE("default allocator", "[default-allocator]") {
         auto a2 = alloc.allocate(4);
         REQUIRE(alloc.data_total() == data_chunk);
         REQUIRE(alloc.data_used() == 5);
-        REQUIRE(a2.get_block_index() == a1.get_block_index() + 1);
+        REQUIRE(a2.get_block_index(bs) == a1.get_block_index(bs) + 1);
 
         auto a3 = alloc.allocate(1);
         REQUIRE(alloc.data_used() == 6);
-        REQUIRE(a3.get_block_index() == a2.get_block_index() + 4);
+        REQUIRE(a3.get_block_index(bs) == a2.get_block_index(bs) + 4);
 
         alloc.free(a2);
         REQUIRE(alloc.data_used() == 2);
         REQUIRE(alloc.data_free() == data_chunk - 2);
 
         auto a4 = alloc.allocate(1);
-        REQUIRE(a4.get_block_index() == a1.get_block_index() + 1);
+        REQUIRE(a4.get_block_index(bs) == a1.get_block_index(bs) + 1);
         alloc.free(a4);
 
         auto a5  = alloc.allocate(5);
-        REQUIRE(a5.get_block_index() == a3.get_block_index() + 1);
+        REQUIRE(a5.get_block_index(bs) == a3.get_block_index(bs) + 1);
         REQUIRE(alloc.data_used() == 7);
 
         alloc.free(a1);
@@ -117,7 +117,7 @@ TEST_CASE("default allocator", "[default-allocator]") {
         REQUIRE(alloc.data_free() == 0);
         REQUIRE(alloc.data_total() == 0);
 
-        std::vector<raw_address<bs>> allocs;
+        std::vector<raw_address> allocs;
         for (int i = 1; i <= 2000; ++i) {
             allocs.push_back(alloc.allocate(i));
         }
@@ -149,11 +149,11 @@ TEST_CASE("default allocator", "[default-allocator]") {
         REQUIRE(alloc.data_total() == 32);
 
         auto a3 = alloc.allocate(14);
-        REQUIRE(a3.get_block_index() == a2.get_block_index() + 16);
+        REQUIRE(a3.get_block_index(bs) == a2.get_block_index(bs) + 16);
         REQUIRE(alloc.data_used() == 30);
 
         auto a4 = alloc.allocate(3);
-        REQUIRE(a4.get_block_index() == a3.get_block_index() + 14);
+        REQUIRE(a4.get_block_index(bs) == a3.get_block_index(bs) + 14);
         REQUIRE(alloc.data_total() == 48);
         REQUIRE(alloc.data_used() == 33);
 

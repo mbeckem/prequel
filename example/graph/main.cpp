@@ -719,7 +719,7 @@ private:
 
 private:
     format_type m_format;
-    extpp::handle<meta_block, block_size> m_meta;
+    extpp::handle<meta_block> m_meta;
 
     // Data storage (only strings right now).
     heap_type m_heap;

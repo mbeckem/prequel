@@ -55,9 +55,6 @@ public:
     using reference = extpp::reference;
 
 private:
-    using raw_address_t = raw_address<BlockSize>;
-
-private:
     /*
      * Heap layout
      * ============
@@ -157,9 +154,8 @@ private:
     using free_space_type = heap_detail::free_space<BlockSize>;
 
     using cell = heap_detail::cell;
-    static constexpr auto cell_size = heap_detail::cell_size;
 
-    using cell_address_t = address<cell, BlockSize>;
+    static constexpr auto cell_size = heap_detail::cell_size;
 
     static constexpr auto cells_per_block = storage_type::cells_per_block;
 
@@ -218,7 +214,7 @@ public:
         const object_header_type header = m_access.make_header(m_types.get(type), object_size);
         const u64 allocation_size = header.total_size();
         const u64 cells = cell_count(allocation_size);
-        const raw_address_t addr = allocate(cells);
+        const raw_address addr = allocate(cells);
 
         m_access.write_header(addr, allocation_size, header);
         write(this->get_engine(), addr + header.header_size, object_data, object_size);
@@ -233,7 +229,7 @@ public:
         EXTPP_CHECK(m_table.valid(ref), "load(): Invalid reference.");
 
         const object_entry_type entry = m_table[ref];
-        const raw_address_t addr = entry.get_address();
+        const raw_address addr = entry.get_address();
         const object_header_type header = m_access.read_header(addr, m_types);
         const u64 body_size = header.body_size;
         EXTPP_CHECK(body_size <= std::numeric_limits<size_t>::max(),
@@ -247,7 +243,7 @@ public:
     type_index type(reference ref) const {
         EXTPP_CHECK(m_table.valid(ref), "load(): Invalid reference.");
         const object_entry_type entry = m_table[ref];
-        const raw_address_t addr = entry.get_address();
+        const raw_address addr = entry.get_address();
         const object_header_type header = m_access.read_header(addr, m_types);
         return header.type->index;
     }
@@ -299,7 +295,7 @@ public:
     }
 
 private:
-    cell_address_t allocate(u64 cells) {
+    address<cell> allocate(u64 cells) {
         // Large objects are allocated directly in a chunk of their own.
         // Small objects are allocated from the free list. If the free-list
         // cannot satisfy the request, a new chunk is allocated and

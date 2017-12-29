@@ -124,7 +124,7 @@ class file_system {
     extpp::default_file_format<header, block_size> m_fmt;
 
     // The header block of our filesystem remains pinned in memory.
-    extpp::handle<header, block_size> m_header;
+    extpp::handle<header> m_header;
 
     // The root directory that contains all our files.
     directory m_root;

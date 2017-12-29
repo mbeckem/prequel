@@ -3,6 +3,7 @@
 
 #include <extpp/address.hpp>
 #include <extpp/allocator.hpp>
+#include <extpp/anchor_ptr.hpp>
 #include <extpp/block.hpp>
 #include <extpp/defs.hpp>
 #include <extpp/engine.hpp>
@@ -32,7 +33,7 @@ public:
 private:
     struct node_block;
 
-    using node_address = address<node_block, BlockSize>;
+    using node_address = address<node_block>;
 
     struct node_header {
         /// Points to the previous block.
@@ -59,7 +60,7 @@ private:
         }
     };
 
-    using node_type = handle<node_block, BlockSize>;
+    using node_type = handle<node_block>;
 
 public:
     class anchor {
@@ -77,7 +78,7 @@ public:
     };
 
 public:
-    stack(handle<anchor, BlockSize> anc, allocator<BlockSize>& alloc)
+    stack(anchor_ptr<anchor> anc, allocator<BlockSize>& alloc)
         : stack::uses_allocator(alloc)
         , m_anchor(std::move(anc))
     {
@@ -112,10 +113,10 @@ public:
     /// The size of this datastructure in bytes (not including the anchor).
     u64 byte_size() const { return nodes() * BlockSize; }
 
-    std::array<raw_address<BlockSize>, 2> buffered() const {
+    std::array<raw_address, 2> buffered() const {
         return {
-            m_buf[0] ? m_buf[0].address().raw() : raw_address<BlockSize>(),
-            m_buf[1] ? m_buf[1].address().raw() : raw_address<BlockSize>(),
+            m_buf[0] ? m_buf[0].address().raw() : raw_address(),
+            m_buf[1] ? m_buf[1].address().raw() : raw_address(),
         };
     }
 
@@ -239,7 +240,7 @@ public:
 
 private:
     node_type create() const {
-        raw_address<BlockSize> node = this->get_allocator().allocate(1);
+        raw_address node = this->get_allocator().allocate(1);
         m_anchor->nodes += 1;
         m_anchor.dirty();
 
@@ -281,7 +282,7 @@ private:
     node_type access(node_address node) const { return extpp::access(this->get_engine(), node); }
 
 private:
-    handle<anchor, BlockSize> m_anchor;
+    anchor_ptr<anchor> m_anchor;
 
     /// The top two blocks are pinned and used as buffers.
     /// The topmost block might be empty.

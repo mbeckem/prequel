@@ -29,7 +29,7 @@ private:
     } free;
 
 public:
-    static object_entry make_reference(raw_address<BlockSize> addr) {
+    static object_entry make_reference(raw_address addr) {
         EXTPP_ASSERT(addr.value() % cell_size == 0, "Address must be aligned correctly.");
 
         object_entry e;
@@ -52,11 +52,11 @@ public:
     bool is_free() const { return free.free == 1; }
     bool is_reference() const { return ref.free == 0; }
 
-    raw_address<BlockSize> get_address() const {
-        return raw_address<BlockSize>::byte_address(as_reference().address * cell_size);
+    raw_address get_address() const {
+        return raw_address::byte_address(as_reference().address * cell_size);
     }
 
-    void set_address(raw_address<BlockSize> addr) {
+    void set_address(raw_address addr) {
         EXTPP_ASSERT(addr.value() % cell_size == 0, "Address must be aligned correctly.");
         as_reference().address = addr.value() / cell_size;
     }

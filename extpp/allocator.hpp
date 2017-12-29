@@ -22,7 +22,7 @@ public:
 
     /// Allocates a range of `n` consecutive blocks.
     /// Returns the address of the first block.
-    raw_address<BlockSize> allocate(u64 n) {
+    raw_address allocate(u64 n) {
         EXTPP_CHECK(n > 0, "Cannot allocate 0 blocks.");
         auto result = do_allocate(n);
         EXTPP_ASSERT(result, "do_allocate() returned an invalid address. "
@@ -45,12 +45,12 @@ public:
     /// \return
     ///     Returns the address of the new allocation, unless `n` was 0, in which
     ///     case the invalid address is returned.
-    raw_address<BlockSize> reallocate(raw_address<BlockSize> a, u64 n) {
+    raw_address reallocate(raw_address a, u64 n) {
         if (!a) {
             return allocate(n);
         }
         EXTPP_CHECK(a, "The address passed to reallocate() is invalid.");
-        EXTPP_CHECK(a.get_offset_in_block() == 0, "The address passed to reallocate() does not point to a block.");
+        EXTPP_CHECK(a.get_offset_in_block(BlockSize) == 0, "The address passed to reallocate() does not point to a block.");
         if (n == 0) {
             free(a);
             return {};
@@ -63,9 +63,9 @@ public:
     }
 
     /// Frees blocks previously allocated using `allocate()` or `reallocate()`.
-    void free(raw_address<BlockSize> a) {
+    void free(raw_address a) {
         EXTPP_CHECK(a, "The address passed to free() is invalid.");
-        EXTPP_CHECK(a.get_offset_in_block() == 0, "The address passed to free() does not point to a block.");
+        EXTPP_CHECK(a.get_offset_in_block(BlockSize) == 0, "The address passed to free() does not point to a block.");
         do_free(a);
     }
 
@@ -74,13 +74,13 @@ public:
 
 protected:
     /// Implements the allocation function. `n` is not zero.
-    virtual raw_address<BlockSize> do_allocate(u64 n) = 0;
+    virtual raw_address do_allocate(u64 n) = 0;
 
     /// Implements the reallocation function. `a` is valid and `n` is not zero.
-    virtual raw_address<BlockSize> do_reallocate(raw_address<BlockSize> a, u64 n) = 0 ;
+    virtual raw_address do_reallocate(raw_address a, u64 n) = 0 ;
 
     /// Implements the free function.
-    virtual void do_free(raw_address<BlockSize> a) = 0;
+    virtual void do_free(raw_address a) = 0;
 
 private:
     engine<BlockSize>* m_engine;

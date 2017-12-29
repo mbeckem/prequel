@@ -36,7 +36,7 @@ public:
         return *m_allocator;
     }
 
-    handle<UserData, BlockSize> user_data() {
+    handle<UserData> user_data() {
         return m_handle.member(&block::user);
     }
 
@@ -58,10 +58,10 @@ private:
         // TODO: Verify file format, check magic bytes...
         if (m_file.file_size() == 0) {
             m_file.truncate(BlockSize);
-            m_handle = construct<block>(m_engine, raw_address<BlockSize>::from_block(block_index(0)));
+            m_handle = construct<block>(m_engine, raw_address::block_address(block_index(0), BlockSize));
             m_engine.flush();
         } else {
-            m_handle = access(m_engine, raw_address_cast<block>(raw_address<BlockSize>::from_block(block_index(0))));
+            m_handle = access(m_engine, raw_address_cast<block>(raw_address::block_address(block_index(0), BlockSize)));
         }
 
         m_allocator.emplace(m_handle.member(&block::alloc), m_engine);
@@ -70,7 +70,7 @@ private:
 private:
     file& m_file;
     engine<BlockSize> m_engine;
-    handle<block, BlockSize> m_handle;
+    handle<block> m_handle;
     std::optional<default_allocator<BlockSize>> m_allocator;
 };
 

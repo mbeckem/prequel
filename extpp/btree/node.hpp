@@ -31,12 +31,12 @@ public:
     using value_type = typename state_type::value_type;
     using key_type = typename state_type::key_type;
 
-    using address_type = extpp::address<leaf_block, block_size>;
+    using address_type = extpp::address<leaf_block>;
 
 private:
     struct leaf_header {
         /// Points to the previous leaf node (to the left, lesser keys).
-        address_type previous;
+        address<leaf_block> previous;
 
         /// Points to the next leaf node (to the right, greater keys).
         address_type next;
@@ -51,7 +51,7 @@ private:
     };
 
 public:
-    using handle_type = handle<leaf_block, block_size>;
+    using handle_type = handle<leaf_block>;
 
     using block_type = leaf_block;
 
@@ -240,7 +240,7 @@ public:
 
     using key_type = typename state_type::key_type;
     using node_address = typename state_type::node_address;
-    using address_type = extpp::address<internal_block, block_size>;
+    using address_type = extpp::address<internal_block>;
 
 private:
     struct internal_header {
@@ -271,7 +271,7 @@ private:
 
 
 public:
-    using handle_type = handle<internal_block, block_size>;
+    using handle_type = handle<internal_block>;
 
     using block_type = internal_block;
 

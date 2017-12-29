@@ -24,10 +24,10 @@ private:
     struct block : make_block_t<block_proto, BlockSize> {};
 
     struct state {
-        handle<Anchor, BlockSize> anchor;
+        handle<Anchor> anchor;
         default_allocator<BlockSize> alloc;
 
-        state(handle<block, BlockSize> hnd, engine<BlockSize>& eng)
+        state(handle<block> hnd, engine<BlockSize>& eng)
             : anchor(hnd.member(&block::anchor))
             , alloc(hnd.member(&block::alloc_anchor), eng)
         {}
@@ -84,7 +84,7 @@ public:
         return *m_engine;
     }
 
-    const handle<Anchor, BlockSize>& get_anchor() const {
+    const handle<Anchor>& get_anchor() const {
         if (!m_engine)
             throw std::logic_error("not open");
         return m_state->anchor;

@@ -61,16 +61,16 @@ private:
         metadata_allocator(metadata_allocator&&) = delete;
         metadata_allocator& operator=(const metadata_allocator&) = delete;
 
-        raw_address<BlockSize> do_allocate(u64 n) override {
+        raw_address do_allocate(u64 n) override {
             EXTPP_CHECK(n == 1, "Cannot allocate sizes other than 1.");
             return parent->allocate_metadata_block();
         }
 
-        raw_address<BlockSize> do_reallocate(raw_address<BlockSize>, u64 ) override {
+        raw_address do_reallocate(raw_address, u64 ) override {
             throw std::logic_error("Cannot reallocate meta data blocks.");
         }
 
-        void do_free(raw_address<BlockSize> addr) override {
+        void do_free(raw_address addr) override {
             parent->free_metadata_block(addr);
         }
 
@@ -169,15 +169,15 @@ public:
     }
 
 protected:
-    raw_address<BlockSize> do_allocate(u64 request) override {
+    raw_address do_allocate(u64 request) override {
         // Find a free extent with at least `request` blocks.
         if (auto addr = allocate_best_fit(request))
             return addr;
         return allocate_new_space(request);
     }
 
-    void do_free(raw_address<BlockSize> addr) override {
-        extents_iterator pos = m_extents.find(addr.get_block_index().value());
+    void do_free(raw_address addr) override {
+        extents_iterator pos = m_extents.find(addr.get_block_index(BlockSize).value());
         EXTPP_CHECK(pos != m_extents.end(),
                     "The pointer passed to free() does not point "
                     "to a previous allocation.");
@@ -194,8 +194,8 @@ protected:
         m_anchor.dirty();
     }
 
-    raw_address<BlockSize> do_reallocate(raw_address<BlockSize> addr, u64 request) override {
-        extents_cursor pos = m_extents.find(addr.get_block_index().value());
+    raw_address do_reallocate(raw_address addr, u64 request) override {
+        extents_cursor pos = m_extents.find(addr.get_block_index(BlockSize).value());
         EXTPP_CHECK(pos != m_extents.end(),
                     "The pointer passed to reallocate() does not point "
                     "to a previous allocation.");
@@ -234,7 +234,7 @@ private:
     /// This implements the best fit strategy, with ties being broken
     /// using first fit strategy, i.e. the smallest fitting extent
     /// with the lowest address is chosen.
-    raw_address<BlockSize> allocate_best_fit(u64 request) {
+    raw_address allocate_best_fit(u64 request) {
         auto free_pos = best_fit(request);
         if (free_pos == m_free_extents.end()) {
             return {};
@@ -254,7 +254,7 @@ private:
     /// Satisfies an allocation request by growing the underlying file.
     /// We either grow the extent with the highest address (if it is free and borders
     /// the end of the file) or we create a new extent.
-    raw_address<BlockSize> allocate_new_space(u64 request) {
+    raw_address allocate_new_space(u64 request) {
         if (m_anchor->meta_allocated == 0)
             allocate_metadata_chunk();
 
@@ -284,10 +284,10 @@ private:
 
     /// Allocates exactly `request` bytes from the extent pointed to by `pos`
     /// and then registers a new extent.
-    raw_address<BlockSize> allocate_new_extent(const extent_t& extent, u64 request) {
+    raw_address allocate_new_extent(const extent_t& extent, u64 request) {
         const u64 block = allocate_from_extent(extent, request);
         add_extent(extent_t(block, request, false));
-        return raw_address<BlockSize>::from_block(block_index(block));
+        return raw_address::block_address(block_index(block), BlockSize);
     }
 
     /// Allocates the first `request` blocks in the extent pointed to by `pos`.
@@ -417,7 +417,7 @@ private:
         const u64 chunk = chunk_size(2, m_min_meta_chunk);
         const u64 block = allocate_chunk(chunk);
         for (u64 b = block + chunk; b --> block;) {
-            m_meta_freelist.push(raw_address<BlockSize>::from_block(block_index(b)));
+            m_meta_freelist.push(raw_address::block_address(block_index(b), BlockSize));
         }
 
         m_anchor->meta_allocated += chunk;
@@ -426,7 +426,7 @@ private:
     }
 
     /// Allocate a block for metadata storage.
-    raw_address<BlockSize> allocate_metadata_block() {
+    raw_address allocate_metadata_block() {
         if (m_meta_freelist.empty())
             allocate_metadata_chunk();
         
@@ -437,7 +437,7 @@ private:
     }
 
     /// Free a block used by the metadata structures.
-    void free_metadata_block(raw_address<BlockSize> addr) {
+    void free_metadata_block(raw_address addr) {
         m_meta_freelist.push(addr);
         m_anchor->meta_free += 1;
         m_anchor.dirty();
@@ -445,11 +445,11 @@ private:
 
 private:
     /// Copies the given number of blocks from `source` to `dest`.
-    void copy_blocks(raw_address<BlockSize> source, raw_address<BlockSize> dest, u64 count) {
-        auto i = source.get_block_index();
-        auto j = dest.get_block_index();
+    void copy_blocks(raw_address source, raw_address dest, u64 count) {
+        auto i = source.get_block_index(BlockSize);
+        auto j = dest.get_block_index(BlockSize);
         while (count-- > 0) {
-            block_handle<BlockSize> in = this->get_engine().read(i++);
+            block_handle in = this->get_engine().read(i++);
             this->get_engine().overwritten(j++, in.data());
         }
     }

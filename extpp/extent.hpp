@@ -17,7 +17,7 @@ public:
 
     class anchor {
         /// Address of the first block.
-        raw_address<BlockSize> start;
+        raw_address start;
 
         /// Number of contiguous blocks.
         u64 size = 0;
@@ -53,18 +53,18 @@ public:
 
     /// Returns the address of the first block in this extent.
     /// The number of available blocks is exactly `size()`.
-    raw_address<BlockSize> data() const { return m_anchor->start; }
+    raw_address data() const { return m_anchor->start; }
 
     /// Returns the address of the block with the given index.
-    raw_address<BlockSize> get(u64 index) const {
+    raw_address get(u64 index) const {
         EXTPP_ASSERT(index < size(), "Index out of bounds.");
         return m_anchor->start + index * BlockSize;
     }
 
     /// Returns a handle to the block with the given index.
     /// \pre `index < size()`.
-    block_handle<BlockSize> access(u64 index) const {
-        return this->get_engine().read(get(index).get_block_index());
+    block_handle access(u64 index) const {
+        return this->get_engine().read(get(index).get_block_index(BlockSize));
     }
 
     /// Returns a handle to the block with the given index.
@@ -73,8 +73,8 @@ public:
     /// the content immediately.
     ///
     /// \pre `index < size()`.
-    block_handle<BlockSize> zeroed(u64 index) const {
-        return this->get_engine().zeroed(get(index).get_block_index());
+    block_handle zeroed(u64 index) const {
+        return this->get_engine().zeroed(get(index).get_block_index(BlockSize));
     }
 
     /// Returns a handle to the block with the given index.
@@ -85,7 +85,7 @@ public:
     ///
     /// \pre `data` has BlockSize readable bytes.
     /// \pre `index < size()`.
-    block_handle<BlockSize> overwritten(u64 index, const byte* data) const {
+    block_handle overwritten(u64 index, const byte* data) const {
         return this->get_engine().overwritten(get(index).get_block_index(), data);
     }
 

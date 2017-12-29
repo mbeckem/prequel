@@ -15,50 +15,42 @@
 
 namespace extpp {
 
-template<u32 BlockSize>
 class raw_address;
 
-template<typename T, u32 BlockSize>
+template<typename T>
 class address;
 
-template<typename To, u32 BlockSize>
-address<To, BlockSize> raw_address_cast(const raw_address<BlockSize>& addr);
+template<typename To>
+address<To> raw_address_cast(const raw_address& addr);
 
-template<typename To, typename From, u32 BlockSize>
-address<To, BlockSize> address_cast(const address<From, BlockSize>& addr);
+template<typename To, typename From>
+address<To> address_cast(const address<From>& addr);
 
 /// Addresses an arbitrary byte offset in external memory.
-template<u32 BlockSize>
 class raw_address
-        : detail::make_comparable<raw_address<BlockSize>>
-        , detail::make_addable<raw_address<BlockSize>, i64>
-        , detail::make_subtractable<raw_address<BlockSize>, i64>
+        : detail::make_comparable<raw_address>
+        , detail::make_addable<raw_address, i64>
+        , detail::make_subtractable<raw_address, i64>
 {
-    static_assert(is_pow2(BlockSize), "BlockSize must be a power of two.");
-
     struct byte_addr_t {};
 
 public:
-    static constexpr u32 block_size = BlockSize;
-    static constexpr u32 block_size_log2 = log2(block_size);
     static constexpr u64 invalid_value = u64(-1);
 
-    static raw_address from_block(block_index block) {
-        return block ? raw_address(block.value(), 0) : raw_address();
+    static raw_address block_address(block_index block, u32 block_size) {
+        return block ? raw_address(checked_mul<u64>(block.value(), block_size))
+                     : raw_address();
     }
 
     static raw_address byte_address(u64 address) {
-        return raw_address(byte_addr_t(), address);
+        return raw_address(address);
     }
 
 public:
     raw_address(): m_value(invalid_value) {}
 
-    raw_address(u64 block, u32 offset)
-        : m_value(block * BlockSize + offset)
-    {
-        EXTPP_CHECK(offset < BlockSize, "Invalid offset within a block.");
-    }
+    explicit raw_address(u64 value)
+        : m_value(value) {}
 
     u64 value() const { return m_value; }
 
@@ -68,12 +60,12 @@ public:
 
     explicit operator bool() const { return valid(); }
 
-    block_index get_block_index() const {
-        return valid() ? block_index(value() >> block_size_log2) : block_index();
+    block_index get_block_index(u32 block_size) const {
+        return valid() ? block_index(value() / block_size) : block_index();
     }
 
-    u32 get_offset_in_block() const {
-        return static_cast<u32>(mod_pow2(value(), u64(BlockSize)));
+    u32 get_offset_in_block(u32 block_size) const {
+        return valid() ? mod_pow2<u64>(value(), block_size) : 0;
     }
 
     raw_address& operator+=(i64 offset) {
@@ -100,31 +92,28 @@ public:
     friend std::ostream& operator<<(std::ostream& o, const raw_address& addr) {
         if (!addr)
             return o << "INVALID";
-        return o << "(" << addr.get_block_index() << ", " << addr.get_offset_in_block() << ")";
+        return o << addr.value();
     }
-
-private:
-    explicit raw_address(byte_addr_t, u64 value): m_value(value) {}
 
 private:
     u64 m_value;
 };
 
-template<typename T, u32 BlockSize>
+template<typename T>
 class address;
 
-template<typename T, u32 BlockSize>
-address<T, BlockSize> raw_address_cast(const raw_address<BlockSize>& addr);
+template<typename T>
+address<T> raw_address_cast(const raw_address& addr);
 
-template<typename To, typename From, u32 BlockSize>
-address<To, BlockSize> address_cast(const address<From, BlockSize>& addr);
+template<typename To, typename From>
+address<To> address_cast(const address<From>& addr);
 
 /// Addresses a value of type `T` in external memory.
-template<typename T, u32 BlockSize>
+template<typename T>
 class address
-        : detail::make_comparable<address<T, BlockSize>>
-        , detail::make_addable<address<T, BlockSize>, i64>
-        , detail::make_subtractable<address<T, BlockSize>, i64>
+        : detail::make_comparable<address<T>>
+        , detail::make_addable<address<T>, i64>
+        , detail::make_subtractable<address<T>, i64>
 {
 public:
     using element_type = T;
@@ -133,7 +122,7 @@ public:
     address() = default;
 
 public:
-    explicit address(const raw_address<BlockSize>& addr)
+    explicit address(const raw_address& addr)
         : m_raw(addr)
     {
         check_aligned();
@@ -144,7 +133,7 @@ public:
 
     explicit operator bool() const { return valid(); }
 
-    const raw_address<BlockSize>& raw() const { return m_raw; }
+    const raw_address& raw() const { return m_raw; }
 
     address& operator+=(i64 offset) {
         m_raw += offset * sizeof(T);
@@ -165,11 +154,11 @@ public:
 
     /// Addresses are convertible to base classes by default.
     template<typename Base, std::enable_if_t<std::is_base_of<Base, T>::value>* = nullptr>
-    operator address<Base, BlockSize>() const {
+    operator address<Base>() const {
         return address_cast<Base>(*this);
     }
 
-    operator const raw_address<BlockSize>&() const { return raw(); }
+    operator const raw_address&() const { return raw(); }
 
     friend bool operator==(const address& lhs, const address& rhs) {
         return lhs.m_raw == rhs.m_raw;
@@ -186,44 +175,42 @@ private:
     }
 
 private:
-    raw_address<BlockSize> m_raw;
+    raw_address m_raw;
 };
 
-template<u32 BlockSize>
-i64 difference(const raw_address<BlockSize>& from, const raw_address<BlockSize>& to) {
+inline i64 difference(const raw_address& from, const raw_address& to) {
     EXTPP_ASSERT(from, "From address is invalid.");
     EXTPP_ASSERT(to, "To address is invalid.");
     return signed_difference(to.value(), from.value());
 }
 
-template<typename T, u32 BlockSize>
-i64 difference(const address<T, BlockSize>& from, const address<T, BlockSize>& to) {
+template<typename T>
+i64 difference(const address<T>& from, const address<T>& to) {
     return distance(from.raw(), to.raw()) / sizeof(T);
 }
 
-template<u32 BlockSize>
-u64 distance(const raw_address<BlockSize>& from, const raw_address<BlockSize>& to) {
+inline u64 distance(const raw_address& from, const raw_address& to) {
     EXTPP_ASSERT(from, "From address is invalid.");
     EXTPP_ASSERT(to, "To address is invalid.");
     return from <= to ? to.value() - from.value() : from.value() - to.value();
 }
 
 /// \pre `from <= to`.
-template<typename T, u32 BlockSize>
-u64 distance(const address<T, BlockSize>& from, const address<T, BlockSize>& to) {
+template<typename T>
+u64 distance(const address<T>& from, const address<T>& to) {
     return distance(from.raw(), to.raw()) / sizeof(T);
 }
 
 /// Performs the equivalent of `reinterpret_cast` to `To*`.
-template<typename To, u32 BlockSize>
-address<To, BlockSize> raw_address_cast(const raw_address<BlockSize>& addr) {
+template<typename To>
+address<To> raw_address_cast(const raw_address& addr) {
     static_assert(is_trivial<To>::value, "Only trivial types are supported in external memory.");
-    return address<To, BlockSize>(addr);
+    return address<To>(addr);
 }
 
 // Just to aid overload resolution.
-template<typename To, typename From, u32 BlockSize>
-address<To, BlockSize> raw_address_cast(const address<From, BlockSize>& addr) {
+template<typename To, typename From>
+address<To> raw_address_cast(const address<From>& addr) {
     return raw_address_cast<To>(addr.raw());
 }
 
@@ -231,8 +218,8 @@ address<To, BlockSize> raw_address_cast(const address<From, BlockSize>& addr) {
 /// Such a cast is only possible if From and To form an inheritance
 /// relationship, i.e. From is a base of To or the other way around.
 /// The raw pointer value will be adjusted automatically to point to the correct address.
-template<typename To, typename From, u32 BlockSize>
-address<To, BlockSize> address_cast(const address<From, BlockSize>& addr) {
+template<typename To, typename From>
+address<To> address_cast(const address<From>& addr) {
     static_assert(std::is_base_of<To, From>::value || std::is_base_of<From, To>::value,
                   "Addresses to objects of type From cannot be statically converted to To.");
     if (!addr)

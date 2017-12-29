@@ -1,5 +1,5 @@
-#ifndef EXTPP_BLOCK_ENGINE_HPP
-#define EXTPP_BLOCK_ENGINE_HPP
+#ifndef EXTPP_ENGINE_HPP
+#define EXTPP_ENGINE_HPP
 
 #include <extpp/address.hpp>
 #include <extpp/assert.hpp>
@@ -537,60 +537,6 @@ inline void block::set_dirty() noexcept {
 
 } // namespace detail
 
-template<u32 BlockSize> class engine;
-
-/// A handle to a block.
-/// The content of a block remains available in memory
-/// as long as there are handles pointing to it.
-template<u32 BlockSize>
-class block_handle {
-public:
-    /// Constructs an invalid handle.
-    block_handle() = default;
-
-
-    /// The index of this block.
-    block_index index() const noexcept {
-        return m_handle.index();
-    }
-
-    raw_address<BlockSize> address() const noexcept {
-        return m_handle ? raw_address<BlockSize>::from_block(index())
-                        : raw_address<BlockSize>();
-    }
-
-    /// Pointer to the beginning of this block's data.
-    /// The memory is properly aligned (as if obtained
-    /// via operator new).
-    ///
-    /// \pre `*this`.
-    byte* data() const noexcept {
-        return m_handle.data();
-    }
-
-    /// Marks this block as dirty.
-    /// Dirty blocks are written back to disk when they
-    /// are flushed from memory.
-    /// If the memory was modified by the application,
-    /// the dirty flag should be set to persist the changes.
-    void dirty() const {
-        m_handle.dirty();
-    }
-
-    /// Returns true if this handle refers to a valid block.
-    explicit operator bool() const noexcept { return m_handle.valid(); }
-
-private:
-    friend class engine<BlockSize>;
-
-    block_handle(boost::intrusive_ptr<detail::block> blk) noexcept
-        : m_handle(blk.detach())
-    {}
-
-private:
-    new_block_handle m_handle;
-};
-
 template<u32 BlockSize>
 class engine : detail::block_engine {
     static_assert(is_pow2(BlockSize),
@@ -605,24 +551,24 @@ public:
 
     const engine_stats& stats() const { return block_engine::stats(); }
 
-    block_handle<BlockSize> access(block_index index) {
+    block_handle access(block_index index) {
         EXTPP_CHECK(index, "Invalid index.");
-        return {block_engine::access(index.value())};
+        return {block_engine::access(index.value()).detach()};
     }
 
-    block_handle<BlockSize> read(block_index index) {
+    block_handle read(block_index index) {
         EXTPP_CHECK(index, "Invalid index.");
-        return {block_engine::read(index.value())};
+        return {block_engine::read(index.value()).detach()};
     }
 
-    block_handle<BlockSize> zeroed(block_index index) {
+    block_handle zeroed(block_index index) {
         EXTPP_CHECK(index, "Invalid index.");
-        return {block_engine::overwrite_zero(index.value())};
+        return {block_engine::overwrite_zero(index.value()).detach()};
     }
 
-    block_handle<BlockSize> overwritten(block_index index, const byte* data) {
+    block_handle overwritten(block_index index, const byte* data) {
         EXTPP_CHECK(index, "Invalid index.");
-        return {block_engine::overwrite_with(index.value(), data)};
+        return {block_engine::overwrite_with(index.value(), data).detach()};
     }
 
     void flush() {
@@ -632,4 +578,4 @@ public:
 
 } // namespace extpp
 
-#endif // EXTPP_BLOCK_ENGINE_HPP
+#endif // EXTPP_ENGINE_HPP

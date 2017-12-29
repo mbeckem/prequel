@@ -78,7 +78,7 @@ public:
     /// \param addr         The location at which the header must be written.
     /// \param available    The total number of available bytes at the given location.
     /// \param header       The header that shall be written to disk.
-    void write_header(raw_address<BlockSize> addr, u64 available, const object_header& header) {
+    void write_header(raw_address addr, u64 available, const object_header& header) {
         EXTPP_ASSERT(available >= header.header_size + header.body_size,
                      "There must be enough space available for the header and the data.");
         unused(available);
@@ -107,7 +107,7 @@ public:
     }
 
     /// Reads the object header at the given address.
-    object_header read_header(raw_address<BlockSize> addr, const type_set& types) const {
+    object_header read_header(raw_address addr, const type_set& types) const {
         u64 bytes_read = 0;
         auto read = [&](auto* ptr) {
             size_t n = sizeof(*ptr);

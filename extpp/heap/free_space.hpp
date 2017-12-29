@@ -22,9 +22,6 @@ namespace extpp::heap_detail {
 /// Manages all free space in the heap.
 template<u32 BlockSize>
 class free_space {
-    using cell_address_t = address<cell, BlockSize>;
-    using raw_address_t = raw_address<BlockSize>;
-
     // The free list for index `i` contains cell ranges
     // of sizes `size_classes[i], ..., size_classes[i+1] - 1`.
     static constexpr std::array<u16, 16> size_classes{
@@ -35,25 +32,25 @@ class free_space {
     };
 
     struct list_node {
-        address<list_node, BlockSize> next;
+        address<list_node> next;
         u64 size;
 
-        list_node(address<list_node, BlockSize> next, u64 size)
+        list_node(address<list_node> next, u64 size)
             : next(next), size(size) {}
     };
 
     struct list_header {
-        address<list_node, BlockSize> head, tail;
+        address<list_node> head, tail;
     };
 
     using stream_type = stream<list_header, BlockSize>;
 
     struct cell_range {
-        cell_address_t addr;
+        address<cell> addr;
         u64 size = 0;
 
         cell_range() = default;
-        cell_range(cell_address_t addr, u64 size)
+        cell_range(address<cell> addr, u64 size)
             : addr(addr)
             , size(size)
         {}
@@ -113,7 +110,7 @@ public:
         m_large_ranges.clear();
     }
 
-    void free(cell_address_t cell, u64 size_in_cells) {
+    void free(address<cell> cell, u64 size_in_cells) {
         EXTPP_ASSERT(cell, "Cell pointer must be valid.");
         EXTPP_ASSERT(size_in_cells > 0, "Invalid region size.");
 
@@ -129,7 +126,7 @@ public:
         }
     }
 
-    cell_address_t allocate(u64 size_in_cells) {
+    address<cell> allocate(u64 size_in_cells) {
         EXTPP_ASSERT(size_in_cells <= max_small_object_cells, "Object is too big.");
 
         // Find a range of at least `size` cells and and perform
@@ -148,7 +145,7 @@ public:
 
         EXTPP_ASSERT(current.size >= size_in_cells,
                      "Range must have at least the requested size.");
-        cell_address_t result = current.addr;
+        address<cell> result = current.addr;
         current.addr += size_in_cells;
         current.size -= size_in_cells;
         m_anchor.dirty();
@@ -164,7 +161,7 @@ public:
 
             fmt::print(out, "Size [{}, {}):\n", size_classes[i], size_classes[i+1]);
 
-            for (address<list_node, BlockSize> addr = ls->head; addr;) {
+            for (address<list_node> addr = ls->head; addr;) {
                 auto node = access(get_engine(), addr);
                 fmt::print(out, "  - Cell {}, Size {}\n", addr.raw(), node->size);
                 addr = node->next;
@@ -227,11 +224,11 @@ private:
 
         auto& ls = m_lists[index];
 
-        address<list_node, BlockSize> prev_addr;
-        address<list_node, BlockSize> curr_addr = ls->head;
-        handle<list_node, BlockSize> prev_node;
+        address<list_node> prev_addr;
+        address<list_node> curr_addr = ls->head;
+        handle<list_node> prev_node;
         while (curr_addr) {
-            handle<list_node, BlockSize> curr_node = access(get_engine(), curr_addr);
+            handle<list_node> curr_node = access(get_engine(), curr_addr);
             if (curr_node->size >= size) {
                 // The node is large enough, unlink it.
                 if (prev_addr) {
@@ -320,7 +317,7 @@ private:
     stream_type m_lists_headers;
 
     /// Pins the headers in main memory.
-    std::vector<handle<list_header, BlockSize>> m_lists;
+    std::vector<handle<list_header>> m_lists;
 
     /// Ordered tree for very large regions.
     free_tree m_large_ranges;

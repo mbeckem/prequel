@@ -27,22 +27,22 @@ public:
 
 public:
     struct chunk_entry {
-        raw_address<BlockSize> addr;    // First block in this chunk.
-        u64 blocks: 62;                 // Total number of blocks.
-        u64 large_object: 1;            // True if this is a large object chunk.
+        raw_address addr;       // First block in this chunk.
+        u64 blocks: 62;         // Total number of blocks.
+        u64 large_object: 1;    // True if this is a large object chunk.
         u64 unused: 1;
 
         chunk_entry() = default;
 
-        chunk_entry(raw_address<BlockSize> addr, u64 blocks, bool large)
+        chunk_entry(raw_address addr, u64 blocks, bool large)
             : addr(addr), blocks(blocks), large_object(large), unused(0)
         {}
 
-        raw_address<BlockSize> begin_addr() const { return addr; }
-        raw_address<BlockSize> end_addr() const { return addr + (blocks * BlockSize); }
+        raw_address begin_addr() const { return addr; }
+        raw_address end_addr() const { return addr + (blocks * BlockSize); }
 
         /// Returns the index of the given cell within this chunk.
-        u64 cell_index(address<cell, BlockSize> addr) const {
+        u64 cell_index(address<cell> addr) const {
             EXTPP_ASSERT(addr.raw() >= begin_addr() && addr.raw() < end_addr(),
                          "Address out of bounds.");
             return distance(raw_address_cast<cell>(begin_addr()), addr);
@@ -51,7 +51,7 @@ public:
         u64 cell_count() const { return blocks * cells_per_block; }
 
         struct key_extract {
-            raw_address<BlockSize> operator()(const chunk_entry& c) const { return c.addr; }
+            raw_address operator()(const chunk_entry& c) const { return c.addr; }
         };
     };
 
@@ -75,7 +75,7 @@ public:
     u64 chunk_count() const { return m_tree.size(); }
 
     /// Finds the entry for the chunk that starts at the given address.
-    std::optional<chunk_entry> find_chunk_exact(raw_address<BlockSize> addr) const {
+    std::optional<chunk_entry> find_chunk_exact(raw_address addr) const {
         auto pos = m_tree.find(addr);
         return pos == m_tree.end() ? std::nullopt : std::make_optional(*pos);
     }

@@ -20,7 +20,7 @@ public:
     using value_type = Value;
     using key_type = std::decay_t<std::result_of_t<KeyExtract(Value)>>;
 
-    using node_address = raw_address<block_size>;
+    using node_address = raw_address;
 
     using leaf_type = leaf_node<state>;
     using leaf_address = typename leaf_type::address_type;
@@ -81,14 +81,14 @@ public:
         m_anchor.dirty();
     }
 
-    raw_address<block_size> allocate_internal() {
+    raw_address allocate_internal() {
         auto addr = this->get_allocator().allocate(1);
         m_anchor->internals++;
         m_anchor.dirty();
         return addr;
     }
 
-    raw_address<block_size> allocate_leaf() {
+    raw_address allocate_leaf() {
         auto addr = this->get_allocator().allocate(1);
         m_anchor->leaves++;
         m_anchor.dirty();

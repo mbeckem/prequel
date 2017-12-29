@@ -19,33 +19,33 @@ private:
 
     struct node_header {
         /// Points to the next block in the free list.
-        address<node_block, BlockSize> next;
+        address<node_block> next;
 
         /// Number of (used) entries in the `free` array.
         u32 count = 0;
     };
 
-    struct node_block : make_array_block_t<node_header, raw_address<BlockSize>, BlockSize> {
+    struct node_block : make_array_block_t<node_header, raw_address, BlockSize> {
         bool full() { return this->count == node_block::capacity; }
         bool empty() { return this->count == 0; }
 
-        void push(raw_address<BlockSize> addr) {
+        void push(raw_address addr) {
             EXTPP_ASSERT(!full(), "node is full");
             this->values[this->count++] = addr;
         }
 
-        raw_address<BlockSize> pop() {
+        raw_address pop() {
             EXTPP_ASSERT(!empty(), "node is empty");
             return this->values[--this->count];
         }
     };
 
-    using node_type = handle<node_block, BlockSize>;
+    using node_type = handle<node_block>;
 
 public:
     class anchor {
         /// Points to the first block in the list.
-        address<node_block, BlockSize> head;
+        address<node_block> head;
 
         friend class free_list;
     };
@@ -67,7 +67,7 @@ public:
     /// Some blocks are reused to form the list itself,
     /// so their content must not be modified, except
     /// through this list.
-    void push(raw_address<BlockSize> block) {
+    void push(raw_address block) {
         if (m_anchor->head) {
             node_type node = access(*m_engine, m_anchor->head);
             if (!node->full()) {
@@ -86,19 +86,19 @@ public:
 
     /// Remove a single free block from the list.
     /// Throws if the list is empty.
-    raw_address<BlockSize> pop() {
+    raw_address pop() {
         if (!m_anchor->head)
             throw std::logic_error("free_list::pop(): list is empty.");
 
         node_type node = access(*m_engine, m_anchor->head);
         if (!node->empty()) {
-            raw_address<BlockSize> result = node->pop();
+            raw_address result = node->pop();
             node.dirty();
             return result;
         }
 
         // use the empty list node itself to satisfy the request.
-        raw_address<BlockSize> result = m_anchor->head.raw();
+        raw_address result = m_anchor->head.raw();
         m_anchor->head = node->next;
         m_anchor.dirty();
         return result;
