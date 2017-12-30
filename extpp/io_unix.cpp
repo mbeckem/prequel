@@ -56,6 +56,8 @@ public:
 
     std::unique_ptr<file> open(const char* path, access_t access, flags_t mode) override;
 
+    std::unique_ptr<file> create_temp() override;
+
     void* memory_map(file& f, u64 offset, u64 length) override;
 
     void memory_sync(void* addr, u64 length) override;
@@ -222,6 +224,34 @@ std::unique_ptr<file> unix_vfs::open(const char* path, access_t access, flags_t 
     };
 
     auto ret = std::make_unique<unix_file>(*this, fd, path);
+    guard.commit();
+    return ret;
+}
+
+std::unique_ptr<file> unix_vfs::create_temp()
+{
+    std::string name = "extpp-XXXXXX";
+
+    int fd = ::mkstemp(name.data());
+    if (fd == -1) {
+        auto ec = get_errno();
+        EXTPP_THROW(io_error(
+            fmt::format("Failed to create temporary file: {}.", ec.message())
+        ));
+    }
+
+    detail::rollback guard = [&]{
+        ::close(fd);
+    };
+
+    if (unlink(name.data()) == -1) {
+        auto ec = get_errno();
+        EXTPP_THROW(io_error(
+            fmt::format("Failed to unlink temporary file: {}.", ec.message())
+        ));
+    }
+
+    auto ret = std::make_unique<unix_file>(*this, fd, std::move(name));
     guard.commit();
     return ret;
 }

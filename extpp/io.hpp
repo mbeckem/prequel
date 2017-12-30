@@ -87,6 +87,14 @@ public:
                                        access_t access = read_only,
                                        flags_t mode = open_normal) = 0;
 
+    /// Creates and opens a new temporary file.
+    /// The new file will be deleted automatically when it is no longer
+    /// referred to by any file objects.
+    ///
+    /// TODO: Specifiy in which directory the file is to be created?
+    /// TODO: Temporary directories?
+    virtual std::unique_ptr<file> create_temp() = 0;
+
     /// Maps a portion of the file into the process address space.
     /// Throws if not supported by the platform.
     virtual void* memory_map(file& f, u64 offset, u64 length);

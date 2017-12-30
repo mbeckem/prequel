@@ -5,6 +5,7 @@
 #include <extpp/file_engine.hpp>
 #include <extpp/handle.hpp>
 #include <extpp/io.hpp>
+#include <extpp/mmap_engine.hpp>
 
 #include <extpp/detail/rollback.hpp>
 
@@ -12,6 +13,27 @@
 #include <boost/noncopyable.hpp>
 
 namespace extpp {
+
+inline std::unique_ptr<file> get_test_file() {
+    static constexpr bool fs_test = false;
+
+    if constexpr (fs_test) {
+        return system_vfs().create_temp();
+    } else {
+        return memory_vfs().open("testfile.bin", vfs::read_write, vfs::open_create);
+    }
+}
+
+template<u32 BlockSize>
+inline std::unique_ptr<engine<BlockSize>> get_test_engine(file& f) {
+    static constexpr bool mmap_test = false;
+
+    if constexpr (mmap_test) {
+        return std::make_unique<mmap_engine<BlockSize>>(f);
+    } else {
+        return std::make_unique<file_engine<BlockSize>>(f, 16);
+    }
+}
 
 template<typename Anchor, u32 BlockSize>
 class test_file : boost::noncopyable {
@@ -34,19 +56,11 @@ private:
     };
 
 public:
-    using engine_type = file_engine<BlockSize>;
     using allocator_type = default_allocator<BlockSize>;
 
 public:
     test_file()
-        : m_file(memory_vfs().open("testfile.bin", vfs::read_write, vfs::open_create))
-        , m_block_size(BlockSize)
-    {
-        init();
-    }
-
-    test_file(std::unique_ptr<file> file)
-        : m_file(std::move(file))
+        : m_file(get_test_file())
         , m_block_size(BlockSize)
     {
         init();
@@ -61,7 +75,7 @@ public:
             m_engine.reset();
         };
 
-        m_engine.emplace(*m_file, 16);
+        m_engine = get_test_engine<BlockSize>(*m_file);
         {
             auto first_block = cast<block>(m_engine->read(block_index(0)));
             m_state.emplace(first_block, *m_engine);
@@ -108,8 +122,8 @@ private:
 
 private:
     std::unique_ptr<file> m_file;
+    std::unique_ptr<engine<BlockSize>> m_engine;
     u32 m_block_size = 0;
-    boost::optional<engine_type> m_engine;
     boost::optional<state> m_state;
 };
 

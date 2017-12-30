@@ -43,6 +43,8 @@ public:
     virtual std::unique_ptr<file> open(const char* path,
                                        access_t access = read_only,
                                        flags_t mode = open_normal) override;
+
+    virtual std::unique_ptr<file> create_temp() override;
 };
 
 class memory_file : public file {
@@ -122,6 +124,11 @@ std::unique_ptr<file> in_memory_vfs::open(const char* path,
     // TODO: Respect flags
     unused(access, mode);
     return std::make_unique<memory_file>(*this, path);
+}
+
+std::unique_ptr<file> in_memory_vfs::create_temp()
+{
+    return std::make_unique<memory_file>(*this, "unnamed-temporary");
 }
 
 vfs& memory_vfs() {

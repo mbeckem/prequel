@@ -27,6 +27,10 @@ mmap_backend::mmap_backend(file& f, u32 block_size)
 
 mmap_backend::~mmap_backend() {
     try {
+        sync();
+    } catch (...) {}
+
+    try {
         vfs& v = m_file->get_vfs();
         for (void* mapping : m_maps)
             v.memory_unmap(mapping, mmap_region_size);
