@@ -61,12 +61,12 @@ public:
     using anchor = typename chunk_tree::anchor;
 
 public:
-    storage(anchor_ptr<anchor> anc, allocator<BlockSize>& alloc)
+    storage(anchor_ptr<anchor> anc, allocator& alloc)
         : m_tree(std::move(anc), alloc)
     {}
 
-    engine<BlockSize>& get_engine() const { return m_tree.get_engine(); }
-    allocator<BlockSize>& get_allocator() const { return m_tree.get_allocator(); }
+    engine& get_engine() const { return m_tree.get_engine(); }
+    allocator& get_allocator() const { return m_tree.get_allocator(); }
 
     chunk_iterator begin() const { return m_tree.begin(); }
     chunk_iterator end() const { return m_tree.end(); }

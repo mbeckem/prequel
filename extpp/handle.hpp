@@ -201,225 +201,23 @@ handle<T> construct(block_handle block, Args&&... args) {
     return handle<T>(std::move(block), ptr);
 }
 
-template<typename T, u32 BlockSize, typename... Args>
-handle<T> construct(engine<BlockSize>& e, raw_address addr, Args&&... args) {
+template<typename T, typename... Args>
+handle<T> construct(engine& e, raw_address addr, Args&&... args) {
     // TODO: Allow non block-aligned addresses?
-    EXTPP_ASSERT(addr && addr.get_offset_in_block(BlockSize) == 0, "Address does not point to a valid block.");
-    return construct<T>(e.zeroed(addr.get_block_index(BlockSize)), std::forward<Args>(args)...);
+    EXTPP_ASSERT(addr && addr.get_offset_in_block(e.block_size()) == 0,
+                 "Address does not point to a valid block.");
+    return construct<T>(e.zeroed(addr.get_block_index(e.block_size())), std::forward<Args>(args)...);
 }
 
-template<typename T, u32 BlockSize>
-handle<T> access(engine<BlockSize>& e, address<T> addr) {
+template<typename T>
+handle<T> access(engine& e, address<T> addr) {
     EXTPP_ASSERT(addr, "Accessing an invalid address.");
-    EXTPP_ASSERT(addr.raw().get_offset_in_block(BlockSize) + sizeof(T) <= BlockSize, "Object spans multiple blocks.");
+    EXTPP_ASSERT(addr.raw().get_offset_in_block(e.block_size()) + sizeof(T) <= e.block_size(),
+                 "Object spans multiple blocks.");
 
-    block_handle block = e.read(addr.raw().get_block_index(BlockSize));
-    T* ptr = static_cast<T*>(static_cast<void*>(block.data() + addr.raw().get_offset_in_block(BlockSize)));
+    block_handle block = e.read(addr.raw().get_block_index(e.block_size()));
+    T* ptr = static_cast<T*>(static_cast<void*>(block.data() + addr.raw().get_offset_in_block(e.block_size())));
     return {std::move(block), ptr};
-}
-
-/// Perform a linear write, starting from the given disk address.
-/// Will write exactly `size` bytes from `data` to disk to the
-/// address range [address, address + size).
-template<u32 BlockSize>
-void write(engine<BlockSize>& e, raw_address address, const void* data, size_t size) {
-    if (size == 0)
-        return;
-
-    const byte* buffer = reinterpret_cast<const byte*>(data);
-    block_index index = address.get_block_index(BlockSize);
-
-    // Partial write at the start.
-    if (u32 offset = address.get_offset_in_block(BlockSize); offset != 0) {
-        auto block = e.read(index);
-        size_t n = std::min(size, size_t(BlockSize - offset));
-        std::memmove(block.data() + offset, buffer, n);
-        block.dirty();
-
-        buffer += n;
-        size -= n;
-        index += 1;
-    }
-    // Write as many full blocks as possible.
-    while (size >= BlockSize) {
-        e.overwritten(index, buffer);
-
-        buffer += BlockSize;
-        size -= BlockSize;
-        index += 1;
-    }
-    // Partial write at the end.
-    if (size > 0) {
-        auto block = e.read(index);
-        std::memmove(block.data(), buffer, size);
-        block.dirty();
-    }
-}
-
-/// Perform a linear read, starting from the given disk address.
-/// Will read exactly `size` bytes from the address range [address, address + size)
-/// on disk into `data`.
-template<u32 BlockSize>
-void read(engine<BlockSize>& e, raw_address address, void* data, size_t size) {
-    if (size == 0)
-        return;
-
-    byte* buffer = reinterpret_cast<byte*>(data);
-    block_index index = address.get_block_index(BlockSize);
-
-    // Partial read at the start.
-    if (u32 offset = address.get_offset_in_block(BlockSize); offset != 0) {
-        auto block = e.read(index);
-        size_t n = std::min(size, size_t(BlockSize - offset));
-        std::memmove(buffer, block.data() + offset, n);
-
-        buffer += n;
-        size -= n;
-        index += 1;
-    }
-    // Full block reads.
-    while (size >= BlockSize) {
-        auto block = e.read(index);
-        std::memmove(buffer, block.data(), BlockSize);
-
-        buffer += BlockSize;
-        size -= BlockSize;
-        index += 1;
-    }
-    // Partial read at the end.
-    if (size > 0) {
-        auto block = e.read(index);
-        std::memmove(buffer, block.data(), size);
-    }
-}
-
-/// Zeroes `size` bytes, starting from the given address.
-template<u32 BlockSize>
-void zero(engine<BlockSize>& e, raw_address address, u64 size) {
-    if (size == 0)
-        return;
-
-    block_index index = address.get_block_index(BlockSize);
-
-    // Partial write at the start.
-    if (u32 offset = address.get_offset_in_block(BlockSize); offset != 0) {
-        auto block = e.read(index);
-        u64 n = std::min(size, u64(BlockSize - offset));
-        std::memset(block.data() + offset, 0, n);
-        block.dirty();
-
-        size -= n;
-        index += 1;
-    }
-    // Write as many full blocks as possible.
-    while (size >= BlockSize) {
-        e.zeroed(index);
-
-        size -= BlockSize;
-        index += 1;
-    }
-    // Partial write at the end.
-    if (size > 0) {
-        auto block = e.read(index);
-        std::memset(block.data(), 0, size);
-        block.dirty();
-    }
-}
-
-namespace detail {
-
-template<u32 BlockSize>
-void copy_forward(engine<BlockSize>& e, raw_address dest, raw_address src, u64 size) {
-    auto index = [](auto addr) { return addr.get_block_index(BlockSize); };
-    auto offset = [](auto addr) { return addr.get_offset_in_block(BlockSize); };
-
-    const bool can_overwrite = distance(src, dest) >= BlockSize;
-
-    block_handle src_handle, dest_handle;
-    while (size > 0) {
-        if (!dest_handle || offset(dest) == 0) {
-            if (can_overwrite && offset(dest) == 0 && size > BlockSize) {
-                dest_handle = e.zeroed(index(dest));
-            } else {
-                dest_handle = e.read(index(dest));
-                dest_handle.dirty();
-            }
-        }
-
-        if (!src_handle || offset(src) == 0) {
-            src_handle = e.read(index(src));
-        }
-
-        u32 chunk = std::min(BlockSize - offset(src),
-                             BlockSize - offset(dest));
-        if (chunk > size)
-            chunk = size;
-
-        EXTPP_ASSERT(dest_handle.index() == index(dest), "Correct destination block.");
-        EXTPP_ASSERT(src_handle.index() == index(src), "Correct source block.");
-        std::memmove(dest_handle.data() + offset(dest),
-                     src_handle.data() + offset(src), chunk);
-        src += chunk;
-        dest += chunk;
-        size -= chunk;
-    }
-}
-
-template<u32 BlockSize>
-void copy_backward(engine<BlockSize>& e, raw_address dest, raw_address src, u64 size) {
-    auto index = [](auto addr) { return addr.get_block_index(BlockSize); };
-    auto offset = [](auto addr) { return addr.get_offset_in_block(BlockSize); };
-
-    const bool can_overwrite = distance(src, dest) >= BlockSize;
-
-    src += size;
-    dest += size;
-    block_handle src_handle, dest_handle;
-    while (size > 0) {
-        if (!dest_handle || offset(dest) == 0) {
-            if (can_overwrite && offset(dest) == 0 && size > BlockSize) {
-                dest_handle = e.zeroed(index(dest-1));
-            } else {
-                dest_handle = e.read(index(dest-1));
-                dest_handle.dirty();
-            }
-        }
-
-        if (!src_handle || offset(src) == 0) {
-            src_handle = e.read(index(src-1));
-        }
-
-        u32 chunk = std::min(offset(src) ? offset(src) : BlockSize,
-                             offset(dest) ? offset(dest) : BlockSize);
-        if (chunk > size)
-            chunk = size;
-
-        src -= chunk;
-        dest -= chunk;
-        size -= chunk;
-
-        EXTPP_ASSERT(dest_handle.index() == index(dest), "Correct destination block.");
-        EXTPP_ASSERT(src_handle.index() == index(src), "Correct source block.");
-        std::memmove(dest_handle.data() + offset(dest),
-                     src_handle.data() + offset(src), chunk);
-    }
-}
-
-}  // namespace detail
-
-/// Copies `size` bytes from `src` to `dest`. The two ranges can overlap.
-/// \pre `src` and `dest` are valid addresses.
-template<u32 BlockSize>
-void copy(engine<BlockSize>& e, raw_address dest, raw_address src, u64 size) {
-    EXTPP_ASSERT(dest, "Invalid destination address.");
-    EXTPP_ASSERT(src, "Invalid source address.");
-
-    if (dest == src || size == 0)
-        return;
-    if (src > dest || (src + size <= dest)) {
-        return detail::copy_forward(e, dest, src, size);
-    }
-    return detail::copy_backward(e, dest, src, size);
 }
 
 } // namespace extpp

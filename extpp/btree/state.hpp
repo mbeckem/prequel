@@ -13,7 +13,7 @@
 namespace extpp::btree_detail {
 
 template<typename Value, typename KeyExtract, typename KeyCompare, u32 BlockSize>
-class state : public uses_allocator<BlockSize> {
+class state : public uses_allocator {
 public:
     static constexpr u32 block_size = BlockSize;
 
@@ -121,9 +121,9 @@ public:
     internal_type access(internal_address addr) const { return extpp::access(this->get_engine(), addr); }
 
 public:
-    state(anchor_ptr<anchor> anc, allocator<BlockSize>& alloc,
+    state(anchor_ptr<anchor> anc, allocator& alloc,
           KeyExtract key_extract, KeyCompare key_compare)
-        : state::uses_allocator(alloc)
+        : state::uses_allocator(alloc, BlockSize)
         , m_anchor(std::move(anc))
         , m_key_extract(std::move(key_extract))
         , m_key_compare(std::move(key_compare))

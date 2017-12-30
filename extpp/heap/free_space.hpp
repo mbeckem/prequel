@@ -86,7 +86,7 @@ public:
     static constexpr u64 max_small_object_cells = 8 * storage<BlockSize>::cells_per_block;
 
 public:
-    free_space(anchor_ptr<anchor> anc, allocator<BlockSize>& alloc)
+    free_space(anchor_ptr<anchor> anc, allocator& alloc)
         : m_anchor(std::move(anc))
         , m_lists_headers(m_anchor.member(&anchor::lists), alloc)
         , m_large_ranges(m_anchor.member(&anchor::tree), alloc)
@@ -308,7 +308,7 @@ private:
         EXTPP_ASSERT(inserted, "Entry was not inserted.");
     }
 
-    engine<BlockSize>& get_engine() const { return m_lists_headers.get_engine(); }
+    engine& get_engine() const { return m_lists_headers.get_engine(); }
 
 private:
     anchor_ptr<anchor> m_anchor;

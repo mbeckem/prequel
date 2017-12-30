@@ -12,7 +12,7 @@ using namespace extpp;
 
 constexpr u32 bs = 1024;
 using alloc_t = default_allocator<bs>;
-using engine_t = file_engine<bs>;
+using engine_t = file_engine;
 
 TEST_CASE("default allocator", "[default-allocator]") {
     constexpr u32 data_chunk = 32;
@@ -21,7 +21,7 @@ TEST_CASE("default allocator", "[default-allocator]") {
     auto file = memory_vfs().open("testfile.bin", vfs::read_write, vfs::open_create);
     file->truncate(bs);
 
-    engine_t engine(*file, 16);
+    engine_t engine(*file, bs, 16);
     auto anchor = construct<alloc_t::anchor>(engine, raw_address::block_address(block_index(0), bs));
 
     alloc_t alloc(anchor, engine);

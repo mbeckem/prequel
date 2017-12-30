@@ -7,6 +7,7 @@
 #include <extpp/block_index.hpp>
 #include <extpp/defs.hpp>
 #include <extpp/engine.hpp>
+#include <extpp/io.hpp>
 #include <extpp/math.hpp>
 
 #include <boost/intrusive_ptr.hpp>
@@ -538,15 +539,12 @@ inline void block::set_dirty() noexcept {
 
 } // namespace detail
 
-template<u32 BlockSize>
-class file_engine : public engine<BlockSize>
+class file_engine : public engine
 {
-    static_assert(is_pow2(BlockSize),
-                  "BlockSize must be a power of two.");
-
 public:
-    file_engine(file& fd, u32 cache_size)
-        : m_impl(fd, BlockSize, cache_size)
+    file_engine(file& fd, u32 block_size, u32 cache_size)
+        : engine(block_size)
+        , m_impl(fd, block_size, cache_size)
     {}
 
     file& fd() const { return m_impl.fd(); }
@@ -555,12 +553,12 @@ public:
 
 private:
     u64 do_size() const override {
-        return fd().file_size() / BlockSize;
+        return fd().file_size() / block_size();
     }
 
     void do_grow(u64 n) override {
         u64 new_size_blocks = checked_add(do_size(), n);
-        u64 new_size_bytes = checked_mul<u64>(new_size_blocks, BlockSize);
+        u64 new_size_bytes = checked_mul<u64>(new_size_blocks, block_size());
         fd().truncate(new_size_bytes);
     }
 

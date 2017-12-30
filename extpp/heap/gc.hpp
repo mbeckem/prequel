@@ -458,7 +458,7 @@ private:
         }
     }
 
-    engine<BlockSize>& get_engine() const { return m_storage.get_engine(); }
+    engine& get_engine() const { return m_storage.get_engine(); }
 
 private:
     gc_data_type& m_chunks;

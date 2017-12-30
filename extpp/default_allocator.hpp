@@ -17,7 +17,7 @@
 namespace extpp {
 
 template<u32 BlockSize>
-class default_allocator : public allocator<BlockSize> {
+class default_allocator : public allocator {
 private:
     /// An entry in the tree that contains all allocations (free or not).
     /// An extent is sequence of contiguous blocks and is represented
@@ -53,9 +53,9 @@ private:
         }
     };
 
-    struct metadata_allocator : allocator<BlockSize> {
+    struct metadata_allocator : allocator {
         metadata_allocator(default_allocator* parent)
-            : allocator<BlockSize>(parent->get_engine())
+            : allocator(parent->get_engine())
             , parent(parent) {}
 
         metadata_allocator(metadata_allocator&&) = delete;
@@ -114,8 +114,8 @@ public:
     };
 
 public:
-    default_allocator(anchor_ptr<anchor> anch, engine<BlockSize>& e)
-        : allocator<BlockSize>(e)
+    default_allocator(anchor_ptr<anchor> anch, engine& e)
+        : allocator(e)
         , m_anchor(std::move(anch))
         , m_meta_freelist(m_anchor.member(&anchor::meta_freelist), e)
         , m_meta_alloc(this)

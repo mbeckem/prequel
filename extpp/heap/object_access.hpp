@@ -42,7 +42,7 @@ public:
     };
 
 public:
-    object_access(engine<BlockSize>& eng)
+    object_access(engine& eng)
         : m_engine(&eng)
     {}
 
@@ -141,10 +141,10 @@ public:
     }
 
 private:
-    engine<BlockSize>& get_engine() const { return *m_engine; }
+    engine& get_engine() const { return *m_engine; }
 
 private:
-    engine<BlockSize>* m_engine;
+    engine* m_engine;
 };
 
 } // namespace extpp::heap_detail

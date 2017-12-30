@@ -15,6 +15,8 @@
 
 namespace extpp {
 
+class engine;
+
 class raw_address;
 
 template<typename T>
@@ -230,6 +232,28 @@ address<To> address_cast(const address<From>& addr) {
         return raw_address_cast<To>(addr.raw() - detail::offset_of_base<To, From>());
     }
 }
+
+/// \defgroup linear_io Linear I/O-functions
+/// @{
+
+/// Perform a linear write, starting from the given disk address.
+/// Will write exactly `size` bytes from `data` to disk to the
+/// address range [address, address + size).
+void write(engine& e, raw_address address, const void* data, size_t size);
+
+/// Perform a linear read, starting from the given disk address.
+/// Will read exactly `size` bytes from the address range [address, address + size)
+/// on disk into `data`.
+void read(engine& e, raw_address address, void* data, size_t size);
+
+/// Zeroes `size` bytes, starting from the given address.
+void zero(engine& e, raw_address address, u64 size);
+
+/// Copies `size` bytes from `src` to `dest`. The two ranges can overlap.
+/// \pre `src` and `dest` are valid addresses.
+void copy(engine& e, raw_address dest, raw_address src, u64 size);
+
+/// @}
 
 } // namespace extpp
 

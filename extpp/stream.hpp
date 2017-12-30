@@ -78,7 +78,7 @@ public:
     // TODO Destroy
 
 public:
-    stream(anchor_ptr<anchor> h, allocator<BlockSize>& alloc)
+    stream(anchor_ptr<anchor> h, allocator& alloc)
         : m_anchor(std::move(h))
         , m_extent(m_anchor.member(&anchor::extent), alloc)
     {}
@@ -89,8 +89,8 @@ public:
     stream& operator=(const stream&) = delete;
     stream& operator=(stream&&) noexcept = default;
 
-    engine<BlockSize>& get_engine() const { return m_extent.get_engine(); }
-    allocator<BlockSize>& get_allocator() const { return m_extent.get_allocator(); }
+    engine& get_engine() const { return m_extent.get_engine(); }
+    allocator& get_allocator() const { return m_extent.get_allocator(); }
 
     /// \name Stream capacity
     /// @{

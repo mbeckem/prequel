@@ -25,13 +25,13 @@ inline std::unique_ptr<file> get_test_file() {
 }
 
 template<u32 BlockSize>
-inline std::unique_ptr<engine<BlockSize>> get_test_engine(file& f) {
+inline std::unique_ptr<engine> get_test_engine(file& f) {
     static constexpr bool mmap_test = false;
 
     if constexpr (mmap_test) {
-        return std::make_unique<mmap_engine<BlockSize>>(f);
+        return std::make_unique<mmap_engine>(f, BlockSize);
     } else {
-        return std::make_unique<file_engine<BlockSize>>(f, 16);
+        return std::make_unique<file_engine>(f, BlockSize, 16);
     }
 }
 
@@ -49,7 +49,7 @@ private:
         handle<Anchor> anchor;
         default_allocator<BlockSize> alloc;
 
-        state(handle<block> hnd, engine<BlockSize>& eng)
+        state(handle<block> hnd, engine& eng)
             : anchor(hnd.member(&block::anchor))
             , alloc(hnd.member(&block::alloc_anchor), eng)
         {}
@@ -92,7 +92,7 @@ public:
         }
     }
 
-    engine<BlockSize>& get_engine() {
+    engine& get_engine() {
         if (!m_engine)
             throw std::logic_error("not open");
         return *m_engine;
@@ -114,7 +114,7 @@ private:
     void init() {
         if (m_file->file_size() == 0) {
             m_file->truncate(m_block_size);
-            extpp::file_engine<BlockSize> be(*m_file, 1);
+            extpp::file_engine be(*m_file, BlockSize, 1);
             construct<block>(be.read(block_index(0)));
             be.flush();
         }
@@ -122,7 +122,7 @@ private:
 
 private:
     std::unique_ptr<file> m_file;
-    std::unique_ptr<engine<BlockSize>> m_engine;
+    std::unique_ptr<engine> m_engine;
     u32 m_block_size = 0;
     boost::optional<state> m_state;
 };

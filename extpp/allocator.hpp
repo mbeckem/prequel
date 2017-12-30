@@ -7,10 +7,9 @@
 
 namespace extpp {
 
-template<u32 BlockSize>
 class allocator {
 public:
-    explicit allocator(engine<BlockSize>& e)
+    explicit allocator(engine& e)
         : m_engine(&e)
     {}
 
@@ -18,7 +17,10 @@ public:
 
     /// Returns the engine in which the addresses allocated with this
     /// instance can be used.
-    engine<BlockSize>& get_engine() const { return *m_engine; }
+    engine& get_engine() const { return *m_engine; }
+
+    /// The size of the blocks allocated by this allocator.
+    u32 block_size() const { return get_engine().block_size(); }
 
     /// Allocates a range of `n` consecutive blocks.
     /// Returns the address of the first block.
@@ -50,7 +52,7 @@ public:
             return allocate(n);
         }
         EXTPP_CHECK(a, "The address passed to reallocate() is invalid.");
-        EXTPP_CHECK(a.get_offset_in_block(BlockSize) == 0, "The address passed to reallocate() does not point to a block.");
+        EXTPP_CHECK(a.get_offset_in_block(block_size()) == 0, "The address passed to reallocate() does not point to a block.");
         if (n == 0) {
             free(a);
             return {};
@@ -65,7 +67,7 @@ public:
     /// Frees blocks previously allocated using `allocate()` or `reallocate()`.
     void free(raw_address a) {
         EXTPP_CHECK(a, "The address passed to free() is invalid.");
-        EXTPP_CHECK(a.get_offset_in_block(BlockSize) == 0, "The address passed to free() does not point to a block.");
+        EXTPP_CHECK(a.get_offset_in_block(block_size()) == 0, "The address passed to free() does not point to a block.");
         do_free(a);
     }
 
@@ -83,26 +85,27 @@ protected:
     virtual void do_free(raw_address a) = 0;
 
 private:
-    engine<BlockSize>* m_engine;
+    engine* m_engine;
 };
 
 /// Utility base class for containers that keep a reference to an allocator
 /// in order to allocate and free dynamic block storage.
-template<u32 BlockSize>
 class uses_allocator {
 public:
-    explicit uses_allocator(allocator<BlockSize>& alloc)
+    explicit uses_allocator(allocator& alloc, u32 required_blocksize)
         : m_allocator(&alloc)
         , m_engine(&alloc.get_engine())
-    {}
+    {
+        EXTPP_CHECK(is_pow2(required_blocksize), "The required blocksize must be a power of 2.");
+        EXTPP_CHECK(alloc.block_size() >= required_blocksize, "The allocator's blocksize is incompatible.");
+    }
 
-    allocator<BlockSize>& get_allocator() const { return *m_allocator; }
-
-    engine<BlockSize>& get_engine() const { return *m_engine; }
+    allocator& get_allocator() const { return *m_allocator; }
+    engine& get_engine() const { return *m_engine; }
 
 private:
-    allocator<BlockSize>* m_allocator;
-    engine<BlockSize>* m_engine;
+    allocator* m_allocator;
+    engine* m_engine;
 };
 
 } // namespace extpp

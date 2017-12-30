@@ -1,17 +1,24 @@
 #ifndef EXTPP_ENGINE_HPP
 #define EXTPP_ENGINE_HPP
 
-#include <extpp/defs.hpp>
+#include <extpp/assert.hpp>
 #include <extpp/block_handle.hpp>
+#include <extpp/defs.hpp>
+#include <extpp/math.hpp>
 
 namespace extpp {
 
-// TODO: Detemplatize
-template<u32 BlockSize>
 class engine {
 public:
-    engine() = default;
+    engine(u32 block_size)
+        : m_block_size(block_size)
+    {
+        EXTPP_CHECK(is_pow2(block_size), "Block size must be a power of two.");
+    }
+
     virtual ~engine() = default;
+
+    u32 block_size() const { return m_block_size; }
 
     /// Returns the size of the underlying storage, in blocks.
     /// All block indices between in `[0, size())` are valid for
@@ -66,6 +73,9 @@ private:
     virtual block_handle do_zeroed(block_index index) = 0;
     virtual block_handle do_overwritten(block_index index, const byte* data) = 0;
     virtual void do_flush() = 0;
+
+private:
+    u32 m_block_size;
 };
 
 } // namespace extpp

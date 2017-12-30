@@ -117,7 +117,7 @@ public:
     using iterator = typename storage_type::iterator;
 
 public:
-    object_table(anchor_ptr<anchor> anc, allocator<BlockSize>& alloc)
+    object_table(anchor_ptr<anchor> anc, allocator& alloc)
         : m_anchor(std::move(anc))
         , m_objects(m_anchor.member(&anchor::objects), alloc)
     {}

@@ -58,6 +58,7 @@ set(HEADERS
 )
 
 set(SOURCES
+    address.cpp
     assert.cpp
     file_engine.cpp
     exception.cpp

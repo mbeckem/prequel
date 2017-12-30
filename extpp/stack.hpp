@@ -16,7 +16,7 @@
 namespace extpp {
 
 template<typename T, u32 BlockSize>
-class stack : public uses_allocator<BlockSize> {
+class stack : public uses_allocator {
 public:
     using value_type = T;
     using size_type = u64;
@@ -78,8 +78,8 @@ public:
     };
 
 public:
-    stack(anchor_ptr<anchor> anc, allocator<BlockSize>& alloc)
-        : stack::uses_allocator(alloc)
+    stack(anchor_ptr<anchor> anc, allocator& alloc)
+        : stack::uses_allocator(alloc, BlockSize)
         , m_anchor(std::move(anc))
     {
         // TODO: These blocks could be lazily loaded only when required.

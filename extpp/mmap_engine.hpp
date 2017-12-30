@@ -151,11 +151,11 @@ private:
 
 } // namespace detail
 
-template<u32 BlockSize>
-class mmap_engine : public engine<BlockSize> {
+class mmap_engine : public engine {
 public:
-    explicit mmap_engine(file& fd)
-        : m_impl(fd, BlockSize)
+    explicit mmap_engine(file& fd, u32 block_size)
+        : engine(block_size)
+        , m_impl(fd, block_size)
     {}
 
 private:

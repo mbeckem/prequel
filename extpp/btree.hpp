@@ -139,7 +139,7 @@ private:
     }
 
 public:
-    btree(anchor_ptr<anchor> anch, allocator<BlockSize>& alloc,
+    btree(anchor_ptr<anchor> anch, allocator& alloc,
           KeyExtract extract = KeyExtract(), KeyCompare compare = KeyCompare())
         : state_type(std::move(anch), alloc, std::move(extract), std::move(compare))
     {}

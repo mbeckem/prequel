@@ -22,12 +22,12 @@ public:
 
     default_file_format(file& f, u32 cache_size)
         : m_file(f)
-        , m_engine(m_file, cache_size)
+        , m_engine(m_file, BlockSize, cache_size)
     {
         init();
     }
 
-    file_engine<BlockSize>& get_engine() {
+    file_engine& get_engine() {
         return m_engine;
     }
 
@@ -69,7 +69,7 @@ private:
 
 private:
     file& m_file;
-    file_engine<BlockSize> m_engine;
+    file_engine m_engine;
     handle<block> m_handle;
     std::optional<default_allocator<BlockSize>> m_allocator;
 };

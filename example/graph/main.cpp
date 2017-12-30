@@ -37,8 +37,8 @@ private:
 
 static constexpr std::uint32_t block_size = 4096;
 
-using engine = extpp::engine<block_size>;
-using allocator = extpp::allocator<block_size>;
+using extpp::engine;
+using extpp::allocator;
 
 // Storage for data (strings and so forth).
 using heap_type = extpp::heap<block_size>;

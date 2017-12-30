@@ -51,10 +51,12 @@ public:
     };
 
 public:
-    explicit free_list(anchor_ptr<anchor> a, engine<BlockSize>& e)
+    explicit free_list(anchor_ptr<anchor> a, engine& e)
         : m_anchor(std::move(a))
         , m_engine(&e)
-    {}
+    {
+        EXTPP_CHECK(e.block_size() >= BlockSize, "Incompatible block size.");
+    }
 
     /// True if there are no free blocks.
     bool empty() const { return !m_anchor->head; }
@@ -109,7 +111,7 @@ public:
 
 private:
     anchor_ptr<anchor> m_anchor;
-    engine<BlockSize>* m_engine;
+    engine* m_engine;
 };
 
 } // namespace detail

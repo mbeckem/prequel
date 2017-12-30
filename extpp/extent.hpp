@@ -11,7 +11,7 @@
 namespace extpp {
 
 template<u32 BlockSize>
-class extent : public uses_allocator<BlockSize> {
+class extent : public uses_allocator {
 public:
     static constexpr u32 block_size = BlockSize;
 
@@ -27,15 +27,15 @@ public:
 
 public:
     /// Destroys any data used by the anchor. Must not use the anchor after calling `destroy()`.
-    static void destroy(const anchor& a, allocator<BlockSize>& alloc) {
+    static void destroy(const anchor& a, allocator& alloc) {
         if (a.start) {
             alloc.free(a.start);
         }
     }
 
 public:
-    extent(anchor_ptr<anchor> anc, allocator<BlockSize>& alloc)
-        : extent::uses_allocator(alloc)
+    extent(anchor_ptr<anchor> anc, allocator& alloc)
+        : extent::uses_allocator(alloc, BlockSize)
         , m_anchor(std::move(anc))
     {}
 

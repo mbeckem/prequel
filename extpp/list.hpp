@@ -20,7 +20,7 @@
 namespace extpp {
 
 template<typename T, u32 BlockSize>
-class list : public uses_allocator<BlockSize> {
+class list : public uses_allocator {
 public:
     using value_type = T;
     using size_type = u64;
@@ -70,7 +70,7 @@ private:
     }
 
     void free_node(node_address ptr) {
-        this->get_allocator.free(ptr.raw());
+        this->get_allocator().free(ptr.raw());
         --m_anchor->nodes;
         m_anchor.dirty();
     }
@@ -93,8 +93,8 @@ public:
     };
 
 public:
-    list(anchor_ptr<anchor> a, allocator<BlockSize>& alloc)
-        : list::uses_allocator(alloc)
+    list(anchor_ptr<anchor> a, allocator& alloc)
+        : list::uses_allocator(alloc, BlockSize)
         , m_anchor(std::move(a))
     {}
 

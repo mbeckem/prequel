@@ -48,7 +48,7 @@ class collector_base;
 namespace extpp {
 
 template<u32 BlockSize>
-class heap : public uses_allocator<BlockSize> {
+class heap : public uses_allocator {
 public:
     static constexpr u32 block_size = BlockSize;
 
@@ -172,8 +172,8 @@ public:
     using compactor_type = compactor<BlockSize>;
 
 public:
-    heap(anchor_ptr<anchor> h, allocator<BlockSize>& alloc)
-        : heap::uses_allocator(alloc)
+    heap(anchor_ptr<anchor> h, allocator& alloc)
+        : heap::uses_allocator(alloc, BlockSize)
         , m_anchor(std::move(h))
         , m_access(this->get_engine())
         , m_storage(m_anchor.member(&anchor::storage), alloc)
