@@ -40,6 +40,17 @@ iterator_range<Iter> iter_range(std::tuple<Iter, Iter> p) {
     return { std::move(std::get<0>(p)), std::move(std::get<1>(p)) };
 }
 
+template<typename Tuple, typename Visitor, size_t... I>
+constexpr void tuple_for_each_impl(Tuple&& t, Visitor&& v, std::index_sequence<I...>) {
+    ((void) v(std::get<I>(t)), ...);
+}
+
+template<typename Tuple, typename Visitor>
+constexpr void tuple_for_each(Tuple&& t, Visitor&& v) {
+    return tuple_for_each_impl(std::forward<Tuple>(t), std::forward<Visitor>(v),
+                               std::make_index_sequence<std::tuple_size_v<std::decay_t<Tuple>>>());
+}
+
 } // namespace detail
 } // namespace extpp
 

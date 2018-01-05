@@ -12,6 +12,7 @@ Welcome to extpp's documentation!
    :includehidden:
 
    datastructures
+   serialization
    file_io
    utility
 

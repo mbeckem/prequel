@@ -1,5 +1,7 @@
 set(SOURCES
     address_test.cpp
+    new_address_test.cpp
+
     anchor_ptr_test.cpp
     bitset_test.cpp
     block_engine_test.cpp
@@ -13,10 +15,12 @@ set(SOURCES
     id_generator_test.cpp
     inlined_any_test.cpp
     io_test.cpp
+    iter_tools_test.cpp
     list_test.cpp
     main.cpp
     math_test.cpp
-    memory.cpp
+    memory_test.cpp
+    serialization_test.cpp
     stack_test.cpp
     stream_test.cpp
     test_file.hpp

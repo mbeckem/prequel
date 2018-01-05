@@ -54,12 +54,12 @@ struct offset_of_base_helper {
 //    sizeof(...::for_sizeof).
 };
 
-template<typename T, typename U, typename V, V U::*Member>
+template<typename T, typename U, typename V, V U::*MemberPtr>
 struct offset_of_member_helper {
     using holder = dummy_object<T>;
 
     enum {
-        value = (char *) (std::addressof(holder::value.*Member)) - (char *) std::addressof(holder::value)
+        value = (char *) (std::addressof(holder::value.*MemberPtr)) - (char *) std::addressof(holder::value)
     };
 };
 
@@ -69,26 +69,20 @@ constexpr ptrdiff_t offset_of_base() {
     return offset_of_base_helper<remove_cvref_t<Derived>, Base>::value;
 }
 
-struct member_helpers {
-    template<typename T, typename V>
-    static T object_type_of(V T::*);
-
-    template<typename T, typename V>
-    static V value_type_of(V T::*);
-};
-
 /// Returns the offset of `Member` in `T`.
-template<typename T, auto Member>
+template<typename T, auto MemberPtr>
 constexpr ptrdiff_t offset_of_member() {
-    static_assert(std::is_member_object_pointer<decltype(Member)>::value,
+    using ptr_type = decltype(MemberPtr);
+
+    static_assert(std::is_member_object_pointer<decltype(MemberPtr)>::value,
                   "Must pass a member pointer.");
     using type = remove_cvref_t<T>;
-    using member_object_type = remove_cvref_t<decltype(member_helpers::object_type_of(Member))>;
-    using member_value_type = decltype(member_helpers::value_type_of(Member));
+    using member_object_type = remove_cvref_t<object_type_t<ptr_type>>;
+    using member_value_type = remove_cvref_t<member_type_t<ptr_type>>;
 
     static_assert(std::is_base_of<member_object_type, type>::value,
                   "Member does not belong to the specified type.");
-    return offset_of_member_helper<type, member_object_type, member_value_type, Member>::value;
+    return offset_of_member_helper<type, member_object_type, member_value_type, MemberPtr>::value;
 }
 
 } // namespace extpp::detail

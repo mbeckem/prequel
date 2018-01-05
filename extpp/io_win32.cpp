@@ -20,13 +20,15 @@ private:
     std::string m_name;
 
 public:
-    win32_file(HANDLE handle, std::string name)
-        : m_handle(handle)
+    win32_file(vfs& v, HANDLE handle, std::string name)
+        : file(v)
+        , m_handle(handle)
         , m_name(std::move(name))
     {}
 
-    win32_file()
-        : m_handle(INVALID_HANDLE_VALUE)
+    win32_file(vfs& v)
+        : file(v)
+        , m_handle(INVALID_HANDLE_VALUE)
         , m_name()
     {}
 
@@ -60,6 +62,8 @@ public:
     const char* name() const noexcept override { return "win32_vfs"; }
 
     std::unique_ptr<file> open(const char* path, access_t access, flags_t flags) override;
+
+    std::unique_ptr<file> create_temp() override;
 };
 
 static std::error_code last_error()
@@ -244,9 +248,13 @@ std::unique_ptr<file> win32_vfs::open(const char* path, access_t access, flags_t
         CloseHandle(result);
     });
 
-    auto ret = std::make_unique<win32_file>(result, path);
+    auto ret = std::make_unique<win32_file>(*this, result, path);
     guard.commit();
     return ret;
+}
+
+std::unique_ptr<file> win32_vfs::create_temp() {
+    throw unsupported("TODO"); // TODO
 }
 
 vfs& system_vfs()

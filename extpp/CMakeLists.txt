@@ -27,6 +27,7 @@ set(HEADERS
     btree/verify.hpp
 
     address.hpp
+    new_address.hpp
     allocator.hpp
     anchor_ptr.hpp
     assert.hpp
@@ -51,6 +52,7 @@ set(HEADERS
     map.hpp
     math.hpp
     raw.hpp
+    serialization.hpp
     set.hpp
     stack.hpp
     stream.hpp
