@@ -1,18 +1,28 @@
 set(SOURCES
     address_test.cpp
+    new_address_test.cpp
+
+    anchor_ptr_test.cpp
     bitset_test.cpp
-    file_engine_test.cpp
-    free_list_test.cpp
+    block_engine_test.cpp
+    block_test.cpp
+    btree_test.cpp
+    default_allocator_test.cpp
+    extent_test.cpp
+    freelist_test.cpp
     handle_test.cpp
+    heap_test.cpp
+    id_generator_test.cpp
     inlined_any_test.cpp
     io_test.cpp
     iter_tools_test.cpp
+    list_test.cpp
     main.cpp
     math_test.cpp
-    node_allocator_test.cpp
-    list_test.cpp
+    memory_test.cpp
     serialization_test.cpp
-
+    stack_test.cpp
+    stream_test.cpp
     test_file.hpp
 )
 

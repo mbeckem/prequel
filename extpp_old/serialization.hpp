@@ -40,7 +40,7 @@ struct has_explicit_serializer<T, void_t<typename T::binary_serializer>> : std::
 // The default serializer implements binary serialization for fixed size primitive values
 // and some common standard types. Arrays, tuples, etc. of serialized types are themselves
 // serializable.
-template<typename T, typename Enable = void>
+template<typename T>
 struct default_serializer {
     static_assert(always_false<T>::value,
                   "The specified type cannot be serialized.");
@@ -82,39 +82,6 @@ template<>
 struct default_serializer<i32> : big_endian_serializer<i32, 4> {};
 template<>
 struct default_serializer<i64> : big_endian_serializer<i64, 8> {};
-
-// Endianess for floating points is a complete mess if one wants to be
-// truly cross-platform. There are apparently machine that have different
-// integer and float endianess rules. IEEE 754 does not specify the endianness
-// of floating point numbers. The following code only works on platforms
-// where the float endianess is the same as the integer endianess (which is the
-// rule in modern systems).
-template<typename T, typename U>
-struct float_serializer {
-    static_assert(sizeof(T) == sizeof(U),
-                  "Unexpected size of floating point type.");
-    static_assert(std::numeric_limits<T>::is_iec559,
-                  "The floating point type must conform to IEEE 754.");
-
-    static constexpr size_t serialized_size = sizeof(T);
-
-    static void serialize(T value, byte* b) {
-        U num;
-        std::memcpy(&num, &value, sizeof(T));
-        extpp::serialize(num, b);
-    }
-
-    static void deserialize(T& value, const byte* b) {
-        U num;
-        extpp::deserialize(num, b);
-        std::memcpy(&value, &num, sizeof(T));
-    }
-};
-
-template<>
-struct default_serializer<float> : float_serializer<float, u32> {};
-template<>
-struct default_serializer<double> : float_serializer<double, u64> {};
 
 template<>
 struct default_serializer<bool> {

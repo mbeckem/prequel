@@ -25,11 +25,10 @@ public:
         : m_value(index)
     {}
 
-    bool valid() const { return m_value != invalid_value; }
     u64 value() const { return m_value; }
 
     explicit operator u64() const { return value(); }
-    explicit operator bool() const { return valid(); }
+    explicit operator bool() const { return m_value != invalid_value; }
 
     block_index& operator+=(u64 offset) {
         EXTPP_ASSERT(*this, "Invalid block index.");

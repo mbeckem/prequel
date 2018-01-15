@@ -6,68 +6,6 @@
 
 using namespace extpp;
 
-struct t1 {
-    int x;
-};
-
-struct t2 : t1 {
-    int y;
-};
-
-struct t3 {
-    int z;
-};
-
-struct t4 : t3, t2 {
-    int a;
-};
-
-static_assert(std::is_convertible<address<t2>, address<t1>>::value,
-              "convertible child->parent.");
-static_assert(!std::is_convertible<address<t1>, address<t2>>::value,
-              "not convertible parent->child");
-
-static_assert(std::is_convertible<address<t4>, address<t3>>::value,
-              "convertible child->parent.");
-static_assert(std::is_convertible<address<t4>, address<t2>>::value,
-              "convertible child->parent.");
-static_assert(std::is_convertible<address<t4>, address<t1>>::value,
-              "convertible child->parent.");
-
-static_assert(sizeof(address<t1>) == sizeof(u64), "Requires EBO.");
-
-TEST_CASE("basic address casts", "[address]") {
-    {
-        address<t2> c = raw_address_cast<t2>(raw_address::byte_address(64));
-        address<t1> p = c;
-        REQUIRE(p.raw() == c.raw());
-    }
-
-    {
-        address<t4> c = raw_address_cast<t4>(raw_address::byte_address(64));
-        address<t3> p1 = c;
-        address<t2> p2 = c;
-
-        REQUIRE(p1.raw() == c.raw());
-        REQUIRE(p2.raw() == c.raw() + sizeof(int)); // Itanium abi
-    }
-
-    {
-        address<t2> c1 = raw_address_cast<t2>(raw_address::byte_address(64));
-        address<t4> c2 = address_cast<t4>(c1);
-
-        REQUIRE(c2.raw() == c1.raw() - sizeof(int)); // Itanium abi
-    }
-
-    {
-        address<t4> a1;
-        address<t2> a2 = a1;
-
-        REQUIRE(!a1);
-        REQUIRE(!a2);
-    }
-}
-
 TEST_CASE("address comparisons", "[address]") {
     raw_address a1;
     raw_address a2(128);
@@ -86,4 +24,42 @@ TEST_CASE("address comparisons", "[address]") {
     REQUIRE(a2 < a4);
 
     REQUIRE(a3 < a4);
+}
+
+TEST_CASE("instance <-> member", "[address]") {
+    struct test_t {
+        u32 a = 0;
+        u16 b = 1;
+        u16 c = 2;
+        u64 d = 3;
+        std::tuple<u8, u16> e{5, 6};
+        u32 f[3] = {7, 8, 9};
+
+        static constexpr auto get_binary_format() {
+            return make_binary_format(&test_t::a, &test_t::b, &test_t::c,
+                                      &test_t::d, &test_t::e, &test_t::f);
+        }
+    };
+
+    address<test_t> base(raw_address(0));
+    address<u32> a = base.member<&test_t::a>();
+    address<u16> b = base.member<&test_t::b>();
+    address<u16> c = base.member<&test_t::c>();
+    address<u64> d = base.member<&test_t::d>();
+    address<std::tuple<u8, u16>> e = base.member<&test_t::e>();
+    address<u32[3]> f = base.member<&test_t::f>();
+
+    REQUIRE(a.raw().value() == 0);
+    REQUIRE(b.raw().value() == 4);
+    REQUIRE(c.raw().value() == 6);
+    REQUIRE(d.raw().value() == 8);
+    REQUIRE(e.raw().value() == 16);
+    REQUIRE(f.raw().value() == 19);
+
+    REQUIRE(a.instance<&test_t::a>() == base);
+    REQUIRE(b.instance<&test_t::b>() == base);
+    REQUIRE(c.instance<&test_t::c>() == base);
+    REQUIRE(d.instance<&test_t::d>() == base);
+    REQUIRE(e.instance<&test_t::e>() == base);
+    REQUIRE(f.instance<&test_t::f>() == base);
 }

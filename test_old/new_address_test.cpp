@@ -1,8 +1,9 @@
 #include <catch.hpp>
 
-#include <extpp/new_address.hpp>
+#include <extpp/new/address.hpp>
 
 using namespace extpp;
+using namespace extpp::v2;
 
 TEST_CASE("instance <-> member", "[address]") {
     struct test_t {

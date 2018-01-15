@@ -139,14 +139,11 @@ public:
 
     virtual u64 index() const noexcept override { return m_index; }
 
-    virtual const byte* data() const noexcept override { return m_buffer; }
-
-    virtual byte* writable_data() override {
-        set_dirty();
-        return m_buffer;
-    }
+    virtual byte* data() const noexcept override { return m_buffer; }
 
     virtual u32 block_size() const noexcept override { return m_block_size; }
+
+    virtual void dirty() override { set_dirty(); }
 
     virtual block* copy() override {
         ref();

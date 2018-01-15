@@ -4,17 +4,12 @@
 #include <extpp/address.hpp>
 #include <extpp/assert.hpp>
 #include <extpp/defs.hpp>
-#include <extpp/serialization.hpp>
 
 #include <utility>
 
 namespace extpp {
-
 namespace detail {
 
-// Note: This part can be made more efficient by
-// using vtable + void pointers. For mmap, the void pointer
-// can be the mapped pointer itself.
 class block_handle_impl {
 public:
     block_handle_impl() = default;
@@ -22,11 +17,11 @@ public:
     // TODO: Move into this class. Remains constant anyway.
     virtual u64 index() const noexcept = 0;
 
-    virtual const byte* data() const noexcept = 0;
-
-    virtual byte* writable_data();
+    virtual byte* data() const noexcept = 0;
 
     virtual u32 block_size() const noexcept = 0;
+
+    virtual void dirty() = 0;
 
     // Virtual copy & destroy so that refcount increment and decrement
     // is a valid implementation of this interface.
@@ -55,8 +50,7 @@ public:
     /// The handle object takes ownership of the pointer.
     /// \pre `base != nullptr`.
     block_handle(detail::block_handle_impl* base)
-        : m_impl(base)
-    {
+        : m_impl(base) {
         EXTPP_ASSERT(base, "Null pointer.");
     }
 
@@ -95,8 +89,23 @@ public:
     /// @}
 
     /// Returns the index of this block in the underlying storage engine.
+    /// \pre `valid()`.
     block_index index() const noexcept {
-        return valid() ? block_index(m_impl->index()) : block_index();
+        check_valid();
+        return block_index(m_impl->index());
+    }
+
+    raw_address address() const noexcept {
+        check_valid();
+        return raw_address::block_address(index(), block_size());
+    }
+
+    /// Returns a pointer to the block's data.
+    /// The data array is exactly block_size() bytes long.
+    /// \pre `valid()`.
+    byte* data() const noexcept {
+        check_valid();
+        return m_impl->data();
     }
 
     /// Returns the block's size.
@@ -106,78 +115,17 @@ public:
         return m_impl->block_size();
     }
 
-    /// Returns the address of this block on disk.
-    /// The address points to the first byte of the block.
-    raw_address address() const noexcept {
-        check_valid();
-        return raw_address::block_address(index(), block_size());
-    }
-
-    /// Returns a pointer to the block's data.
-    /// The data array is exactly block_size() bytes long.
-    ///
-    /// \warning The block's data array may be moved after a call to
-    /// writable_data(), which will invalidate the previous data pointers.
-    /// *Do not store this value*.
-    ///
+    /// Mark this block as dirty. Blocks must be marked as dirty
+    /// in order for the changes to be written back to disk.
     /// \pre `valid()`.
-    const byte* data() const noexcept {
+    void dirty() const {
         check_valid();
-        return m_impl->data();
-    }
-
-    /// Returns a pointer to the block's data.
-    /// The data array is exactly block_size() bytes long.
-    ///
-    /// \warning Invalidates earlier `data()`-pointers, because
-    /// the storage of the block might be moved.
-    ///
-    /// \pre `valid()`.
-    byte* writable_data() const {
-        check_valid();
-        return m_impl->writable_data();
-    }
-
-    template<typename T>
-    void get(u32 offset, T& value) const {
-        EXTPP_ASSERT(check_range(offset, serialized_size<T>()),
-                     "Reading out of bounds.");
-
-        deserialize(value, data() + offset);
-    }
-
-    template<typename T>
-    T get(u32 offset) const {
-        T value;
-        get(offset, value);
-        return value;
-    }
-
-    template<typename T>
-    void set(u32 offset, const T& value) const {
-        EXTPP_ASSERT(check_range(offset, serialized_size<T>()),
-                     "Writing out of bounds.");
-        serialize(value, writable_data() + offset);
-    }
-
-    void write(u32 offset, const void* data, u32 size) const {
-        EXTPP_ASSERT(check_range(offset, size), "Writing out of bounds.");
-        std::memmove(writable_data() + offset, data, size);
-    }
-
-    void read(u32 offset, void* data, u32 size) const {
-        EXTPP_ASSERT(check_range(offset, size), "Reading out of bounds.");
-        std::memmove(data, this->data() + offset, size);
+        return m_impl->dirty();
     }
 
 private:
     void check_valid() const {
         EXTPP_ASSERT(valid(), "Invalid instance.");
-    }
-
-    bool check_range(u32 offset, u32 size) const {
-        check_valid();
-        return offset <= block_size() && size <= block_size() - offset;
     }
 
 private:

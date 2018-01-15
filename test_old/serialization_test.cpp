@@ -3,28 +3,11 @@
 #include <extpp/address.hpp>
 #include <extpp/serialization.hpp>
 
+#include <fmt/format.h>
+
 #include <array>
 
 using namespace extpp;
-
-struct no_format {
-    u32 a, b, c, d;
-};
-
-struct has_format {
-    u32 a, b, c, d;
-
-private:
-    friend extpp::binary_format_access;
-
-    static constexpr auto get_binary_format() {
-        return make_binary_format(&has_format::a, &has_format::b,
-                                  &has_format::c, &has_format::d);
-    }
-};
-
-static_assert(!has_binary_format<no_format>(), "Sanity check.");
-static_assert(has_binary_format<has_format>(), "Sanity check.");
 
 struct test1 {
     i8 v1 = 0;
@@ -91,24 +74,6 @@ TEST_CASE("roundtrips", "[serialization]") {
                   + (u64(118) << 16)
                   + (u64(117) << 8)
                   + (u64(116) << 0));
-
-    ROUND_TRIP(float, float(0));
-    ROUND_TRIP(float, float(-0));
-    ROUND_TRIP(float, float(1.1e22));
-    ROUND_TRIP(float, float(-1));
-    ROUND_TRIP(float, float(-100.5));
-    ROUND_TRIP(float, float(123456789));
-    ROUND_TRIP(float, (std::numeric_limits<float>::infinity()));
-    ROUND_TRIP(float, (-std::numeric_limits<float>::infinity()));
-
-    ROUND_TRIP(double, double(0));
-    ROUND_TRIP(double, double(-0));
-    ROUND_TRIP(double, double(1.1e52));
-    ROUND_TRIP(double, double(-1));
-    ROUND_TRIP(double, double(-100.5));
-    ROUND_TRIP(double, double(123456789));
-    ROUND_TRIP(double, (std::numeric_limits<double>::infinity()));
-    ROUND_TRIP(double, (-std::numeric_limits<double>::infinity()));
 
     ROUND_TRIP(bool, true);
     ROUND_TRIP(bool, false);

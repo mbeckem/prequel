@@ -4,23 +4,19 @@
 #include <extpp/address.hpp>
 #include <extpp/block_handle.hpp>
 #include <extpp/engine.hpp>
+#include <extpp/serialization.hpp>
 #include <extpp/type_traits.hpp>
 
 namespace extpp {
 
-/// A smart pointer for values stored in a block.
+/// A handle refers to a serialized object on disk that has been loaded
+/// into main memory. The handle can read and write the whole object
+/// or parts of it (i.e. single structure members).
 ///
-/// Handles point to data that has been loaded from disk and currently
-/// resides in main memory. The objects can be freely modified through handles,
-/// but the underlying blocks have to be marked as `dirty()` for the changes
-/// to be written to disk again.
-///
-/// Objects remain in main memory for as long as handles to them (or their underlying blocks)
-/// remain in existence.
+/// The block that contains the object is pinned in main memory
+/// for as long as a handle points to it.
 template<typename T>
 class handle {
-    static_assert(is_trivial<T>::value, "The type must be trivial.");
-
 public:
     using element_type = T;
 
@@ -28,16 +24,17 @@ public:
     /// Constructs an invalid handle.
     handle() = default;
 
-    /// Constructs a handle to the given `data` object
-    /// that must be located within the block referenced by `block`.
-    handle(block_handle block, T* data) noexcept
+    /// Constructs a handle to an object within the given block,
+    /// located at `offset`.
+    handle(block_handle block, u32 offset) noexcept
         : m_block(std::move(block))
-        , m_data(data)
+        , m_offset(offset)
     {
-        EXTPP_ASSERT(!m_block ? m_data == nullptr
-                              : ((byte*) m_data >= m_block.data() &&
-                                 (byte*) m_data < m_block.data() + m_block.block_size()),
-                    "invalid pointer for that handle");
+        EXTPP_ASSERT(m_block || offset == 0,
+                     "Offset must be zero for invalid blocks.");
+        EXTPP_ASSERT(!m_block || (m_offset <= m_block.block_size() &&
+                                  serialized_size<T>() <= m_block.block_size() - m_offset),
+                     "Offset out of bounds.");
     }
 
     handle(const handle&) = default;
@@ -45,63 +42,31 @@ public:
 
     handle(handle&& other) noexcept
         : m_block(std::move(other.m_block))
-        , m_data(std::exchange(other.m_data, nullptr))
+        , m_offset(std::exchange(other.m_offset, 0))
     {}
 
     handle& operator=(handle&& other) noexcept {
         if (this != &other) {
             m_block = std::move(other.m_block);
-            m_data = std::exchange(other.m_data, nullptr);
+            m_offset = std::exchange(other.m_offset, 0);
         }
         return *this;
     }
 
-    void reset(block_handle h, T* data) noexcept {
-        *this = handle(std::move(h), data);
+    void reset(block_handle h, u32 offset) noexcept {
+        *this = handle(std::move(h), offset);
     }
 
     void reset() noexcept {
         *this = handle();
     }
 
-    /// Returns a handle that points to some other object
-    /// within the same block.
-    ///
-    /// \pre `*this`.
-    /// \pre `ptr` must point into the same block as `data()`.
-    template<typename U>
-    handle<U> neighbor(U* ptr) const& {
-        EXTPP_ASSERT(*this, "invalid pointer");
-        return handle<U>(m_block, ptr);
-    }
-
-    template<typename U>
-    handle<U> neighbor(U* ptr) && {
-        EXTPP_ASSERT(*this, "invalid pointer");
-        return handle<U>(std::move(m_block), ptr);
-    }
-
-    /// Returns a handle to some member of the current object.
-    ///
-    /// Example:
-    ///     struct test { int x; };
-    ///
-    ///     handle<test> h1 = ...;
-    ///     handle<test> h2 = h1.member(&test::x); // points to h1->x.
-    template<typename B, typename U, std::enable_if_t<
-        std::is_base_of<B, T>::value>* = nullptr
-    >
-    handle<U> member(U B::*m) const& {
-        EXTPP_ASSERT(*this, "invalid pointer");
-        return neighbor(std::addressof(get()->*m));
-    }
-
-    template<typename B, typename U, std::enable_if_t<
-        std::is_base_of<B, T>::value>* = nullptr
-    >
-    handle<U> member(U B::*m) && {
-        EXTPP_ASSERT(*this, "invalid pointer");
-        return std::move(*this).neighbor(std::addressof(get()->*m));
+    template<auto MemberPtr>
+    handle<member_type_t<decltype(MemberPtr)>> member() const {
+        static_assert(std::is_same_v<object_type_t<decltype(MemberPtr)>, T>,
+                      "The member pointer must belong to this type.");
+        EXTPP_ASSERT(valid(), "Invalid handle.");
+        return {block(), m_offset + static_cast<u32>(serialized_offset<MemberPtr>())};
     }
 
     /// Returns the address of this object on disk.
@@ -110,7 +75,7 @@ public:
             return {};
 
         raw_address raw = m_block.address();
-        raw += reinterpret_cast<const byte*>(m_data) - m_block.data();
+        raw += m_offset;
         return raw_address_cast<T>(raw);
     }
 
@@ -126,99 +91,92 @@ public:
     const block_handle& block() const & { return m_block; }
     block_handle&& block() && { return std::move(m_block); }
 
-    /// Mark the block that contains this value as dirty. \sa block_handle::dirty.
-    /// \pre `*this`.
-    void dirty() const { m_block.dirty(); }
+    /// Returns the current value of the serialized object.
+    T get() const {
+        EXTPP_ASSERT(valid(), "invalid handle.");
+        return m_block.get<T>(m_offset);
+    }
 
-    /// Returns a pointer to the value.
-    /// The memory will stay valid for at least as long as this instants points to it.
-    /// Returns `nullptr` if this handle is invalid.
-    T* get() const { return m_data; }
+    /// Returns the current value of the serialized object.
+    void get(T& value) const {
+        EXTPP_ASSERT(valid(), "invalid handle.");
+        m_block.get(m_offset, value);
+    }
 
-    T* operator->() const { EXTPP_ASSERT(*this, "invalid pointer"); return get(); }
-    T& operator*() const { EXTPP_ASSERT(*this, "invalid pointer"); return *get(); }
+    /// Updates the current value of the serialized object.
+    void set(const T& value) const {
+        EXTPP_ASSERT(valid(), "invalid handle.");
+        serialize(value, m_block.writable_data() + m_offset);
+    }
+
+    template<auto MemberPtr>
+    member_type_t<decltype(MemberPtr)> get() const {
+        static_assert(std::is_same_v<object_type_t<decltype(MemberPtr)>, T>,
+                      "The member pointer must belong to this type.");
+        EXTPP_ASSERT(valid(), "Invalid handle.");
+        u32 offset = m_offset + serialized_offset<MemberPtr>();
+        return m_block.get<member_type_t<decltype(MemberPtr)>>(offset);
+    }
+
+   template<auto MemberPtr>
+   void set(const member_type_t<decltype(MemberPtr)>& value) const {
+       static_assert(std::is_same_v<object_type_t<decltype(MemberPtr)>, T>,
+                     "The member pointer must belong to this type.");
+       EXTPP_ASSERT(valid(), "Invalid handle.");
+       u32 offset = m_offset + serialized_offset<MemberPtr>();
+       m_block.set<member_type_t<decltype(MemberPtr)>>(offset, value);
+   }
 
     /// Returns true if this instance points to a valid value.
     /// Default-constructed pointers and moved-from pointers are invalid.
-    bool valid() const { return m_data; }
+    bool valid() const { return m_block.valid(); }
 
     /// Returns true if this instance points to a valid value.
     /// Default-constructed pointers and moved-from pointers are invalid.
     explicit operator bool() const { return valid(); }
 
-    /// Implicitly convertible to base classes.
-    template<typename U, std::enable_if_t<std::is_base_of<U, T>::value>* = nullptr>
-    operator handle<U>() const & { return handle<U>(m_block, static_cast<U*>(m_data)); }
-
-    template<typename U, std::enable_if_t<std::is_base_of<U, T>::value>* = nullptr>
-    operator handle<U>() && {
-        return handle<U>(std::move(m_block), static_cast<U*>(std::exchange(m_data, nullptr)));
-    }
-
-    /// Implicitly convertible to const.
-    operator handle<const T>() const & { return {m_block, m_data}; }
-    operator handle<const T>() && { return {std::move(m_block), std::exchange(m_data, nullptr)}; }
-
 private:
     block_handle m_block;
-    T* m_data = nullptr;
+    u32 m_offset = 0;
 };
 
 template<typename T, typename U>
 bool operator==(const handle<T>& lhs, const handle<U>& rhs) {
-    return lhs.get() == rhs.get();
+    return lhs.address() == rhs.address();
 }
 
-template<typename T, typename U, u32 BlockSize>
+template<typename T, typename U>
 bool operator!=(const handle<T>& lhs, const handle<U>& rhs) {
-    return lhs.get() != rhs.get();
+    return lhs.address() != rhs.address();
 }
 
 /// Cast the block handle to a specific type via reinterpret_cast.
 template<typename T>
-handle<T> cast(block_handle block) {
-    EXTPP_ASSERT(sizeof(T) <= block.block_size(), "Type does not fit into a block.");
-
-    T* ptr = static_cast<T*>(static_cast<void*>(block.data()));
-    return handle<T>(std::move(block), ptr);
+handle<T> cast(block_handle block, u32 offset = 0) {
+    return handle<T>(std::move(block), offset);
 }
 
-template<typename T, typename U, u32 BlockSize>
-handle<T> cast(handle<U> h) {
-    T* ptr = static_cast<T*>(h.get());
-    return handle<T>(std::move(h).block(), ptr);
-}
+///// Constructs a new object of type T in the given block.
+///// Invokes the constructor of T and passes the provided arguments.
+///// The block will be marked as dirty.
+//// TODO: Offset
+//template<typename T, typename... Args>
+//handle<T> construct(block_handle block, u32 offset = 0, Args&&... args) {
+//    EXTPP_ASSERT(sizeof(T) <= block.block_size(), "Type does not fit into a block.");
 
-/// Constructs a new object of type T in the given block.
-/// Invokes the constructor of T and passes the provided arguments.
-/// The block will be marked as dirty.
-template<typename T, typename... Args>
-handle<T> construct(block_handle block, Args&&... args) {
-    EXTPP_ASSERT(sizeof(T) <= block.block_size(), "Type does not fit into a block.");
+//    T* ptr = new(block.data()) T(std::forward<Args>(args)...);
+//    block.dirty();
+//    return handle<T>(std::move(block), ptr);
+//}
 
-    T* ptr = new(block.data()) T(std::forward<Args>(args)...);
-    block.dirty();
-    return handle<T>(std::move(block), ptr);
-}
+//template<typename T>
+//handle<T> access(engine& e, address<T> addr) {
+//    EXTPP_ASSERT(addr, "Accessing an invalid address.");
 
-template<typename T, typename... Args>
-handle<T> construct(engine& e, raw_address addr, Args&&... args) {
-    // TODO: Allow non block-aligned addresses?
-    EXTPP_ASSERT(addr && addr.get_offset_in_block(e.block_size()) == 0,
-                 "Address does not point to a valid block.");
-    return construct<T>(e.zeroed(addr.get_block_index(e.block_size())), std::forward<Args>(args)...);
-}
-
-template<typename T>
-handle<T> access(engine& e, address<T> addr) {
-    EXTPP_ASSERT(addr, "Accessing an invalid address.");
-    EXTPP_ASSERT(addr.raw().get_offset_in_block(e.block_size()) + sizeof(T) <= e.block_size(),
-                 "Object spans multiple blocks.");
-
-    block_handle block = e.read(addr.raw().get_block_index(e.block_size()));
-    T* ptr = static_cast<T*>(static_cast<void*>(block.data() + addr.raw().get_offset_in_block(e.block_size())));
-    return {std::move(block), ptr};
-}
+//    auto block = e.read(addr.raw().get_block_index(e.block_size()));
+//    u32 offset = addr.raw().get_offset_in_block(e.block_size());
+//    return handle<T>(std::move(block), offset);
+//}
 
 } // namespace extpp
 

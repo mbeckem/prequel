@@ -7,10 +7,9 @@
 #include <extpp/math.hpp>
 #include <extpp/serialization.hpp>
 #include <extpp/type_traits.hpp>
-#include <extpp/detail/memory.hpp>
 #include <extpp/detail/operators.hpp>
 
-#include <ostream>
+#include <iosfwd>
 #include <limits>
 #include <type_traits>
 
@@ -32,11 +31,9 @@ address<To> address_cast(const address<From>& addr);
 /// Addresses an arbitrary byte offset in external memory.
 class raw_address
         : detail::make_comparable<raw_address>
-        , detail::make_addable<raw_address, i64>
-        , detail::make_subtractable<raw_address, i64>
+        , detail::make_addable<raw_address, u64>
+        , detail::make_subtractable<raw_address, u64>
 {
-    struct byte_addr_t {};
-
 public:
     static constexpr u64 invalid_value = u64(-1);
 
@@ -71,13 +68,13 @@ public:
         return valid() ? mod_pow2<u64>(value(), block_size) : 0;
     }
 
-    raw_address& operator+=(i64 offset) {
+    raw_address& operator+=(u64 offset) {
         EXTPP_ASSERT(valid(), "Invalid address.");
         m_value += offset;
         return *this;
     }
 
-    raw_address& operator-=(i64 offset) {
+    raw_address& operator-=(u64 offset) {
         EXTPP_ASSERT(valid(), "Invalid address.");
         m_value -= offset;
         return *this;
@@ -92,11 +89,7 @@ public:
         return (lhs.value() + 1) < (rhs.value() + 1);
     }
 
-    friend std::ostream& operator<<(std::ostream& o, const raw_address& addr) {
-        if (!addr)
-            return o << "INVALID";
-        return o << addr.value();
-    }
+    friend std::ostream& operator<<(std::ostream& o, const raw_address& addr);
 
     static constexpr auto get_binary_format() {
         return make_binary_format(&raw_address::m_value);
@@ -106,21 +99,21 @@ private:
     u64 m_value;
 };
 
+static_assert(sizeof(raw_address) == sizeof(u64), "Requires EBO.");
+
 template<typename T>
 class address;
 
 template<typename T>
 address<T> raw_address_cast(const raw_address& addr);
 
-template<typename To, typename From>
-address<To> address_cast(const address<From>& addr);
-
 /// Addresses a value of type `T` in external memory.
+/// The address points to the serialized representation of an instance of type `T`.
 template<typename T>
 class address
         : detail::make_comparable<address<T>>
-        , detail::make_addable<address<T>, i64>
-        , detail::make_subtractable<address<T>, i64>
+        , detail::make_addable<address<T>, u64>
+        , detail::make_subtractable<address<T>, u64>
 {
 public:
     using element_type = T;
@@ -131,38 +124,83 @@ public:
 public:
     explicit address(const raw_address& addr)
         : m_raw(addr)
-    {
-        check_aligned();
-    }
+    {}
 
 public:
     bool valid() const { return m_raw.valid(); }
 
     explicit operator bool() const { return valid(); }
 
+    /// Returns the address of a member of this object.
+    ///
+    /// Given an address to some object of type `T`,
+    /// the function call `addr.member<&T::m>()` obtains
+    /// the on-disk address of the member `m`.
+    ///
+    /// \pre `valid()`.
+    template<auto MemberPtr>
+    auto member() const {
+        using ptr_type = decltype(MemberPtr);
+
+        static_assert(std::is_member_object_pointer_v<ptr_type>,
+                      "Must pass a member object pointer.");
+        static_assert(std::is_same_v<object_type_t<ptr_type>, T>,
+                      "Must pass a member of this type.");
+
+        EXTPP_ASSERT(valid(), "Invalid pointer.");
+        static constexpr u64 offset = serialized_offset<MemberPtr>();
+        return address<member_type_t<ptr_type>>(raw() + offset);
+    }
+
+    /// Returns the address of the object that contains this object.
+    ///
+    /// Given an address to some object of type `T`,
+    /// the function call `addr.instance<&U::t>()` obtains
+    /// the on-disk address of the object of type U that contains it.
+    ///
+    /// The member pointer *must* point to this instance and
+    /// there *must* be an object of type `M` that contains this instance.
+    /// This cannot be checked at runtime.
+    ///
+    /// This operation is the reverse of the `member()` function:
+    ///
+    /// \code{.cpp}
+    ///     address<U> a1 = ...;
+    ///     address<T> a2 = a1.member<&U::some_field>();    // obtain address to some_field of type U.
+    ///     address<U> a3 = a1.instance<&U::some_field>();  // go back to the outer object.
+    ///     assert(a1 == a3);
+    /// \endcode
+    ///
+    /// \pre `valid()`.
+    template<auto MemberPtr>
+    auto instance() const {
+        using ptr_type = decltype(MemberPtr);
+
+        static_assert(std::is_member_object_pointer_v<ptr_type>,
+                      "Must pass a member object pointer.");
+        static_assert(std::is_same_v<member_type_t<ptr_type>, T>,
+                      "The member pointer must point to an object of this type.");
+
+        EXTPP_ASSERT(valid(), "Invalid pointer.");
+        static constexpr u64 offset = serialized_offset<MemberPtr>();
+        return address<object_type_t<ptr_type>>(raw() - offset);
+    }
+
     const raw_address& raw() const { return m_raw; }
 
-    address& operator+=(i64 offset) {
-        m_raw += offset * sizeof(T);
-        check_aligned();
+    address& operator+=(u64 offset) {
+        m_raw += offset * serialized_size<T>();
         return *this;
     }
 
-    address& operator-=(i64 offset) {
-        m_raw -= offset * sizeof(T);
-        check_aligned();
+    address& operator-=(u64 offset) {
+        m_raw -= offset * serialized_size<T>();
         return *this;
     }
 
     friend std::ostream& operator<<(std::ostream& o, const address& addr) {
         // TODO: Include the type name of T.
         return o << addr.m_raw;
-    }
-
-    /// Addresses are convertible to base classes by default.
-    template<typename Base, std::enable_if_t<std::is_base_of<Base, T>::value>* = nullptr>
-    operator address<Base>() const {
-        return address_cast<Base>(*this);
     }
 
     operator const raw_address&() const { return raw(); }
@@ -180,12 +218,6 @@ public:
     }
 
 private:
-    void check_aligned() {
-        EXTPP_ASSERT(!raw().valid() || is_aligned(raw().value(), alignof(T)),
-                     "The address must be either invalid or properly aligned.");
-    }
-
-private:
     raw_address m_raw;
 };
 
@@ -197,7 +229,7 @@ inline i64 difference(const raw_address& from, const raw_address& to) {
 
 template<typename T>
 i64 difference(const address<T>& from, const address<T>& to) {
-    return distance(from.raw(), to.raw()) / sizeof(T);
+    return difference(from.raw(), to.raw()) / serialized_size<T>();
 }
 
 inline u64 distance(const raw_address& from, const raw_address& to) {
@@ -206,16 +238,15 @@ inline u64 distance(const raw_address& from, const raw_address& to) {
     return from <= to ? to.value() - from.value() : from.value() - to.value();
 }
 
-/// \pre `from <= to`.
 template<typename T>
 u64 distance(const address<T>& from, const address<T>& to) {
-    return distance(from.raw(), to.raw()) / sizeof(T);
+    return distance(from.raw(), to.raw()) / serialized_size<T>();
 }
 
 /// Performs the equivalent of `reinterpret_cast` to `To*`.
 template<typename To>
 address<To> raw_address_cast(const raw_address& addr) {
-    static_assert(is_trivial<To>::value, "Only trivial types are supported in external memory.");
+    // TODO: Check whether To is serializable
     return address<To>(addr);
 }
 
@@ -223,23 +254,6 @@ address<To> raw_address_cast(const raw_address& addr) {
 template<typename To, typename From>
 address<To> raw_address_cast(const address<From>& addr) {
     return raw_address_cast<To>(addr.raw());
-}
-
-/// Performs the equivalent of a `static_cast` from `From*` to `To*`.
-/// Such a cast is only possible if From and To form an inheritance
-/// relationship, i.e. From is a base of To or the other way around.
-/// The raw pointer value will be adjusted automatically to point to the correct address.
-template<typename To, typename From>
-address<To> address_cast(const address<From>& addr) {
-    static_assert(std::is_base_of<To, From>::value || std::is_base_of<From, To>::value,
-                  "Addresses to objects of type From cannot be statically converted to To.");
-    if (!addr)
-        return {};
-    if constexpr (std::is_base_of<To, From>::value) {
-        return raw_address_cast<To>(addr.raw() + detail::offset_of_base<From, To>());
-    } else {
-        return raw_address_cast<To>(addr.raw() - detail::offset_of_base<To, From>());
-    }
 }
 
 /// \defgroup linear_io Linear I/O-functions

@@ -4,15 +4,6 @@
 
 namespace extpp {
 
-std::ostream& operator<<(std::ostream& o, const raw_address& addr) {
-    if (!addr) {
-        o << "INVALID";
-    } else {
-        o << addr.value();
-    }
-    return o;
-}
-
 /// Perform a linear write, starting from the given disk address.
 /// Will write exactly `size` bytes from `data` to disk to the
 /// address range [address, address + size).
@@ -28,7 +19,8 @@ void write(engine& e, raw_address address, const void* data, size_t size) {
     if (u32 offset = address.get_offset_in_block(block_size); offset != 0) {
         auto block = e.read(index);
         size_t n = std::min(size, size_t(block_size - offset));
-        std::memmove(block.writable_data() + offset, buffer, n);
+        std::memmove(block.data() + offset, buffer, n);
+        block.dirty();
 
         buffer += n;
         size -= n;
@@ -45,7 +37,8 @@ void write(engine& e, raw_address address, const void* data, size_t size) {
     // Partial write at the end.
     if (size > 0) {
         auto block = e.read(index);
-        std::memmove(block.writable_data(), buffer, size);
+        std::memmove(block.data(), buffer, size);
+        block.dirty();
     }
 }
 
@@ -98,7 +91,8 @@ void zero(engine& e, raw_address address, u64 size) {
     if (u32 offset = address.get_offset_in_block(block_size); offset != 0) {
         auto block = e.read(index);
         u64 n = std::min(size, u64(block_size - offset));
-        std::memset(block.writable_data() + offset, 0, n);
+        std::memset(block.data() + offset, 0, n);
+        block.dirty();
 
         size -= n;
         index += 1;
@@ -113,7 +107,8 @@ void zero(engine& e, raw_address address, u64 size) {
     // Partial write at the end.
     if (size > 0) {
         auto block = e.read(index);
-        std::memset(block.writable_data(), 0, size);
+        std::memset(block.data(), 0, size);
+        block.dirty();
     }
 }
 
@@ -131,6 +126,7 @@ static void copy_forward(engine& e, raw_address dest, raw_address src, u64 size)
                 dest_handle = e.zeroed(index(dest));
             } else {
                 dest_handle = e.read(index(dest));
+                dest_handle.dirty();
             }
         }
 
@@ -145,7 +141,7 @@ static void copy_forward(engine& e, raw_address dest, raw_address src, u64 size)
 
         EXTPP_ASSERT(dest_handle.index() == index(dest), "Correct destination block.");
         EXTPP_ASSERT(src_handle.index() == index(src), "Correct source block.");
-        std::memmove(dest_handle.writable_data() + offset(dest),
+        std::memmove(dest_handle.data() + offset(dest),
                      src_handle.data() + offset(src), chunk);
         src += chunk;
         dest += chunk;
@@ -169,6 +165,7 @@ static void copy_backward(engine& e, raw_address dest, raw_address src, u64 size
                 dest_handle = e.zeroed(index(dest-1));
             } else {
                 dest_handle = e.read(index(dest-1));
+                dest_handle.dirty();
             }
         }
 
@@ -187,7 +184,7 @@ static void copy_backward(engine& e, raw_address dest, raw_address src, u64 size
 
         EXTPP_ASSERT(dest_handle.index() == index(dest), "Correct destination block.");
         EXTPP_ASSERT(src_handle.index() == index(src), "Correct source block.");
-        std::memmove(dest_handle.writable_data() + offset(dest),
+        std::memmove(dest_handle.data() + offset(dest),
                      src_handle.data() + offset(src), chunk);
     }
 }
