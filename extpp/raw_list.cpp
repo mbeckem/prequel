@@ -1,8 +1,12 @@
 #include <extpp/raw_list.hpp>
 
+#include <extpp/exception.hpp>
+
 #include <boost/intrusive/set.hpp>
 #include <boost/intrusive/set_hook.hpp>
-#include <boost/iterator/iterator_facade.hpp>
+
+#include <boost/intrusive/list.hpp>
+#include <boost/intrusive/list_hook.hpp>
 
 namespace extpp {
 
@@ -44,7 +48,10 @@ public:
     void init() { m_handle.set(header()); }
 
     u32 get_size() const { return m_handle.get<&header::size>(); }
-    void set_size(u32 new_size) const { m_handle.set<&header::size>(new_size); }
+    void set_size(u32 new_size) const {
+        EXTPP_ASSERT(new_size <= m_capacity, "Invalid size");
+        m_handle.set<&header::size>(new_size);
+    }
 
     block_index get_prev() const { return m_handle.get<&header::prev>(); }
     void set_prev(block_index index) const { m_handle.set<&header::prev>(index); }
@@ -52,12 +59,12 @@ public:
     block_index get_next() const { return m_handle.get<&header::next>(); }
     void set_next(block_index index) const { m_handle.set<&header::next>(index); }
 
-    void set(u32 index, const void* value) const {
+    void set(u32 index, const byte* value) const {
         EXTPP_ASSERT(index < m_capacity, "Index out of bounds.");
         m_handle.block().write(offset_of_index(index), value, m_value_size);
     }
 
-    const void* get(u32 index) const {
+    const byte* get(u32 index) const {
         EXTPP_ASSERT(index < m_capacity, "Index out of bounds.");
         return m_handle.block().data() + offset_of_index(index);
     }
@@ -99,273 +106,9 @@ private:
     u32 m_capacity = 0;
 };
 
-class raw_list_iterator_impl {
-public:
-    raw_list_iterator_impl(const raw_list_impl* list)
-        : m_list(list) {} // End Iterator
-
-    raw_list_iterator_impl(const raw_list_impl* list, raw_list_node node, u32 index);
-
-    ~raw_list_iterator_impl();
-
-    // TODO
-    raw_list_iterator_impl(const raw_list_iterator_impl& other) = default;
-    raw_list_iterator_impl& operator=(const raw_list_iterator_impl& other) = default;
-
-    raw_list_iterator_impl(raw_list_iterator_impl&&) = delete;
-    raw_list_iterator_impl& operator=(raw_list_iterator_impl&&) = delete;
-
-    const raw_list_impl* get_list() const { return m_list; }
-
-    bool valid() const { return m_list != nullptr && m_node.valid(); }
-    bool at_end() const { return !m_node.valid(); }
-
-    const raw_list_node& node() const { return m_node; }
-    u32 index() const { return m_index; }
-
-    list_position get_position() const {
-        return { m_node.index(), m_index };
-    }
-
-    void increment();
-    void decrement();
-
-    const void* get() const {
-        check_valid();
-        EXTPP_ASSERT(m_index < m_node.get_size(), "Index out of bounds.");
-        return m_node.get(m_index);
-    }
-
-    bool operator==(const raw_list_iterator_impl& other) const {
-        return m_list == other.m_list && get_position() == other.get_position();
-    }
-
-private:
-    void check_valid() const {
-        EXTPP_ASSERT(valid(), "Invalid iterator.");
-    }
-
-private:
-    friend class raw_list_impl;
-
-    using iterator_map_hook = boost::intrusive::set_member_hook<>;
-
-    bool is_linked() const { return m_map_hook.is_linked(); }
-
-    // Called when the value moved.
-    void position_changed(raw_list_node node, u32 index) {
-        m_node = std::move(node);
-        m_index = index;
-    }
-
-    void position_changed(u32 index) {
-        m_index = index;
-    }
-
-    void position_invalidated() {
-        m_node = raw_list_node();
-        m_index = 0;
-        // TODO: Store a flag to indicate deletion?
-    }
-
-private:
-    const raw_list_impl* m_list = nullptr;
-    raw_list_node m_node;
-    u32 m_index = 0;
-    iterator_map_hook m_map_hook;
-};
-
-class raw_list_impl : public uses_allocator {
-public:
-    using anchor = raw_list_anchor;
-
-    raw_list_impl(handle<anchor> anchor_, u32 value_size, allocator& alloc_)
-        : uses_allocator(alloc_)
-        , m_anchor(std::move(anchor_))
-        , m_value_size(value_size)
-        , m_node_capacity(raw_list_node::capacity(get_engine().block_size(), m_value_size))
-    {
-    }
-
-    u32 block_size() const { return get_allocator().block_size(); }
-
-    bool empty() const { return size() == 0; }
-
-    std::unique_ptr<raw_list_iterator_impl> begin() const;
-    std::unique_ptr<raw_list_iterator_impl> end() const;
-    std::unique_ptr<raw_list_visitor_impl> visit() const;
-
-    u64 size() const { return m_anchor.get<&anchor::size>(); }
-    u64 nodes() const { return m_anchor.get<&anchor::nodes>(); }
-
-    u32 value_size() const { return m_value_size; }
-    u32 node_capacity() const { return m_node_capacity; }
-
-    block_index first() const { return m_anchor.get<&anchor::first>(); }
-    block_index last() const { return m_anchor.get<&anchor::last>(); }
-
-    void clear();
-    void insert(const raw_list_iterator_impl& pos, const void* data);
-    void erase(const raw_list_iterator_impl& pos);
-    void push_back(const void* data);
-    void push_front(const void* data);
-    void pop_back();
-    void pop_front();
-
-    raw_list_node read_node(block_index index) const;
-
-private:
-    block_index allocate_node();
-    void free_node(block_index index);
-
-    raw_list_node create_node();
-    void destroy_node(const raw_list_node& node);
-
-    void insert_first(const void* value);
-    void insert_at(raw_list_node node, u32 index, const void* value);
-    void erase_at(const raw_list_node& node, u32 index);
-
-private:
-    friend class raw_list_iterator_impl;
-
-    struct iterator_position_key {
-        using type = list_position;
-
-        type operator()(const raw_list_iterator_impl& iter) const {
-            return iter.get_position();
-        }
-    };
-
-    // Every iterator that points to a valid position within the list
-    // is kept in this ordered collection. Whenever the iterator's position
-    // changes, the change must be reflected in this collection by
-    // reinserting the iterator.
-    // The keys of of the individual elements change, so great
-    // care must be taken that the order in the collection is maintained.
-    using iterator_map_type = boost::intrusive::multiset<
-        raw_list_iterator_impl,
-        boost::intrusive::member_hook<
-            raw_list_iterator_impl,
-            raw_list_iterator_impl::iterator_map_hook,
-            &raw_list_iterator_impl::m_map_hook
-        >,
-        boost::intrusive::key_of_value<iterator_position_key>
-    >;
-
-    // Insert a new iterator.
-    void insert_position(raw_list_iterator_impl& iter) const {
-        EXTPP_CHECK(!iter.is_linked(), "Iterator is linked.");
-        m_iterators.insert(iter);
-    }
-
-    // Remove a tracked iterator.
-    void erase_position(raw_list_iterator_impl& iter) const {
-        EXTPP_CHECK(iter.is_linked(), "Iterator is not linked.");
-        m_iterators.erase(m_iterators.iterator_to(iter));
-    }
-
-    // Reinsert the tracked iterator.
-    void update_position(raw_list_iterator_impl& iter) const {
-        EXTPP_CHECK(iter.is_linked(), "Iterator is not linked.");
-        m_iterators.erase(m_iterators.iterator_to(iter));
-        m_iterators.insert(iter);
-    }
-
-    // Reestablish the order when an iterator was incremented.
-    void increment_position(raw_list_iterator_impl& iter) const {
-        EXTPP_CHECK(iter.is_linked(), "Iterator is not linked.");
-        auto self = m_iterators.iterator_to(iter);
-        auto end = m_iterators.end();
-        auto i = std::next(self);
-        if (i != end && iter.get_position() > i->get_position()) {
-            m_iterators.erase(self);
-            do {
-                ++i;
-            } while (i != end && iter.get_position() > i->get_position());
-            m_iterators.insert_before(i, iter);
-        }
-    }
-
-    // Reestablish the order when an iterator was decremented.
-    void decrement_position(raw_list_iterator_impl& iter) const {
-        EXTPP_CHECK(iter.is_linked(), "Iterator is not linked.");
-
-        auto self = m_iterators.iterator_to(iter);
-        auto begin = m_iterators.begin();
-        if (self == begin)
-            return;
-
-        auto i = std::prev(self);
-        if (iter.get_position() < i->get_position()) {
-            m_iterators.erase(self);
-            while (i != begin) {
-                auto prev = std::prev(i);
-                if (iter.get_position() >= prev->get_position())
-                    break;
-                i = prev;
-            }
-            m_iterators.insert_before(i, iter);
-        }
-    }
-
-private:
-    // Returns a range over all iterators in node, starting with start_element (inclusive)
-    // and ending with end_element (exclusive).
-    auto iterator_range(block_index node_index, u32 start_element = 0, u32 end_element = -1) const {
-        auto lower_pos = list_position(node_index, start_element);
-        auto upper_pos = list_position(node_index, end_element);
-        return std::pair(m_iterators.lower_bound(lower_pos),
-                         m_iterators.upper_bound(upper_pos));
-    }
-
-    // Move iterators without changing the current node.
-    // This function must be used in a way that preserves the relative ordering
-    // of all iterators for that node.
-    void move_iterators_in_node(block_index node_index, u32 start_index, u32 end_index, i32 delta) const
-    {
-        auto [pos, end] = iterator_range(node_index, start_index, end_index);
-        for (; pos != end; ++pos) {
-            pos->position_changed(pos->index() + delta);
-        }
-    }
-
-    // Move iterators to a new node.
-    void move_iterators_to_node(block_index old_node, u32 start_index, u32 end_index,
-                                const raw_list_node& new_node, u32 dest_index) const
-    {
-        u32 diff = start_index - dest_index;
-        auto [pos, end] = iterator_range(old_node, start_index, end_index);
-        while (pos != end) {
-            auto next = std::next(pos);
-            pos->position_changed(new_node, pos->index() - diff);
-            update_position(*pos);
-            pos = next;
-        }
-    }
-
-    void invalidate_iterators(block_index node, u32 index) const {
-        auto [pos, end] = m_iterators.equal_range(list_position(node, index));
-        m_iterators.erase_and_dispose(pos, end, [](raw_list_iterator_impl* iter) {
-            iter->position_invalidated();
-        });
-    }
-
-private:
-    handle<anchor> m_anchor;
-    u32 m_value_size;
-    u32 m_node_capacity;
-
-    // Contains every iterator that currently points to a valid list element.
-    mutable iterator_map_type m_iterators;
-};
-
 class raw_list_visitor_impl {
 public:
-    raw_list_visitor_impl(const raw_list_impl& list)
-        : m_list(&list)
-    {
-        move_to(m_list->first());
-    }
+    raw_list_visitor_impl(const raw_list_impl* list);
 
     bool valid() const { return m_node.valid(); }
 
@@ -383,32 +126,17 @@ public:
 
     u32 size() const { return node().get_size(); }
 
-    const void* value(u32 index) const {
+    const byte* value(u32 index) const {
         EXTPP_ASSERT(index < size(), "Index out of bounds.");
         return node().get(index);
     }
 
-    void move_next() {
-        move_to(node().get_next());
-    }
+    void move_next();
+    void move_prev();
+    void move_first();
+    void move_last();
 
-    void move_prev() {
-        move_to(node().get_prev());
-    }
-
-    void move_first() {
-        move_to(m_list->first());
-    }
-
-    void move_last() {
-        move_to(m_list->last());
-    }
-
-    void move_end() {
-        move_to({});
-    }
-
-    u32 value_size() const { return m_list->value_size(); }
+    u32 value_size() const;
 
 private:
     void move_to(block_index node_index);
@@ -418,26 +146,198 @@ private:
         return m_node;
     }
 
-    u32 block_size() const { return m_list->block_size(); }
+    u32 block_size() const;
 
 private:
     const raw_list_impl* m_list;
     raw_list_node m_node;
 };
 
-void raw_list_visitor_impl::move_to(block_index node_index) {
-    if (!node_index) {
-        m_node = raw_list_node();
-    } else {
-        m_node = m_list->read_node(node_index);
+class raw_list_cursor_impl {
+public:
+    /// The list this cursor belongs to.
+    raw_list_impl* list;
+
+    /// Tracked cursors are linked together in a list.
+    /// When elements are inserted or removed, existing cursors are updated
+    /// so that they keep pointing at the same element.
+    /// This is currently a linked list and can be improved in the future to make it a tree.
+    boost::intrusive::list_member_hook<> cursors;
+
+    enum flags_t {
+        /// The cursors points to nothing, only seek to begin/end are supported.
+        /// If a cursor is not invalid, then it points to some usable location within the list,
+        /// unless it is in DELETED state.
+        INVALID = 1 << 0,
+
+        /// The cursor's current element was deleted, but it still points to its last position.
+        /// These cursors have to be special-cased when they are incremented or decremented.
+        /// Deleted cursors can point one past the end of a node (i.e. index == size).
+        DELETED = 1 << 1,
+
+        /// Seek to the first value of the list (if possible), otherwise become invalid now.
+        /// Only possible in combinatoin with DELETED.
+        SEEK_FIRST_NEXT = 1 << 2,
+
+        /// Same as SEEK_FIRST_NEXT, but seek to the last value.
+        SEEK_LAST_NEXT = 1 << 3,
+    };
+
+    int flags = INVALID;
+
+    /// The current list node (may be invalid for invalid or end cursors).
+    raw_list_node node;
+
+    /// The current list index. May be past the end of the node for deleted entries.
+    u32 index = 0;
+
+public:
+    raw_list_cursor_impl(raw_list_impl* list);
+    ~raw_list_cursor_impl();
+
+    raw_list_cursor_impl(const raw_list_cursor_impl&);
+    raw_list_cursor_impl& operator=(const raw_list_cursor_impl&);
+
+    void move_first();
+    void move_last();
+    void move_next();
+    void move_prev();
+    void move_to_node(block_index node_index, int direction);
+    void erase();
+
+    bool invalid() const { return flags & INVALID; }
+    bool erased() const { return flags & DELETED; }
+
+    const byte* get() const;
+    void set(const byte* data);
+
+    void insert_before(const byte* data);
+    void insert_after(const byte* data);
+};
+
+class raw_list_impl : public uses_allocator {
+public:
+    using anchor = raw_list_anchor;
+
+    raw_list_impl(handle<anchor> anchor_, u32 value_size, allocator& alloc_)
+        : uses_allocator(alloc_)
+        , m_anchor(std::move(anchor_))
+        , m_value_size(value_size)
+        , m_node_capacity(raw_list_node::capacity(get_engine().block_size(), m_value_size))
+    {
     }
-}
+
+    ~raw_list_impl();
+
+    u32 block_size() const { return get_allocator().block_size(); }
+
+    std::unique_ptr<raw_list_cursor_impl> create_cursor(raw_list::cursor_seek_t seek) {
+        auto c = std::make_unique<raw_list_cursor_impl>(this);
+
+        switch (seek) {
+        case raw_list::seek_none:
+            break;
+        case raw_list::seek_first:
+            c->move_first();
+            break;
+        case raw_list::seek_last:
+            c->move_last();
+            break;
+        default:
+            EXTPP_THROW(invalid_argument("Invalid seek value"));
+        }
+
+        return c;
+    }
+
+    std::unique_ptr<raw_list_visitor_impl> create_visitor() const {
+        return std::make_unique<raw_list_visitor_impl>(this);
+    }
+
+    bool empty() const { return size() == 0; }
+    u64 size() const { return m_anchor.get<&anchor::size>(); }
+    u64 nodes() const { return m_anchor.get<&anchor::nodes>(); }
+
+    u32 value_size() const { return m_value_size; }
+    u32 node_capacity() const { return m_node_capacity; }
+
+    block_index first() const { return m_anchor.get<&anchor::first>(); }
+    block_index last() const { return m_anchor.get<&anchor::last>(); }
+
+    void clear();
+    void push_back(const byte* data);
+    void push_front(const byte* data);
+    void pop_back();
+    void pop_front();
+
+    raw_list_node read_node(block_index index) const;
+
+private:
+    block_index allocate_node();
+    void free_node(block_index index);
+
+    raw_list_node create_node();
+    void destroy_node(const raw_list_node& node);
+
+    void insert_first(const byte* value);
+    void insert_at(raw_list_node node, u32 index, const byte* value);
+    void erase_at(raw_list_node node, u32 index);
+
+private:
+    friend class raw_list_cursor_impl;
+
+    using cursor_list_type = boost::intrusive::list<
+        raw_list_cursor_impl,
+        boost::intrusive::member_hook<
+            raw_list_cursor_impl,
+            decltype(raw_list_cursor_impl::cursors),
+            &raw_list_cursor_impl::cursors
+        >
+    >;
+
+    void link_cursor(raw_list_cursor_impl* cursor) {
+        m_cursors.push_back(*cursor);
+    }
+
+    void unlink_cursor(raw_list_cursor_impl* cursor) {
+        m_cursors.erase(m_cursors.iterator_to(*cursor));
+    }
+
+    template<typename Func>
+    void cursors_in_node(block_index node_index, Func&& fn) {
+        for (auto& cursor : m_cursors) {
+            if (cursor.invalid())
+                continue;
+            if (cursor.node.index() != node_index)
+                continue;
+
+            fn(cursor);
+        }
+    }
+
+private:
+    handle<anchor> m_anchor;
+    u32 m_value_size;
+    u32 m_node_capacity;
+
+    // Contains all existing cursors.
+    mutable cursor_list_type m_cursors;
+};
 
 // --------------------------------
 //
 //   List implementation
 //
 // --------------------------------
+
+raw_list_impl::~raw_list_impl() {
+    m_cursors.clear_and_dispose([](raw_list_cursor_impl* cursor) {
+        cursor->flags |= raw_list_cursor_impl::INVALID;
+        cursor->node = raw_list_node();
+        cursor->index = 0;
+        cursor->list = nullptr;
+    });
+}
 
 block_index raw_list_impl::allocate_node() {
     block_index index = get_allocator().allocate(1).get_block_index(get_engine().block_size());
@@ -482,22 +382,11 @@ void raw_list_impl::destroy_node(const raw_list_node& node) {
     free_node(node.index());
 }
 
-std::unique_ptr<raw_list_iterator_impl> raw_list_impl::begin() const {
-    return !empty() ? std::make_unique<raw_list_iterator_impl>(this, read_node(first()), 0)
-                    : end();
-}
-
-std::unique_ptr<raw_list_iterator_impl> raw_list_impl::end() const {
-    return std::make_unique<raw_list_iterator_impl>(this);
-}
-
-std::unique_ptr<raw_list_visitor_impl> raw_list_impl::visit() const {
-    return std::unique_ptr<raw_list_visitor_impl>(new raw_list_visitor_impl(*this));
-}
-
 void raw_list_impl::clear() {
-    m_iterators.clear_and_dispose([](raw_list_iterator_impl* iter) {
-        iter->position_invalidated();
+    m_cursors.clear_and_dispose([](raw_list_cursor_impl* cursor) {
+        cursor->flags |= raw_list_cursor_impl::INVALID | raw_list_cursor_impl::DELETED;
+        cursor->node = raw_list_node();
+        cursor->index = 0;
     });
 
     block_index index = m_anchor.get<&anchor::first>();
@@ -512,26 +401,7 @@ void raw_list_impl::clear() {
     m_anchor.set<&anchor::size>(0);
 }
 
-void raw_list_impl::insert(const raw_list_iterator_impl& pos, const void* value) {
-    EXTPP_ASSERT(pos.get_list() == this || !pos.valid(), "Iterator does not belong to this list.");
-
-    if (empty())
-        return insert_first(value);
-
-    raw_list_node node;
-    u32 index;
-    if (!pos.valid()) {
-        node = read_node(last());
-        index = node.get_size();
-    } else {
-        node = pos.node();
-        index = pos.index();
-    }
-    insert_at(std::move(node), index, value);
-    // TODO Return position
-}
-
-void raw_list_impl::push_back(const void* value) {
+void raw_list_impl::push_back(const byte* value) {
     if (empty()) {
         insert_first(value);
         return;
@@ -542,7 +412,7 @@ void raw_list_impl::push_back(const void* value) {
     insert_at(std::move(node), index, value);
 }
 
-void raw_list_impl::push_front(const void* value) {
+void raw_list_impl::push_front(const byte* value) {
     if (empty()) {
         insert_first(value);
         return;
@@ -567,7 +437,7 @@ void raw_list_impl::pop_front() {
     erase_at(node, 0);
 }
 
-void raw_list_impl::insert_first(const void* value) {
+void raw_list_impl::insert_first(const byte* value) {
     EXTPP_ASSERT(empty(), "list must be empty");
 
     raw_list_node node = create_node();
@@ -577,11 +447,9 @@ void raw_list_impl::insert_first(const void* value) {
     m_anchor.set<&anchor::first>(node.index());
     m_anchor.set<&anchor::last>(node.index());
     m_anchor.set<&anchor::size>(1);
-    // TODO
-    // return iterator(std::move(node), 0);
 }
 
-void raw_list_impl::insert_at(raw_list_node node, u32 index, const void* value)
+void raw_list_impl::insert_at(raw_list_node node, u32 index, const byte* value)
 {
     EXTPP_ASSERT(index <= node.get_size(), "index is out of bounds");
 
@@ -595,10 +463,10 @@ void raw_list_impl::insert_at(raw_list_node node, u32 index, const void* value)
         node.set(index, value);
         node.set_size(size + 1);
 
-        move_iterators_in_node(node.index(), index, -1, 1);
-
-        // TODO
-        // return iterator(std::move(node), index);
+        cursors_in_node(node.index(), [&](raw_list_cursor_impl& cursor) {
+            if (cursor.index >= index)
+                ++cursor.index;
+        });
         return;
     }
 
@@ -641,9 +509,14 @@ void raw_list_impl::insert_at(raw_list_node node, u32 index, const void* value)
         raw_list_node::move(node, index, mid - 1, node, index + 1);
         node.set(index, value);
 
-        move_iterators_to_node(node.index(), mid - 1, -1, new_node, 0);
-        move_iterators_in_node(node.index(), index, -1, 1);
-        // return iterator(std::move(node), index);
+        cursors_in_node(node.index(), [&](raw_list_cursor_impl& cursor) {
+            if (cursor.index >= mid - 1) {
+                cursor.node = new_node;
+                cursor.index -= (mid - 1);
+            } else if (cursor.index >= index) {
+                cursor.index++;
+            }
+        });
         return;
     } else {
         index -= mid;
@@ -651,47 +524,60 @@ void raw_list_impl::insert_at(raw_list_node node, u32 index, const void* value)
         new_node.set(index, value);
         raw_list_node::move(node, mid + index, size, new_node, index + 1);
 
-        move_iterators_to_node(node.index(), mid, mid + index, new_node, 0);
-        move_iterators_to_node(node.index(), mid + index, size, new_node, index + 1);
-
-        // return iterator(std::move(new_node), index);
+        cursors_in_node(node.index(), [&](raw_list_cursor_impl& cursor) {
+            if (cursor.index >= mid) {
+                cursor.node = new_node;
+                cursor.index -= mid;
+                if (cursor.index >= index)
+                    cursor.index++;
+            }
+        });
         return;
     }
 }
 
-void raw_list_impl::erase(const raw_list_iterator_impl& pos) {
-    EXTPP_ASSERT(pos.valid(), "Iterator is invalid.");
-    EXTPP_ASSERT(pos.get_list() == this, "Iterator does not belong to this list.");
+void raw_list_impl::erase_at(raw_list_node node, u32 index) {
+    EXTPP_ASSERT(node.valid(), "Invalid node.");
+    EXTPP_ASSERT(index < node.get_size(), "Index out of bounds.");
 
-    // Must make a copy because pos will be invalidated.
-    raw_list_node node = pos.node();
-    u32 index = pos.index();
-    erase_at(node, index);
-}
-
-void raw_list_impl::erase_at(const raw_list_node& node, u32 index) {
-    u32 node_size = node.get_size();
+    m_anchor.set<&anchor::size>(m_anchor.get<&anchor::size>() - 1);
 
     const u32 min_size = node_capacity() / 2;
-    {
-        raw_list_node::move(node, index + 1, node_size, node, index);
+    u32 node_size = node.get_size();
 
-        invalidate_iterators(node.index(), index);
-        move_iterators_in_node(node.index(), index + 1, -1, -1);
+    raw_list_node::move(node, index + 1, node_size, node, index);
+    node_size -= 1;
+    node.set_size(node_size);
 
-        node_size -= 1;
-        node.set_size(node_size);
+    // Move or invalidate cursors.
+    cursors_in_node(node.index(), [&](raw_list_cursor_impl& cursor) {
+        if (cursor.index == index)
+            cursor.flags |= raw_list_cursor_impl::DELETED;
+        else if (cursor.index > index)
+            cursor.index--;
+    });
+
+    // Can return early if the node is still full enough.
+    if (node_size >= min_size) {
+        return;
     }
 
-    if (node_size >= min_size)
-        return;
-
     // The first and the last node can become completely empty.
-    if (node.index() == m_anchor.get<&anchor::first>()
-            || node.index() == m_anchor.get<&anchor::last>())
-    {
-        if (node_size == 0)
+    if (node.index() == m_anchor.get<&anchor::first>() || node.index() == m_anchor.get<&anchor::last>()) {
+        if (node_size == 0) {
+            int flags = 0;
+            flags |= raw_list_cursor_impl::DELETED;
+            flags |= node.index() == m_anchor.get<&anchor::first>()
+                    ? raw_list_cursor_impl::SEEK_FIRST_NEXT
+                    : raw_list_cursor_impl::SEEK_LAST_NEXT;
+
+            cursors_in_node(node.index(), [&](raw_list_cursor_impl& cursor) {
+                cursor.flags = flags;
+                cursor.node = raw_list_node();
+                cursor.index = 0;
+            });
             destroy_node(node);
+        }
         return;
     }
 
@@ -705,99 +591,244 @@ void raw_list_impl::erase_at(const raw_list_node& node, u32 index) {
         raw_list_node::move(next, 0, 1, node, node_size);
         raw_list_node::move(next, 1, next_size, next, 0);
 
-        move_iterators_to_node(next.index(), 0, 1, node, node_size);
-        move_iterators_in_node(next.index(), 1, -1, -1);
+        cursors_in_node(next.index(), [&](raw_list_cursor_impl& cursor) {
+            if (cursor.index == 0) {
+                cursor.node = node;
+                cursor.index = node_size;
+            } else {
+                cursor.index--;
+            }
+        });
 
-        node_size += 1;
-        next_size -= 1;
+        node_size++;
+        next_size--;
         node.set_size(node_size);
         next.set_size(next_size);
     } else {
         raw_list_node::move(next, 0, next_size, node, node_size);
-        move_iterators_to_node(next.index(), 0, -1, node, node_size);
+        cursors_in_node(next.index(), [&](raw_list_cursor_impl& cursor) {
+            cursor.node = node;
+            cursor.index += node_size;
+        });
 
         node_size += next_size;
         node.set_size(node_size);
-
         destroy_node(next);
     }
 }
 
 // --------------------------------
 //
-//   Iterator functions
+//   Visitor implementation
 //
 // --------------------------------
 
-raw_list_iterator_impl::raw_list_iterator_impl(const raw_list_impl* list, raw_list_node node, u32 index)
+raw_list_visitor_impl::raw_list_visitor_impl(const raw_list_impl* list)
     : m_list(list)
-    , m_node(std::move(node))
-    , m_index(index)
 {
-    EXTPP_ASSERT(valid() && !at_end(), "Invalid iterator position.");
-    m_list->insert_position(*this);
+    EXTPP_ASSERT(list, "Invalid list pointer");
+    move_to(m_list->first());
 }
 
-raw_list_iterator_impl::~raw_list_iterator_impl() {
-    if (is_linked()) {
-        m_list->erase_position(*this);
-    }
-}
+void raw_list_visitor_impl::move_next() { move_to(node().get_next()); }
 
-void raw_list_iterator_impl::increment() {
-    check_valid();
+void raw_list_visitor_impl::move_prev() { move_to(node().get_prev()); }
 
-    if (at_end()) {
-        if (auto first = m_list->first()) {
-            m_node = m_list->read_node(first);
-            m_index = 0;
-            m_list->insert_position(*this);
-        }
+void raw_list_visitor_impl::move_first() { move_to(m_list->first()); }
+
+void raw_list_visitor_impl::move_last() { move_to(m_list->last()); }
+
+void raw_list_visitor_impl::move_to(block_index node_index) {
+    if (!node_index) {
+        m_node = raw_list_node();
     } else {
-        if (++m_index == m_node.get_size()) {
-            if (auto next = m_node.get_next()) {
-                m_node = m_list->read_node(next);
-                m_index = 0;
-                m_list->update_position(*this);
-            } else {
-                m_node = raw_list_node();
-                m_index = 0;
-                m_list->erase_position(*this);
-            }
-        } else {
-            m_list->increment_position(*this);
-        }
+        m_node = m_list->read_node(node_index);
     }
-
-    EXTPP_ASSERT(at_end() || m_index < m_node.get_size(), "Iterator invariants.");
 }
 
-void raw_list_iterator_impl::decrement() {
-    check_valid();
+u32 raw_list_visitor_impl::value_size() const { return m_list->value_size(); }
 
-    if (at_end()) {
-        if (auto last = m_list->last()) {
-            m_node = m_list->read_node(last);
-            m_index = m_node.get_size() - 1;
-            m_list->insert_position(*this);
+u32 raw_list_visitor_impl::block_size() const { return m_list->block_size(); }
+
+
+// --------------------------------
+//
+//   Cursor implementation
+//
+// --------------------------------
+
+static void check_cursor_valid(const raw_list_cursor_impl& c) {
+    if (!c.list)
+        EXTPP_THROW(bad_cursor("the cursor's list instance has been destroyed"));
+}
+
+static void check_cursor_valid_element(const raw_list_cursor_impl& c) {
+    check_cursor_valid(c);
+    if (c.flags & raw_list_cursor_impl::DELETED)
+        EXTPP_THROW(bad_cursor("cursor points to deleted element"));
+    if (c.flags & raw_list_cursor_impl::INVALID)
+        EXTPP_THROW(bad_cursor());
+
+    EXTPP_ASSERT(c.node.valid(), "Invalid node.");
+    EXTPP_ASSERT(c.index < c.node.get_size(), "Invalid index.");
+}
+
+
+// TODO: Only link valid cursors
+raw_list_cursor_impl::raw_list_cursor_impl(raw_list_impl* list)
+    : list(list)
+{
+    list->link_cursor(this);
+}
+
+raw_list_cursor_impl::~raw_list_cursor_impl() {
+    if (list && cursors.is_linked())
+        list->unlink_cursor(this);
+}
+
+raw_list_cursor_impl::raw_list_cursor_impl(const raw_list_cursor_impl& other)
+    : list(other.list)
+    , flags(other.flags)
+    , node(other.node)
+    , index(other.index)
+{
+    if (list)
+        list->link_cursor(this);
+}
+
+raw_list_cursor_impl& raw_list_cursor_impl::operator=(const raw_list_cursor_impl& other) {
+    if (this != &other) {
+        const bool diff = list != other.list;
+        if (list && diff)
+            list->unlink_cursor(this);
+
+        list = other.list;
+        flags = other.flags;
+        node = other.node;
+        index = other.index;
+
+        if (list && diff)
+            list->link_cursor(this);
+    }
+    return *this;
+}
+
+void raw_list_cursor_impl::move_first() {
+    check_cursor_valid(*this);
+
+    flags = 0;
+    move_to_node(list->first(), 1);
+}
+
+void raw_list_cursor_impl::move_last() {
+    check_cursor_valid(*this);
+
+    flags = 0;
+    move_to_node(list->last(), -1);
+}
+
+void raw_list_cursor_impl::move_next() {
+    check_cursor_valid(*this);
+
+    if (flags & DELETED) {
+        flags &= ~DELETED;
+        if (flags & INVALID)
+            return;
+
+        if (flags & SEEK_FIRST_NEXT) {
+            flags &= ~SEEK_FIRST_NEXT;
+            move_first();
+            return;
         }
+
+        if (flags & SEEK_LAST_NEXT) {
+            flags &= ~SEEK_LAST_NEXT;
+            flags |= INVALID;
+            return;
+        }
+    } else if (flags & INVALID) {
+        EXTPP_THROW(bad_cursor());
     } else {
-        if (m_index-- == 0) {
-            if (auto prev = m_node.get_prev()) {
-                m_node = m_list->read_node(prev);
-                m_index = m_node.get_size() - 1;
-                m_list->update_position(*this);
-            } else {
-                m_node = raw_list_node();
-                m_index = 0;
-                m_list->erase_position(*this);
-            }
-        } else {
-            m_list->decrement_position(*this);
-        }
+        ++index;
     }
 
-    EXTPP_ASSERT(at_end() || m_index < m_node.get_size(), "Iterator invariants.");
+    EXTPP_ASSERT(node.valid(), "Invalid node.");
+    EXTPP_ASSERT(index <= node.get_size(), "Index out of bounds.");
+    if (index == node.get_size())
+        move_to_node(node.get_next(), 1);
+}
+
+void raw_list_cursor_impl::move_prev() {
+    check_cursor_valid(*this);
+
+    if (flags & DELETED) {
+        flags &= ~DELETED;
+        if (flags & INVALID)
+            return;
+
+        if (flags & SEEK_LAST_NEXT) {
+            flags &= ~SEEK_LAST_NEXT;
+            move_last();
+            return;
+        }
+
+        if (flags & SEEK_FIRST_NEXT) {
+            flags &= ~SEEK_FIRST_NEXT;
+            flags |= INVALID;
+            return;
+        }
+    } else if (flags & INVALID) {
+        EXTPP_THROW(bad_cursor());
+    }
+
+    EXTPP_ASSERT(node.valid(), "Invalid node.");
+    EXTPP_ASSERT(index <= node.get_size(), "Index out of bounds.");
+    if (index == 0) {
+        move_to_node(node.get_prev(), -1);
+    } else {
+        --index;
+    }
+}
+
+void raw_list_cursor_impl::move_to_node(block_index node_index, int direction) {
+    EXTPP_ASSERT(!(flags & DELETED), "Cursor in invalid state for moving, clear deletion flag first.");
+    EXTPP_ASSERT(direction == -1 || direction == 1, "Invalid direction value.");
+
+    if (node_index) {
+        node = list->read_node(node_index);
+        index = direction == 1 ? 0 : node.get_size() - 1;
+        flags &= ~INVALID;
+    } else {
+        flags |= INVALID;
+        node = raw_list_node();
+        index = 0;
+    }
+}
+
+void raw_list_cursor_impl::erase() {
+    check_cursor_valid_element(*this);
+    flags |= DELETED;
+    list->erase_at(node, index);
+}
+
+const byte* raw_list_cursor_impl::get() const {
+    check_cursor_valid_element(*this);
+    return node.get(index);
+}
+
+void raw_list_cursor_impl::set(const byte* data) {
+    check_cursor_valid_element(*this);
+    node.set(index, data);
+}
+
+void raw_list_cursor_impl::insert_before(const byte* data) {
+    check_cursor_valid_element(*this);
+    list->insert_at(node, index, data);
+}
+
+void raw_list_cursor_impl::insert_after(const byte* data) {
+    check_cursor_valid_element(*this);
+    list->insert_at(node, index + 1, data);
 }
 
 // --------------------------------
@@ -849,28 +880,23 @@ double raw_list::overhead() const {
     return empty() ? 0 : double(byte_size()) / (size() * value_size());
 }
 
-raw_list_iterator raw_list::begin() const { return raw_list_iterator(impl().begin()); }
+raw_list_cursor raw_list::create_cursor(raw_list::cursor_seek_t seek) const {
+    return raw_list_cursor(impl().create_cursor(seek));
+}
 
-raw_list_iterator raw_list::end() const { return raw_list_iterator(impl().end()); }
-
-raw_list_visitor raw_list::visit() const { return raw_list_visitor(impl().visit()); }
+raw_list_visitor raw_list::create_visitor() const { return raw_list_visitor(impl().create_visitor()); }
 
 void raw_list::clear() { impl().clear(); }
 
-void raw_list::push_front(const void *value) { impl().push_front(value); }
+void raw_list::push_front(const byte *value) { impl().push_front(value); }
 
-void raw_list::push_back(const void* value) { impl().push_back(value); }
+void raw_list::push_back(const byte* value) { impl().push_back(value); }
 
 void raw_list::pop_front() { impl().pop_front(); }
 
 void raw_list::pop_back() { impl().pop_back(); }
 
-raw_list_impl& raw_list::impl() {
-    EXTPP_ASSERT(m_impl, "Invalid list.");
-    return *m_impl;
-}
-
-const raw_list_impl& raw_list::impl() const {
+raw_list_impl& raw_list::impl() const {
     EXTPP_ASSERT(m_impl, "Invalid list.");
     return *m_impl;
 }
@@ -898,12 +924,7 @@ raw_list_visitor& raw_list_visitor::operator=(raw_list_visitor&& other) noexcept
     return *this;
 }
 
-raw_list_visitor_impl& raw_list_visitor::impl() {
-    EXTPP_ASSERT(m_impl, "Visitor has been moved.");
-    return *m_impl;
-}
-
-const raw_list_visitor_impl& raw_list_visitor::impl() const {
+raw_list_visitor_impl& raw_list_visitor::impl() const {
     EXTPP_ASSERT(m_impl, "Visitor has been moved.");
     return *m_impl;
 }
@@ -920,7 +941,7 @@ u32 raw_list_visitor::size() const { return impl().size(); }
 
 u32 raw_list_visitor::value_size() const { return impl().value_size(); }
 
-const void* raw_list_visitor::value(u32 index) const { return impl().value(index); }
+const byte* raw_list_visitor::value(u32 index) const { return impl().value(index); }
 
 void raw_list_visitor::move_next() { return impl().move_next(); }
 
@@ -932,65 +953,67 @@ void raw_list_visitor::move_last() { return impl().move_last(); }
 
 // --------------------------------
 //
-//   Iterator public interface
+//   Cursor public interface
 //
 // --------------------------------
 
-raw_list_iterator::raw_list_iterator()
+raw_list_cursor::raw_list_cursor()
 {}
 
-raw_list_iterator::raw_list_iterator(const raw_list_iterator& other)
-    : m_impl(other.m_impl ? std::make_unique<raw_list_iterator_impl>(*other.m_impl) : nullptr)
-{}
-
-raw_list_iterator::raw_list_iterator(raw_list_iterator&& other) noexcept
-    : m_impl(std::move(other.m_impl))
-{}
-
-raw_list_iterator::raw_list_iterator(std::unique_ptr<raw_list_iterator_impl> impl)
+raw_list_cursor::raw_list_cursor(std::unique_ptr<raw_list_cursor_impl> impl)
     : m_impl(std::move(impl))
 {}
 
-raw_list_iterator::~raw_list_iterator() {}
+raw_list_cursor::raw_list_cursor(const raw_list_cursor& other)
+    : m_impl(other.m_impl ? std::make_unique<raw_list_cursor_impl>(*other.m_impl) : nullptr)
+{}
 
-raw_list_iterator& raw_list_iterator::operator=(const raw_list_iterator& other) {
+raw_list_cursor::raw_list_cursor(raw_list_cursor&& other) noexcept
+    : m_impl(std::move(other.m_impl))
+{}
+
+raw_list_cursor::~raw_list_cursor() {}
+
+raw_list_cursor& raw_list_cursor::operator=(const raw_list_cursor& other) {
     if (this != &other) {
-        m_impl = other.m_impl ? std::make_unique<raw_list_iterator_impl>(*other.m_impl) : nullptr;
+        if (m_impl && other.m_impl) {
+            *m_impl = *other.m_impl;
+        } else {
+            m_impl = other.m_impl ? std::make_unique<raw_list_cursor_impl>(*other.m_impl) : nullptr;
+        }
     }
     return *this;
 }
 
-raw_list_iterator& raw_list_iterator::operator=(raw_list_iterator&& other) noexcept {
+raw_list_cursor& raw_list_cursor::operator=(raw_list_cursor&& other) noexcept {
     if (this != &other) {
         m_impl = std::move(other.m_impl);
     }
     return *this;
 }
 
-raw_list_iterator_impl& raw_list_iterator::impl() {
-    EXTPP_ASSERT(m_impl, "Invalid iterator");
+raw_list_cursor_impl& raw_list_cursor::impl() const {
+    if (!m_impl)
+        EXTPP_THROW(bad_cursor());
     return *m_impl;
 }
 
-const raw_list_iterator_impl& raw_list_iterator::impl() const {
-    EXTPP_ASSERT(m_impl, "Invalid iterator");
-    return *m_impl;
-}
+void raw_list_cursor::move_first() { impl().move_first(); }
+void raw_list_cursor::move_last() { impl().move_last(); }
+void raw_list_cursor::move_next() { impl().move_next(); }
+void raw_list_cursor::move_prev() { impl().move_prev(); }
 
-bool raw_list_iterator::valid() const { return m_impl && impl().valid(); }
+void raw_list_cursor::erase() { impl().erase(); }
 
-void raw_list_iterator::increment() { impl().increment(); }
+void raw_list_cursor::insert_before(const byte* data) { impl().insert_before(data); }
+void raw_list_cursor::insert_after(const byte* data) { impl().insert_after(data); }
 
-void raw_list_iterator::decrement() { impl().decrement(); }
+const byte* raw_list_cursor::get() const { return impl().get(); }
+void raw_list_cursor::set(const byte* data) { impl().set(data); }
+u32 raw_list_cursor::value_size() const { return impl().list->value_size(); }
 
-const void* raw_list_iterator::get() const { return impl().get(); }
+bool raw_list_cursor::invalid() const { return !m_impl || impl().invalid(); }
+bool raw_list_cursor::erased() const { return m_impl && impl().erased(); }
 
-bool raw_list_iterator::operator==(const raw_list_iterator& other) const {
-    if (valid() != other.valid())
-        return false;
-    if (valid())
-        return impl() == other.impl();
-    return true;
-}
 
 } // namespace extpp

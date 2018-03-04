@@ -24,7 +24,7 @@ public:
 
     virtual const byte* data() const noexcept = 0;
 
-    virtual byte* writable_data();
+    virtual byte* writable_data() = 0;
 
     virtual u32 block_size() const noexcept = 0;
 

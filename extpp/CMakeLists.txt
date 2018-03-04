@@ -2,6 +2,7 @@ set(HEADERS
     detail/bitset.hpp
     detail/fix.hpp
     detail/free_list.hpp
+    detail/hex.hpp
     detail/inlined_any.hpp
     detail/iter_tools.hpp
     detail/operators.hpp

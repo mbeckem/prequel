@@ -367,6 +367,27 @@ const byte* deserialize(T& v, const byte* buffer, const size_t buffer_size) {
     return deserialize(v, buffer);
 }
 
+/// Serializes `instance` into a stack-allocated buffer.
+/// \ingroup serialization
+template<typename T>
+std::array<byte, serialized_size<T>()> serialized_value(const T& instance) {
+   std::array<byte, serialized_size<T>()> buffer;
+   serialize(instance, buffer.data(), buffer.size());
+   return buffer;
+}
+
+/// Deserializes a value of type `T` from a buffer.
+/// The buffer must be large enough to hold the serialized representation
+/// of that value.
+///
+/// \ingroup serialization
+template<typename T>
+T deserialized_value(const byte* buffer, size_t buffer_size) {
+    T instance;
+    deserialize(instance, buffer, buffer_size);
+    return instance;
+}
+
 namespace detail {
 
 struct field_offset_t {

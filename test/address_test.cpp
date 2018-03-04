@@ -56,10 +56,10 @@ TEST_CASE("instance <-> member", "[address]") {
     REQUIRE(e.raw().value() == 16);
     REQUIRE(f.raw().value() == 19);
 
-    REQUIRE(a.instance<&test_t::a>() == base);
-    REQUIRE(b.instance<&test_t::b>() == base);
-    REQUIRE(c.instance<&test_t::c>() == base);
-    REQUIRE(d.instance<&test_t::d>() == base);
-    REQUIRE(e.instance<&test_t::e>() == base);
-    REQUIRE(f.instance<&test_t::f>() == base);
+    REQUIRE(a.parent<&test_t::a>() == base);
+    REQUIRE(b.parent<&test_t::b>() == base);
+    REQUIRE(c.parent<&test_t::c>() == base);
+    REQUIRE(d.parent<&test_t::d>() == base);
+    REQUIRE(e.parent<&test_t::e>() == base);
+    REQUIRE(f.parent<&test_t::f>() == base);
 }

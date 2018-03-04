@@ -17,9 +17,10 @@ set(SOURCES
 )
 
 if (UNIX)
-    list(APPEND SOURCES
-        mmap_engine_test.cpp
-    )
+    # TODO
+    #list(APPEND SOURCES
+    #    mmap_engine_test.cpp
+    #)
 endif()
 
 add_executable(unit-tests ${SOURCES})

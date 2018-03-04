@@ -72,6 +72,12 @@ private:
     source_location m_where;
 };
 
+// TODO: use std class instead?
+class invalid_argument : public exception {
+public:
+    using exception::exception;
+};
+
 class unsupported : public exception {
 public:
     using exception::exception;
@@ -80,6 +86,13 @@ public:
 class io_error : public exception {
 public:
     using exception::exception;
+};
+
+class bad_cursor : public exception {
+public:
+    bad_cursor();
+
+    bad_cursor(const char* what);
 };
 
 } // namespace extpp

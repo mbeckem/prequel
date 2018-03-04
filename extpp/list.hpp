@@ -20,29 +20,96 @@ public:
             return make_binary_format(&anchor::list);
         }
 
-        friend list;
+        friend class list;
         friend binary_format_access;
     };
 
 public:
-    class iterator {
-    public:
-        // TODO
+    class cursor {
+        raw_list::cursor inner;
 
     private:
-        raw_list::iterator inner;
+        friend class list;
+
+        cursor(raw_list::cursor&& inner): inner(std::move(inner)) {}
+
+    public:
+        cursor() = default;
+
+        bool invalid() const { return inner.invalid(); }
+        explicit operator bool() const { return static_cast<bool>(inner); }
+
+        bool erased() const { return inner.erased(); }
+
+        void move_first() { inner.move_first(); }
+        void move_last() { inner.move_last(); }
+        void move_next() { inner.move_next(); }
+        void move_prev() { inner.move_prev(); }
+
+        void erase() { inner.erase(); }
+
+        void insert_before(const value_type& value) {
+            auto buffer = serialized_value(value);
+            inner.insert_before(buffer.data());
+        }
+
+        void insert_after(const value_type& value) {
+            auto buffer = serialized_value(value);
+            inner.insert_after(buffer.data());
+        }
+
+        value_type get() const {
+            return deserialized_value<value_type>(inner.get(), value_size());
+        }
+
+        void set(const value_type& value) {
+            auto buffer = serialized_value(value);
+            inner.set(buffer.data());
+        }
+
+        const raw_list::cursor& raw() const { return inner; }
     };
 
     class visitor {
-        // TODO
+        raw_list::visitor inner;
 
     private:
-        raw_list::visitor inner;
+        friend class list;
+
+        visitor(raw_list::visitor&& inner): inner(std::move(inner)) {}
+
+    public:
+        bool valid() const { return inner.valid(); }
+        explicit operator bool() const { return static_cast<bool>(inner); }
+
+        raw_address prev_address() const { return inner.prev_address(); }
+        raw_address next_address() const { return inner.next_address(); }
+        raw_address address() const { return inner.address(); }
+
+        u32 size() const { return inner.size(); }
+
+        value_type value(u32 index) const {
+            return deserialized_value<value_type>(inner.value(index), value_size());
+        }
+
+        void move_next() { inner.move_next(); }
+        void move_prev() { inner.move_prev(); }
+        void move_first() { inner.move_first(); }
+        void move_last() { inner.move_last(); }
+
+        const raw_list::visitor& raw() const { return inner; }
     };
 
 public:
+    using cursor_seek_t = raw_list::cursor_seek_t;
+
+    static constexpr cursor_seek_t seek_none = raw_list::seek_none;
+    static constexpr cursor_seek_t seek_first = raw_list::seek_first;
+    static constexpr cursor_seek_t seek_last = raw_list::seek_last;
+
+public:
     list(handle<anchor> anchor_, allocator& alloc_)
-        : m_list(anchor_.member<&anchor::list>(), value_size(), alloc_)
+        : inner(anchor_.template member<&anchor::list>(), value_size(), alloc_)
     {}
 
     list(const list&) = delete;
@@ -52,67 +119,47 @@ public:
     list& operator=(list&&) noexcept = default;
 
 public:
-    engine& get_engine() const { return m_list.get_engine(); }
-    allocator& get_allocator() const { return m_list.get_allocator(); }
+    engine& get_engine() const { return inner.get_engine(); }
+    allocator& get_allocator() const { return inner.get_allocator(); }
 
-    static constexpr u32 value_size() const { return serialized_size<T>(); }
+    static constexpr u32 value_size() { return serialized_size<T>(); }
 
-    u32 node_capacity() const { return m_list.node_capacity(); }
-    bool empty() const { return m_list.empty(); }
-    u64 size() const { return m_list.size(); }
-    u64 nodes() const { return m_list.nodes(); }
+    u32 node_capacity() const { return inner.node_capacity(); }
+    bool empty() const { return inner.empty(); }
+    u64 size() const { return inner.size(); }
+    u64 nodes() const { return inner.nodes(); }
 
-    double fill_factor() const { return m_list.fill_factor(); }
-    u64 byte_size() const { return m_list.byte_size(); }
-    double overhead() const { return m_list.overhead(); }
+    double fill_factor() const { return inner.fill_factor(); }
+    u64 byte_size() const { return inner.byte_size(); }
+    double overhead() const { return inner.overhead(); }
 
-    // TODO:
-    iterator begin() const;
-    iterator end() const;
-    visitor visit() const;
-
-    void clear() { m_list.clear(); }
-    void erase(const iterator& pos) { m_list.erase(pos); }
-
-    void push_front(const T& value);
-    void push_back(const T& value);
-    iterator insert(const iterator& pos, const T& value);
-
-    void pop_front() { m_list.pop_front(); }
-    void pop_back() { m_list.pop_back(); }
-
-private:
-    template<typename Func>
-    static auto with_serialized(const T& value, Func&& fn) const {
-        byte buffer[serialized_size<T>()];
-        serialize(value, buffer, sizeof(buffer));
-        return fn(buffer);
+    cursor create_cursor(cursor_seek_t seek = seek_none) const {
+        return cursor(inner.create_cursor(seek));
     }
 
+    visitor create_visitor() const {
+        return visitor(inner.create_visitor());
+    }
+
+    void push_front(const T& value) {
+        auto buffer = serialized_value(value);
+        inner.push_front(buffer.data());
+    }
+
+    void push_back(const T& value) {
+        auto buffer = serialized_value(value);
+        inner.push_back(buffer.data());
+    }
+
+    void clear() { inner.clear(); }
+    void pop_front() { inner.pop_front(); }
+    void pop_back() { inner.pop_back(); }
+
+    const raw_list& raw() const { return inner; }
+
 private:
-    raw_list m_list;
+    raw_list inner;
 };
-
-template<typename T>
-inline void list<T>::push_front(const T& value) {
-    with_serialized(value, [&](const byte* data) {
-        m_list.push_front(data);
-    });
-}
-
-template<typename T>
-inline void list<T>::push_back(const T& value) {
-    with_serialized(value, [&](const byte* data) {
-        m_list.push_back(data);
-    });
-}
-
-template<typename T>
-inline list<T>::iterator list<T>::insert(const iterator& pos, const T& value) {
-    with_serialized(value, [&](const byte* data) {
-        return iterator(m_list.insert(pos.inner, data));
-    });
-}
 
 } // namespace extpp
 

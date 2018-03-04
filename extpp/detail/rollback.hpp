@@ -10,6 +10,8 @@
 namespace extpp {
 namespace detail {
 
+/// A scope guard that executes a function in its destructor,
+/// unless the commit() function has been called previouly.
 template<typename Function>
 class rollback {
 private:

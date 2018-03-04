@@ -14,8 +14,8 @@ namespace extpp {
 
 class raw_list;
 class raw_list_impl;
-class raw_list_iterator;
-class raw_list_iterator_impl;
+class raw_list_cursor;
+class raw_list_cursor_impl;
 class raw_list_visitor;
 class raw_list_visitor_impl;
 
@@ -45,8 +45,13 @@ class raw_list
 {
 public:
     using anchor = raw_list_anchor;
-    using iterator = raw_list_iterator;
     using visitor = raw_list_visitor;
+    using cursor = raw_list_cursor;
+
+public:
+    enum cursor_seek_t {
+        seek_none, seek_first, seek_last
+    };
 
 public:
     raw_list(handle<anchor> _anchor, u32 value_size, allocator& _alloc);
@@ -96,40 +101,31 @@ public:
 
     /// \}
 
-    /// Returns an iterator to the first element (or end() if the list is empty).
-    iterator begin() const;
-
-    /// Returns an iterator one past the end of the list.
-    iterator end() const;
-
     /// Returns a visitor over all nodes of this list.
     /// The visitor initially points to the first node of the list and can be
     /// moved around freely.
     /// The list must not be modified while the visitor is in use.
-    visitor visit() const;
+    visitor create_visitor() const;
+
+    /// Creates a new cursor associated with this list.
+    /// The cursor is initially invalid and has to be moved to some element first,
+    /// unless `seek_first` or `seek_last` are specified, in which case
+    /// the cursor will attempt to move to the first/last element.
+    cursor create_cursor(cursor_seek_t seek = seek_none) const;
+
+    /// Inserts a new element at the beginning of the list.
+    /// The value must be `value_size()` bytes long.
+    void push_front(const byte* value);
+
+    /// Inserts a new element at the end of the list.
+    /// The value must be `value_size()` bytes long.
+    void push_back(const byte* value);
 
     /// Removes all elements from the list.
     /// After clear() has returned, the list will not hold any nodes.
     ///
     /// Invalidates all iterators.
     void clear();
-
-    /// Erases the element at `pos` from the list.
-    ///
-    /// Invalidates the iterators that point to the erased element.
-    void erase(const iterator& pos);
-
-    /// Inserts a new element at the beginning of the list.
-    /// The value must be `value_size()` bytes long.
-    void push_front(const void* value);
-
-    /// Inserts a new element at the end of the list.
-    /// The value must be `value_size()` bytes long.
-    void push_back(const void* value);
-
-    /// Inserts a new element before `pos`.
-    /// The value must be `value_size()` bytes long.
-    iterator insert(const iterator& pos, const void* value);
 
     /// Removes the first element from the list.
     ///
@@ -144,8 +140,7 @@ public:
     void pop_back();
 
 private:
-    raw_list_impl& impl();
-    const raw_list_impl& impl() const;
+    raw_list_impl& impl() const;
 
 private:
     std::unique_ptr<raw_list_impl> m_impl;
@@ -181,7 +176,7 @@ public:
 
     /// Returns a pointer to the value at the current index.
     /// \pre `valid() && index < size()`.
-    const void* value(u32 index) const;
+    const byte* value(u32 index) const;
 
     /// Moves to the next node.
     void move_next();
@@ -200,44 +195,55 @@ private:
 
     explicit raw_list_visitor(std::unique_ptr<raw_list_visitor_impl> impl);
 
-    raw_list_visitor_impl& impl();
-    const raw_list_visitor_impl& impl() const;
+    raw_list_visitor_impl& impl() const;
 
 private:
     std::unique_ptr<raw_list_visitor_impl> m_impl;
 };
 
-class raw_list_iterator {
+class raw_list_cursor {
 public:
-    raw_list_iterator();
-    ~raw_list_iterator();
+    raw_list_cursor();
+    raw_list_cursor(const raw_list_cursor&);
+    raw_list_cursor(raw_list_cursor&&) noexcept;
+    ~raw_list_cursor();
 
-    raw_list_iterator(const raw_list_iterator&);
-    raw_list_iterator(raw_list_iterator&&) noexcept;
+    raw_list_cursor& operator=(const raw_list_cursor&);
+    raw_list_cursor& operator=(raw_list_cursor&&) noexcept;
 
-    raw_list_iterator& operator=(const raw_list_iterator&);
-    raw_list_iterator& operator=(raw_list_iterator&&) noexcept;
+    void move_first();
+    void move_last();
+    void move_next();
+    void move_prev();
 
-    bool operator==(const raw_list_iterator&) const;
-    bool operator!=(const raw_list_iterator& other) const { return !(*this == other); }
+    void erase();
+    void insert_before(const byte* data);
+    void insert_after(const byte* data);
 
-// TODO
-//private:
-    bool valid() const;
-    void increment();
-    void decrement();
-    const void* get() const;
+    const byte* get() const;
+    void set(const byte* data);
+    u32 value_size() const;
+
+    // Returns true if the cursor has become invalid (by iterating
+    // past the end or the beginning).
+    bool invalid() const;
+
+    explicit operator bool() const { return !invalid(); }
+
+    // Returns true if the cursor's current list element has been erased.
+    // Iterators to erased elements have to be moved before they can be useful again.
+    bool erased() const;
 
 private:
     friend class raw_list;
 
-    explicit raw_list_iterator(std::unique_ptr<raw_list_iterator_impl>);
-
-    raw_list_iterator_impl& impl();
-    const raw_list_iterator_impl& impl() const;
+    raw_list_cursor(std::unique_ptr<raw_list_cursor_impl> impl);
 
 private:
-    std::unique_ptr<raw_list_iterator_impl> m_impl;
+    raw_list_cursor_impl& impl() const;
+
+private:
+    std::unique_ptr<raw_list_cursor_impl> m_impl;
 };
 
 } // namespace extpp

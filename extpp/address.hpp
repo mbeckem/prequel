@@ -152,7 +152,8 @@ public:
         return address<member_type_t<ptr_type>>(raw() + offset);
     }
 
-    /// Returns the address of the object that contains this object.
+    /// Returns the address of this object's parent, i.e. the object that contains
+    /// this object.
     ///
     /// Given an address to some object of type `T`,
     /// the function call `addr.instance<&U::t>()` obtains
@@ -173,7 +174,7 @@ public:
     ///
     /// \pre `valid()`.
     template<auto MemberPtr>
-    auto instance() const {
+    auto parent() const {
         using ptr_type = decltype(MemberPtr);
 
         static_assert(std::is_member_object_pointer_v<ptr_type>,

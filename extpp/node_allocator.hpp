@@ -9,11 +9,21 @@
 namespace extpp {
 
 /// A very simple allocator that can only hand out block-sized nodes.
+/// In other words, the only supported allocation size is 1 and
+/// the only supported reallocation sizes are 1 and 0.
+///
+/// This allocator can be used for very simple node based containers,
+/// such as lists and btrees.
 class node_allocator : public allocator {
 public:
     class anchor {
+        // Free'd blocks are put on the free list.
         detail::free_list::anchor list;
+
+        // Total number of allocated blocks.
         u64 total = 0;
+
+        // Total number of free blocks.
         u64 free = 0;
 
         static constexpr auto get_binary_format() {
@@ -43,7 +53,7 @@ public:
 private:
     raw_address do_allocate(u64 n) override;
     raw_address do_reallocate(raw_address a, u64 n) override;
-    void do_free(raw_address a);
+    void do_free(raw_address a) override;
 
 private:
     handle<anchor> m_anchor;
