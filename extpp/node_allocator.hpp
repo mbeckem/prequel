@@ -14,6 +14,8 @@ namespace extpp {
 ///
 /// This allocator can be used for very simple node based containers,
 /// such as lists and btrees.
+///
+/// TODO: pimpl
 class node_allocator : public allocator {
 public:
     class anchor {

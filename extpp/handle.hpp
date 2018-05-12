@@ -91,6 +91,9 @@ public:
     const block_handle& block() const & { return m_block; }
     block_handle&& block() && { return std::move(m_block); }
 
+    /// The offset of this handle's value in its block.
+    u32 offset() const { return m_offset; }
+
     /// Returns the current value of the serialized object.
     T get() const {
         EXTPP_ASSERT(valid(), "invalid handle.");

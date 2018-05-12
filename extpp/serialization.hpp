@@ -157,7 +157,7 @@ struct default_serializer<std::array<T, N>> {
         }
     }
 
-    static void deserialize(const std::array<T, N>& v, const byte* b) {
+    static void deserialize(std::array<T, N>& v, const byte* b) {
         for (size_t i = 0; i < N; ++i) {
             b = extpp::deserialize(v[i], b);
         }
@@ -319,6 +319,11 @@ constexpr size_t serialized_size(T&&) {
     return serialized_size<T>();
 }
 
+/// A stack allocated buffer large enough to hold the serialized representation
+/// of values of type T.
+template<typename T>
+using serialized_buffer = std::array<byte, serialized_size<T>()>;
+
 /// Serializes `v` into the provided `buffer`, which
 /// must be at least `serialized_size(v)` bytes long.
 ///
@@ -339,6 +344,7 @@ template<typename T>
 byte* serialize(const T& v, byte* buffer, size_t buffer_size) {
     EXTPP_ASSERT(buffer_size >= serialized_size(v),
                  "The provided buffer is too small.");
+
     unused(buffer_size);
     return serialize(v, buffer);
 }
@@ -370,7 +376,7 @@ const byte* deserialize(T& v, const byte* buffer, const size_t buffer_size) {
 /// Serializes `instance` into a stack-allocated buffer.
 /// \ingroup serialization
 template<typename T>
-std::array<byte, serialized_size<T>()> serialized_value(const T& instance) {
+serialized_buffer<T> serialized_value(const T& instance) {
    std::array<byte, serialized_size<T>()> buffer;
    serialize(instance, buffer.data(), buffer.size());
    return buffer;

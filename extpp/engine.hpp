@@ -51,9 +51,10 @@ public:
     ///
     /// Throws if an I/O error occurs.
     ///
-    /// \warning `data` must be a pointer to (at least) `BlockSize` bytes.
-    virtual block_handle overwritten(block_index index, const byte* data) {
+    /// \warning `data` must be a pointer to (at least) `block_size()` bytes.
+    virtual block_handle overwritten(block_index index, const byte* data, size_t data_size) {
         EXTPP_CHECK(index, "Invalid index.");
+        EXTPP_CHECK(data_size >= block_size(), "Not enough data.");
         return do_overwritten(index, data);
     }
 

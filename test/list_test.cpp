@@ -14,6 +14,8 @@
 using namespace extpp;
 using extpp::detail::hex_str;
 
+namespace {
+
 struct raw_anchor {
     node_allocator::anchor alloc;
     raw_list::anchor list;
@@ -103,7 +105,11 @@ void check_list_equals_container(List&& ls, Container&& c) {
         FAIL("Not enough values in list (saw " << index << " values)");
 }
 
+}
+
 TEST_CASE("raw list", "[list]") {
+    (void) dump_list;
+
     static const u32 value_size = 4;
     static const u32 block_size = 64;
 

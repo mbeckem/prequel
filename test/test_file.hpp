@@ -82,7 +82,7 @@ private:
         if (m_file->file_size() == 0) {
             m_file->truncate(m_block_size);
             extpp::file_engine be(*m_file, m_block_size, 1);
-            handle<Anchor> handle(be.read(block_index(0)), 0);
+            handle<Anchor> handle(be.zeroed(block_index(0)), 0);
             handle.set(Anchor());
             be.flush();
         }

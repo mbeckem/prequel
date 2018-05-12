@@ -225,9 +225,14 @@ public:
         , m_value_size(value_size)
         , m_node_capacity(raw_list_node::capacity(get_engine().block_size(), m_value_size))
     {
+        if (m_node_capacity == 0)
+            EXTPP_THROW(invalid_argument("block size too small to fit a single value"));
     }
 
     ~raw_list_impl();
+
+    raw_list_impl(const raw_list_impl&) = delete;
+    raw_list_impl& operator=(const raw_list_impl&) = delete;
 
     u32 block_size() const { return get_allocator().block_size(); }
 

@@ -2,6 +2,9 @@
 
 namespace extpp {
 
+bad_element::bad_element()
+    : exception("bad element") {}
+
 bad_cursor::bad_cursor()
     : exception("bad cursor") {}
 

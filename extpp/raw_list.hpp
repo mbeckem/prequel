@@ -50,11 +50,13 @@ public:
 
 public:
     enum cursor_seek_t {
-        seek_none, seek_first, seek_last
+        seek_none = 0,
+        seek_first = 1,
+        seek_last = 2
     };
 
 public:
-    raw_list(handle<anchor> _anchor, u32 value_size, allocator& _alloc);
+    explicit raw_list(handle<anchor> _anchor, u32 value_size, allocator& _alloc);
     ~raw_list();
 
     raw_list(const raw_list&) = delete;

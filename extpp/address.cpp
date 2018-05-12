@@ -36,7 +36,7 @@ void write(engine& e, raw_address address, const void* data, size_t size) {
     }
     // Write as many full blocks as possible.
     while (size >= block_size) {
-        e.overwritten(index, buffer);
+        e.overwritten(index, buffer, block_size);
 
         buffer += block_size;
         size -= block_size;

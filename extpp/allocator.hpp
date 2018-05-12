@@ -7,6 +7,7 @@
 
 namespace extpp {
 
+// TODO: Think about byte/block indices
 class allocator {
 public:
     explicit allocator(engine& e)

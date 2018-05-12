@@ -16,6 +16,9 @@ set(HEADERS
     node_allocator.hpp
     raw_list.hpp
     list.hpp
+    extent.hpp
+    raw_stream.hpp
+    stream.hpp
 
     address.hpp
     allocator.hpp
@@ -42,7 +45,9 @@ set(SOURCES
     node_allocator.cpp
     io.cpp
 
+    extent.cpp
     raw_list.cpp
+    raw_stream.cpp
 
     detail/free_list.cpp
 )

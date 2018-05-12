@@ -88,6 +88,11 @@ public:
     using exception::exception;
 };
 
+class bad_element : public exception {
+public:
+    bad_element();
+};
+
 class bad_cursor : public exception {
 public:
     bad_cursor();

@@ -108,27 +108,20 @@ public:
     static constexpr cursor_seek_t seek_last = raw_list::seek_last;
 
 public:
-    list(handle<anchor> anchor_, allocator& alloc_)
-        : inner(anchor_.template member<&anchor::list>(), value_size(), alloc_)
+    explicit list(handle<anchor> anchor_, allocator& alloc_)
+        : inner(std::move(anchor_).template member<&anchor::list>(), value_size(), alloc_)
     {}
-
-    list(const list&) = delete;
-    list& operator=(const list&) = delete;
-
-    list(list&&) noexcept = default;
-    list& operator=(list&&) noexcept = default;
 
 public:
     engine& get_engine() const { return inner.get_engine(); }
     allocator& get_allocator() const { return inner.get_allocator(); }
 
     static constexpr u32 value_size() { return serialized_size<T>(); }
-
     u32 node_capacity() const { return inner.node_capacity(); }
+
     bool empty() const { return inner.empty(); }
     u64 size() const { return inner.size(); }
     u64 nodes() const { return inner.nodes(); }
-
     double fill_factor() const { return inner.fill_factor(); }
     u64 byte_size() const { return inner.byte_size(); }
     double overhead() const { return inner.overhead(); }
