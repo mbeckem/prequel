@@ -1,6 +1,7 @@
 #include <catch.hpp>
 
 #include <extpp/address.hpp>
+#include <extpp/file_engine.hpp>
 
 #include <type_traits>
 
@@ -62,4 +63,86 @@ TEST_CASE("instance <-> member", "[address]") {
     REQUIRE(d.parent<&test_t::d>() == base);
     REQUIRE(e.parent<&test_t::e>() == base);
     REQUIRE(f.parent<&test_t::f>() == base);
+}
+
+
+namespace {
+static constexpr u32 bs = 32;
+}
+
+TEST_CASE("copy", "[address]") {
+    auto file = memory_vfs().open("testfile.bin", vfs::read_write, vfs::open_create);
+    file->truncate(50 * bs);
+
+    file_engine e(*file, bs, 2);
+
+    std::vector<byte> test_data(256);
+    for (int i = 0; i < 256; ++i)
+        test_data[i] = i;
+
+    std::vector<byte> mem_file(50 * bs); // Mirrors file on "disk".
+
+    auto write = [&](size_t dest, const byte* data, size_t size) {
+        std::memmove(&mem_file[dest], data, size);
+        extpp::write(e, raw_address(dest), data, size);
+    };
+
+    auto copy = [&](size_t dest, size_t source, size_t n) {
+        std::memmove(&mem_file[dest], &mem_file[source], n);
+        extpp::copy(e, raw_address(dest), raw_address(source), n);
+    };
+
+    auto equal = [&]() {
+        std::vector<byte> verify(50 * bs);
+        read(e, raw_address(0), verify.data(), verify.size());
+        REQUIRE(std::equal(mem_file.begin(), mem_file.end(), verify.begin(), verify.end()));
+    };
+
+    SECTION("non-overlapping copy (after)") {
+        write(36, test_data.data(), test_data.size());
+        copy(367, 36, 256);
+        equal();
+    }
+
+    SECTION("non-overlapping copy (before)") {
+        write(477, test_data.data(), test_data.size());
+        copy(61, 477, 256);
+        equal();
+    }
+
+    SECTION("overlapping copy (before, 1)") {
+        write(320, test_data.data(), 113);
+        copy(319, 320, 113);
+        equal();
+    }
+
+    SECTION("overlapping copy (before, 2)") {
+        write(320, test_data.data(), 113);
+        copy(260, 320, 113);
+        equal();
+    }
+
+    SECTION("overlapping copy (after, 1)") {
+        write(32, test_data.data(), 113);
+        copy(321, 320, 113);
+        equal();
+    }
+
+    SECTION("overlapping copy (after, 2)") {
+        write(320, test_data.data(), 113);
+        copy(380, 320, 113);
+        equal();
+    }
+
+    SECTION("overlap with one block distance (after)") {
+        write(32, test_data.data(), 256);
+        copy(64, 32, 100);
+        equal();
+    }
+
+    SECTION("overlap with one block distance, before") {
+        write(64, test_data.data(), 256);
+        copy(32, 64, 100);
+        equal();
+    }
 }

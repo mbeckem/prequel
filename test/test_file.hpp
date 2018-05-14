@@ -29,7 +29,7 @@ inline std::unique_ptr<engine> get_test_engine(file& f, u32 block_size) {
 //    if constexpr (mmap_test) {
 //        return std::make_unique<mmap_engine>(f, block_size);
 //    } else {
-        return std::make_unique<file_engine>(f, block_size, 16);
+        return std::make_unique<file_engine>(f, block_size, 4);
 //    }
 }
 
@@ -40,6 +40,8 @@ public:
         : m_file(get_test_file())
         , m_block_size(block_size)
     {
+        if (serialized_size<Anchor>() > block_size)
+            throw std::invalid_argument("Anchor is too large for block size.");
         init();
     }
 
@@ -83,7 +85,7 @@ private:
             m_file->truncate(m_block_size);
             extpp::file_engine be(*m_file, m_block_size, 1);
             handle<Anchor> handle(be.zeroed(block_index(0)), 0);
-            handle.set(Anchor());
+            handle.construct();
             be.flush();
         }
     }

@@ -3,10 +3,10 @@ set(SOURCES
 
     address_test.cpp
     bitset_test.cpp
+    btree_test.cpp
+    default_allocator_test.cpp
     extent_test.cpp
-    file_engine_test.cpp
     free_list_test.cpp
-    handle_test.cpp
     inlined_any_test.cpp
     io_test.cpp
     iter_tools_test.cpp

@@ -5,7 +5,6 @@
 #include <extpp/binary_format.hpp>
 #include <extpp/block_index.hpp>
 #include <extpp/defs.hpp>
-#include <extpp/block_handle.hpp>
 #include <extpp/handle.hpp>
 
 #include <memory>
@@ -31,7 +30,10 @@ class extent_anchor {
 };
 
 /// An extent is a range of contiguous blocks in external storage.
-/// The content of blocks managed by an extent instance is *not* initialized.
+/// Extents can be resized dynamically.
+/// The content of blocks managed by an extent instance is *not* initialized
+/// at first. However, when an extent is resized (and possibly moved on disk),
+/// then the existing data will be copied over (as much as fits the new location).
 class extent {
 public:
     using anchor = extent_anchor;
@@ -83,6 +85,11 @@ public:
     /// Removes all blocks from this extent.
     /// \post `empty()`.
     void clear();
+
+    /// Removes all blocks from this extent.
+    /// The extent will occupy zero blocks on disk.
+    /// \post `empty()`.
+    void reset();
 
     /// Resizes this extent to the given number of blocks.
     /// Uses the allocator's reallocation function to potentially grow the

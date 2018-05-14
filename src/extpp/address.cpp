@@ -22,10 +22,10 @@ void write(engine& e, raw_address address, const void* data, size_t size) {
 
     const u32 block_size = e.block_size();
     const byte* buffer = reinterpret_cast<const byte*>(data);
-    block_index index = address.get_block_index(block_size);
+    block_index index = e.to_index(address);
 
     // Partial write at the start.
-    if (u32 offset = address.get_offset_in_block(block_size); offset != 0) {
+    if (u32 offset = e.to_offset(address); offset != 0) {
         auto block = e.read(index);
         size_t n = std::min(size, size_t(block_size - offset));
         std::memmove(block.writable_data() + offset, buffer, n);
@@ -58,10 +58,10 @@ void read(engine& e, raw_address address, void* data, size_t size) {
 
     const u32 block_size = e.block_size();
     byte* buffer = reinterpret_cast<byte*>(data);
-    block_index index = address.get_block_index(block_size);
+    block_index index = e.to_index(address);
 
     // Partial read at the start.
-    if (u32 offset = address.get_offset_in_block(block_size); offset != 0) {
+    if (u32 offset = e.to_offset(address); offset != 0) {
         auto block = e.read(index);
         size_t n = std::min(size, size_t(block_size - offset));
         std::memmove(buffer, block.data() + offset, n);
@@ -92,10 +92,10 @@ void zero(engine& e, raw_address address, u64 size) {
         return;
 
     const u32 block_size = e.block_size();
-    block_index index = address.get_block_index(block_size);
+    block_index index = e.to_index(address);
 
     // Partial write at the start.
-    if (u32 offset = address.get_offset_in_block(block_size); offset != 0) {
+    if (u32 offset = e.to_offset(address); offset != 0) {
         auto block = e.read(index);
         u64 n = std::min(size, u64(block_size - offset));
         std::memset(block.writable_data() + offset, 0, n);
@@ -119,15 +119,15 @@ void zero(engine& e, raw_address address, u64 size) {
 
 static void copy_forward(engine& e, raw_address dest, raw_address src, u64 size) {
     const u32 block_size = e.block_size();
-    auto index = [&](auto addr) { return addr.get_block_index(block_size); };
-    auto offset = [&](auto addr) { return addr.get_offset_in_block(block_size); };
+    auto index = [&](auto addr) { return e.to_index(addr); };
+    auto offset = [&](auto addr) { return e.to_offset(addr); };
 
     const bool can_overwrite = distance(src, dest) >= block_size;
 
     block_handle src_handle, dest_handle;
     while (size > 0) {
         if (!dest_handle || offset(dest) == 0) {
-            if (can_overwrite && offset(dest) == 0 && size > block_size) {
+            if (can_overwrite && offset(dest) == 0 && size >= block_size) {
                 dest_handle = e.zeroed(index(dest));
             } else {
                 dest_handle = e.read(index(dest));
@@ -155,8 +155,8 @@ static void copy_forward(engine& e, raw_address dest, raw_address src, u64 size)
 
 static void copy_backward(engine& e, raw_address dest, raw_address src, u64 size) {
     const u32 block_size = e.block_size();
-    auto index = [&](auto addr) { return addr.get_block_index(block_size); };
-    auto offset = [&](auto addr) { return addr.get_offset_in_block(block_size); };
+    auto index = [&](auto addr) { return e.to_index(addr); };
+    auto offset = [&](auto addr) { return e.to_offset(addr); };
 
     const bool can_overwrite = distance(src, dest) >= block_size;
 
@@ -165,7 +165,7 @@ static void copy_backward(engine& e, raw_address dest, raw_address src, u64 size
     block_handle src_handle, dest_handle;
     while (size > 0) {
         if (!dest_handle || offset(dest) == 0) {
-            if (can_overwrite && offset(dest) == 0 && size > block_size) {
+            if (can_overwrite && offset(dest) == 0 && size >= block_size) {
                 dest_handle = e.zeroed(index(dest-1));
             } else {
                 dest_handle = e.read(index(dest-1));

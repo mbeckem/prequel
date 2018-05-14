@@ -4,6 +4,8 @@
 #include <extpp/raw_list.hpp>
 #include <extpp/serialization.hpp>
 
+#include <fmt/ostream.h>
+
 namespace extpp {
 
 template<typename T>
@@ -36,7 +38,7 @@ public:
     public:
         cursor() = default;
 
-        bool invalid() const { return inner.invalid(); }
+        bool invalid() const { return inner.at_end(); }
         explicit operator bool() const { return static_cast<bool>(inner); }
 
         bool erased() const { return inner.erased(); }
@@ -70,36 +72,6 @@ public:
         const raw_list::cursor& raw() const { return inner; }
     };
 
-    class visitor {
-        raw_list::visitor inner;
-
-    private:
-        friend class list;
-
-        visitor(raw_list::visitor&& inner): inner(std::move(inner)) {}
-
-    public:
-        bool valid() const { return inner.valid(); }
-        explicit operator bool() const { return static_cast<bool>(inner); }
-
-        raw_address prev_address() const { return inner.prev_address(); }
-        raw_address next_address() const { return inner.next_address(); }
-        raw_address address() const { return inner.address(); }
-
-        u32 size() const { return inner.size(); }
-
-        value_type value(u32 index) const {
-            return deserialized_value<value_type>(inner.value(index), value_size());
-        }
-
-        void move_next() { inner.move_next(); }
-        void move_prev() { inner.move_prev(); }
-        void move_first() { inner.move_first(); }
-        void move_last() { inner.move_last(); }
-
-        const raw_list::visitor& raw() const { return inner; }
-    };
-
 public:
     using cursor_seek_t = raw_list::cursor_seek_t;
 
@@ -130,10 +102,6 @@ public:
         return cursor(inner.create_cursor(seek));
     }
 
-    visitor create_visitor() const {
-        return visitor(inner.create_visitor());
-    }
-
     void push_front(const T& value) {
         auto buffer = serialized_value(value);
         inner.push_front(buffer.data());
@@ -144,15 +112,89 @@ public:
         inner.push_back(buffer.data());
     }
 
+    void reset() { inner.reset(); }
     void clear() { inner.clear(); }
     void pop_front() { inner.pop_front(); }
     void pop_back() { inner.pop_back(); }
 
     const raw_list& raw() const { return inner; }
 
+public:
+    class node_view final {
+    public:
+        node_view(const node_view&) = delete;
+        node_view& operator=(const node_view&) = delete;
+
+    public:
+        block_index address() const { return m_inner.address(); }
+        block_index next_address() const { return m_inner.next_address(); }
+        block_index prev_address() const { return m_inner.prev_address(); }
+
+        u32 value_count() const { return m_inner.value_count(); }
+        value_type value(u32 index) const { return deserialized_value<value_type>(m_inner.value(index)); }
+
+    private:
+        friend class list;
+
+        node_view(const raw_list::node_view& nv)
+            : m_inner(nv) {}
+
+    private:
+        const raw_list::node_view& m_inner;
+    };
+
+    template<typename Func>
+    void visit(Func&& fn) const {
+        inner.visit([&](const raw_list::node_view& raw_view) -> bool {
+            node_view typed_view(raw_view);
+            return fn(typed_view);
+        });
+    }
+
+    void dump(std::ostream& os) const;
+
 private:
     raw_list inner;
 };
+
+template<typename T>
+void list<T>::dump(std::ostream& os) const {
+    fmt::print(
+        "List:\n"
+        "  Value size: {}\n"
+        "  Block size: {}\n"
+        "  Node Capacity: {}\n"
+        "  Size: {}\n"
+        "  Nodes: {}\n"
+        "\n",
+        value_size(),
+        get_engine().block_size(),
+        node_capacity(),
+        size(),
+        nodes());
+
+    if (!empty())
+        os << "\n";
+
+    visit([&](const node_view& node) -> bool{
+        fmt::print(
+            "  Node @{}:\n"
+            "    Previous: @{}\n"
+            "    Next: @{}\n"
+            "    Size: {}\n",
+            node.address(),
+            node.prev_address(),
+            node.next_address(),
+            node.value_count());
+
+        u32 size = node.value_count();
+        for (u32 i = 0; i < size; ++i) {
+            fmt::print("    {:>4}: {}\n", i, node.value(i));
+        }
+        fmt::print("\n");
+        return true;
+    });
+}
 
 } // namespace extpp
 

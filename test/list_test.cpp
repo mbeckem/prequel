@@ -9,6 +9,8 @@
 #include <fmt/format.h>
 #include <fmt/ostream.h>
 
+#include <iostream>
+
 #include "./test_file.hpp"
 
 using namespace extpp;
@@ -34,42 +36,6 @@ struct typed_anchor {
         return make_binary_format(&typed_anchor::alloc, &typed_anchor::list);
     }
 };
-
-void dump_list(const raw_list& list) {
-    fmt::print(
-        "Raw list:\n"
-        "  Value size: {}\n"
-        "  Block size: {}\n"
-        "  Node Capacity: {}\n"
-        "  Size: {}\n"
-        "  Nodes: {}\n"
-        "\n",
-        list.value_size(),
-        list.get_engine().block_size(),
-        list.node_capacity(),
-        list.size(),
-        list.nodes());
-
-    for (auto node = list.create_visitor(); node; node.move_next()) {
-        fmt::print(
-            "  Node @{}:\n"
-            "    Previous: @{}\n"
-            "    Next: @{}\n"
-            "    Size: {}\n",
-            node.address(),
-            node.prev_address(),
-            node.next_address(),
-            node.size());
-
-        u32 size = node.size();
-        u32 value_size = list.value_size();
-        for (u32 i = 0; i < size; ++i) {
-            const byte* data = static_cast<const byte*>(node.value(i));
-            fmt::print("    {:>4}: {}\n", i, hex_str(data, value_size));
-        }
-        fmt::print("\n");
-    }
-}
 
 template<typename T>
 auto serialized(T val) {
@@ -108,8 +74,6 @@ void check_list_equals_container(List&& ls, Container&& c) {
 }
 
 TEST_CASE("raw list", "[list]") {
-    (void) dump_list;
-
     static const u32 value_size = 4;
     static const u32 block_size = 64;
 
@@ -240,21 +204,18 @@ TEST_CASE("front and back insertion produce dense nodes", "[list]") {
     // All nodes (except for the last and first one) must be full.
     {
         u32 nodes = 0;
-        auto v = ls.create_visitor();
-        while (v) {
-            bool first = !v.prev_address().valid();
-            bool last = !v.next_address().valid();
+        ls.visit([&](auto& view) {
+            bool first = !view.prev_address().valid();
+            bool last = !view.next_address().valid();
 
             if (!first && !last) {
-                if (v.size() < ls.node_capacity()) {
-                    FAIL("Node at " << v.address() << " is not full");
+                if (view.value_count() < ls.node_capacity()) {
+                    FAIL("Node at " << view.address() << " is not full");
                 }
             }
-
-            v.move_next();
             ++nodes;
-        }
-
+            return true;
+        });
         REQUIRE(nodes == ls.nodes());
     }
 }

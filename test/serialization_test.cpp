@@ -2,6 +2,7 @@
 
 #include <extpp/address.hpp>
 #include <extpp/serialization.hpp>
+#include <extpp/detail/hex.hpp>
 
 #include <array>
 
@@ -184,6 +185,75 @@ TEST_CASE("tuple serialization", "[serialization]") {
     REQUIRE(buffer[0] == m1.at(0));
     REQUIRE(std::equal(&buffer[1], &buffer[5], m2.begin(), m2.end()));
     REQUIRE(buffer[5] == m3.at(0));
+}
+
+TEST_CASE("variant serialization", "[serialization]") {
+    struct point {
+        i32 x = 0;
+        i32 y = 0;
+        i32 z = 0;
+
+        static constexpr auto get_binary_format() {
+            return make_binary_format(&point::x, &point::y, &point::z);
+        }
+
+        bool operator==(const point& p) const {
+            return x == p.x && y == p.y && z == p.z;
+        }
+    };
+
+    REQUIRE(extpp::serialized_size<std::variant<i32, double>>() == 9); // 1 + max(size(i32), size(double))
+    REQUIRE(extpp::serialized_size<std::variant<bool, char>>() == 2); // 1 + max(1, 1)
+
+    using variant_t = std::variant<i32, double, point>;
+    REQUIRE(extpp::serialized_size<variant_t>() == 13); // 1 + serialized_size(point)
+
+    {
+        auto buffer = extpp::serialized_value(variant_t(point{1, 2, -1}));
+        REQUIRE(buffer.size() == 13);
+
+        std::array<byte, 13> expected{};
+        expected[0] = 2; // point
+        extpp::serialize(point{1, 2, -1}, expected.data() + 1);
+
+        REQUIRE(std::equal(buffer.begin(), buffer.end(), expected.begin(), expected.end()));
+
+        variant_t v;
+        deserialize(v, buffer.data());
+        REQUIRE(std::get<point>(v) == point{1, 2, -1});
+    }
+
+    {
+        auto buffer = extpp::serialized_value(variant_t(i32(-55)));
+        REQUIRE(buffer.size() == 13);
+
+        std::array<byte, 13> expected{};
+        expected[0] = 0; // i32
+        extpp::serialize(i32(-55), expected.data() + 1);
+
+        REQUIRE(std::equal(buffer.begin(), buffer.end(), expected.begin(), expected.end()));
+
+        variant_t v;
+        deserialize(v, buffer.data());
+        REQUIRE(std::get<i32>(v) == -55);
+    }
+
+    {
+        auto buffer = extpp::serialized_value(variant_t(double(123.1234)));
+        REQUIRE(buffer.size() == 13);
+
+        std::array<byte, 13> expected{};
+        expected[0] = 1; // double
+        extpp::serialize(double(123.1234), expected.data() + 1);
+
+        REQUIRE(std::equal(buffer.begin(), buffer.end(), expected.begin(), expected.end()));
+
+        variant_t v;
+        deserialize(v, buffer.data());
+        REQUIRE(std::get<double>(v) == 123.1234);
+    }
+
+
 }
 
 TEST_CASE("array serialization", "[serialization]") {
@@ -553,12 +623,12 @@ TEST_CASE("custom serializer", "[serialization]") {
 
     ROUND_TRIP(entry_t::make_free(0));
     ROUND_TRIP(entry_t::make_free(1));
-    ROUND_TRIP(entry_t::make_free(-1 + u64(1) << 63));
+    ROUND_TRIP(entry_t::make_free(-1 + (u64(1) << 63)));
 
     ROUND_TRIP(entry_t::make_object(true, 0));
     ROUND_TRIP(entry_t::make_object(false, 0));
-    ROUND_TRIP(entry_t::make_object(true, -1 + u64(1) << 62));
-    ROUND_TRIP(entry_t::make_object(false, -1 + u64(1) << 62));
+    ROUND_TRIP(entry_t::make_object(true, -1 + (u64(1) << 62)));
+    ROUND_TRIP(entry_t::make_object(false, -1 + (u64(1) << 62)));
     ROUND_TRIP(entry_t::make_object(true, 123456789ULL));
 
 #undef ROUND_TRIP

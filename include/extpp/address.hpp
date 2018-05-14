@@ -37,15 +37,6 @@ class raw_address
 public:
     static constexpr u64 invalid_value = u64(-1);
 
-    static raw_address block_address(block_index block, u32 block_size) {
-        return block ? raw_address(checked_mul<u64>(block.value(), block_size))
-                     : raw_address();
-    }
-
-    static raw_address byte_address(u64 address) {
-        return raw_address(address);
-    }
-
 public:
     raw_address(): m_value(invalid_value) {}
 
@@ -59,14 +50,6 @@ public:
     explicit operator u64() const { return value(); }
 
     explicit operator bool() const { return valid(); }
-
-    block_index get_block_index(u32 block_size) const {
-        return valid() ? block_index(value() / block_size) : block_index();
-    }
-
-    u32 get_offset_in_block(u32 block_size) const {
-        return valid() ? mod_pow2<u64>(value(), block_size) : 0;
-    }
 
     raw_address& operator+=(u64 offset) {
         EXTPP_ASSERT(valid(), "Invalid address.");
@@ -247,7 +230,6 @@ u64 distance(const address<T>& from, const address<T>& to) {
 /// Performs the equivalent of `reinterpret_cast` to `To*`.
 template<typename To>
 address<To> raw_address_cast(const raw_address& addr) {
-    // TODO: Check whether To is serializable
     return address<To>(addr);
 }
 

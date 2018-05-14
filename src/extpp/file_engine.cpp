@@ -1,19 +1,15 @@
-#ifndef EXTPP_FILE_ENGINE_HPP
-#define EXTPP_FILE_ENGINE_HPP
+#include <extpp/file_engine.hpp>
 
 #include <extpp/address.hpp>
 #include <extpp/assert.hpp>
-#include <extpp/block_handle.hpp>
 #include <extpp/block_index.hpp>
-#include <extpp/defs.hpp>
-#include <extpp/engine.hpp>
-#include <extpp/io.hpp>
 #include <extpp/math.hpp>
 
 #include <boost/intrusive_ptr.hpp>
 #include <boost/intrusive/list.hpp>
 #include <boost/intrusive/unordered_set.hpp>
 #include <boost/intrusive/list_hook.hpp>
+#include <extpp/detail/rollback.hpp>
 
 #include <exception>
 #include <iosfwd>
@@ -21,31 +17,15 @@
 
 namespace extpp {
 
-class file;
+namespace {
 
-/// Contains performance statistics for a single engine.
-struct file_engine_stats {
-    /// Number of blocks read from disk. Also the
-    /// total number of cache misses.
-    u64 reads = 0;
+struct block;
+struct block_cache;
+struct block_dirty_set;
+struct block_map;
+struct block_pool;
 
-    /// Number of blocks written to disk.
-    u64 writes = 0;
-
-    /// Number of times a block was retrieved
-    /// from the cache (i.e. no read was required).
-    u64 cache_hits = 0;
-};
-
-namespace detail {
-
-class block;
-class block_cache;
-class block_dirty_set;
-class block_engine;
-class block_map;
-class block_pool;
-class block_test;
+// TODO: Put these classes into a private header so they can be tested again?
 
 /// A block instance represents a block from disk
 /// that has been loaded into memory.
@@ -64,13 +44,10 @@ class block_test;
 /// Block instances that have been "destroyed" (i.e. their refcount has become zero)
 /// are linked to together in a free list and will be reused for
 /// future allocations.
-class block final : public detail::block_handle_impl {
+struct block final : public detail::block_handle_impl {
 public:
     /// The engine this block belongs to.
-    block_engine* const m_engine;
-
-    /// The block size.
-    const u32 m_block_size;
+    file_engine_impl* const m_engine;
 
     /// Number of references to this block.
     u32 m_refcount = 0;
@@ -88,23 +65,17 @@ public:
     /// in a list. Used by the block_dirty_set.
     boost::intrusive::list_member_hook<> m_dirty_hook;
 
-    /// The index of this block on disk.
-    u64 m_index = -1;
-
-    /// The block's raw data.
-    byte* const m_buffer = nullptr;
-
-    explicit block(block_engine* engine, u32 block_size)
+    explicit block(file_engine_impl* engine, u32 block_size)
         : m_engine(engine)
-        , m_block_size(block_size)
-        , m_buffer(static_cast<byte*>(std::malloc(block_size)))
     {
-        if (!m_buffer)
+        m_block_size = block_size;
+        m_data = static_cast<byte*>(std::malloc(block_size));
+        if (!m_data)
             throw std::bad_alloc();
     }
 
     ~block() {
-        free(m_buffer);
+        free(m_data);
     }
 
     /// Puts the block into a state where it can be reused.
@@ -116,7 +87,8 @@ public:
         EXTPP_ASSERT(!m_map_hook.is_linked(), "in block map");
         EXTPP_ASSERT(!m_dirty_hook.is_linked(), "in dirty list");
 
-        m_index = -1;
+        m_index = 0;
+        m_writable = false;
         // Not zeroing the data array because it will
         // be overwritten by a read() anyway.
     }
@@ -137,17 +109,6 @@ public:
 public:
     // Interface implementation (detail::block_handle_impl)
 
-    virtual u64 index() const noexcept override { return m_index; }
-
-    virtual const byte* data() const noexcept override { return m_buffer; }
-
-    virtual byte* writable_data() override {
-        set_dirty();
-        return m_buffer;
-    }
-
-    virtual u32 block_size() const noexcept override { return m_block_size; }
-
     virtual block* copy() override {
         ref();
         return this;
@@ -157,7 +118,11 @@ public:
         unref();
     }
 
-private:
+    virtual void make_writable() override {
+        set_dirty();
+        m_writable = true;
+    }
+
     friend void intrusive_ptr_add_ref(block* b) {
         b->ref();
     }
@@ -170,7 +135,7 @@ private:
 /// Keeps the N most recently used blocks in a linked list.
 /// Membership in the cache counts as an additional reference,
 /// keeping the block alive for further use.
-class block_cache {
+struct block_cache {
 private:
     using list_t = boost::intrusive::list<
         block,
@@ -225,13 +190,13 @@ private:
 /// Once a block's reference count reaches zero,
 /// it will be removed from this map.
 /// Note: Membership does *not* count towards the ref count.
-class block_map {
+struct block_map {
     // Blocks are indexed by their block index.
     struct block_key {
         using type = u64;
 
         u64 operator()(const block& blk) const noexcept {
-            return blk.m_index;
+            return blk.index();
         }
     };
 
@@ -390,7 +355,9 @@ public:
     block_dirty_set& operator=(const block_dirty_set&) = delete;
 };
 
-class block_engine {
+} // namespace
+
+class file_engine_impl {
 private:
     /// Underlying I/O-object.
     file* m_file;
@@ -425,34 +392,15 @@ private:
     std::exception_ptr m_write_error;
 
 public:
-    /// Constructs a new block engine.
-    ///
-    /// \param fd
-    ///     The file used for input and output. The reference must remain
-    ///     valid for the lifetime of this instance.
-    ///
-    /// \param block_size
-    ///     The size of a single block, in bytes.
-    ///     Must be a power of two.
-    ///
-    /// \param cache_size
-    ///     The number of blocks that can be cached in memory.
-    explicit block_engine(file& fd, u32 block_size, u32 cache_size);
+    explicit file_engine_impl(file& fd, u32 block_size, u32 cache_size);
 
-    ~block_engine();
+    ~file_engine_impl();
 
     file& fd() const { return *m_file; }
 
     u32 block_size() const noexcept { return m_block_size; }
 
-    /// Returns performance statistics for this engine.
     const file_engine_stats& stats() const noexcept { return m_stats; }
-
-    /// Accesses the block with the given index if its already in memory.
-    /// Otherwise, returns an invalid pointer. Never performs I/O.
-    ///
-    /// \note A successful access does not count as a cache-hit.
-    boost::intrusive_ptr<block> access(u64 index);
 
     /// Reads the block at the given address and returns a handle to it.
     /// No actual I/O is performed if the block is already in memory.
@@ -491,12 +439,11 @@ public:
     /// it merely writes all pending data to the file using `write()`.
     void flush();
 
-    block_engine(const block_engine&) = delete;
-    block_engine& operator=(const block_engine&) = delete;
+    file_engine_impl(const file_engine_impl&) = delete;
+    file_engine_impl& operator=(const file_engine_impl&) = delete;
 
 private:
-    friend class block;
-    friend class block_test;
+    friend block;
 
     template<typename ReadAction>
     boost::intrusive_ptr<block> read_impl(u64 index, ReadAction&& read);
@@ -540,54 +487,417 @@ inline void block::set_dirty() noexcept {
     }
 }
 
-} // namespace detail
+// --------------------------------
+//
+//   block cache
+//   An lru cache for blocks read from disk.
+//
+// --------------------------------
 
-class file_engine : public engine
+block_cache::block_cache(u32 max_size) noexcept
+    : m_max_size(max_size)
+    , m_list()
+{}
+
+block_cache::~block_cache()
 {
-public:
-    file_engine(file& fd, u32 block_size, u32 cache_size)
-        : engine(block_size)
-        , m_impl(fd, block_size, cache_size)
-    {}
+    clear();
+}
 
-    file& fd() const { return m_impl.fd(); }
+void block_cache::clear() noexcept
+{
+    m_list.clear_and_dispose(dispose);
+}
 
-    const file_engine_stats& stats() const { return m_impl.stats(); }
-
-private:
-    u64 do_size() const override {
-        return fd().file_size() / block_size();
+void block_cache::use(block& blk) noexcept
+{
+    if (!contains(blk)) {
+        insert(blk);
+        return;
     }
 
-    void do_grow(u64 n) override {
-        u64 new_size_blocks = checked_add(do_size(), n);
-        u64 new_size_bytes = checked_mul<u64>(new_size_blocks, block_size());
-        fd().truncate(new_size_bytes);
+    // Move the block to the front of the list.
+    auto iter = m_list.iterator_to(blk);
+    m_list.splice(m_list.begin(), m_list, iter);
+}
+
+void block_cache::insert(block& blk) noexcept
+{
+    EXTPP_ASSERT(!contains(blk), "must not be stored in the cache.");
+    EXTPP_ASSERT(m_list.size() <= m_max_size, "invalid cache size.");
+
+    // Add the block at the front and increment its reference count.
+    m_list.push_front(blk);
+    blk.ref();
+
+    // Remove the least recently used element if the cache is full.
+    if (m_list.size() > m_max_size) {
+        m_list.pop_back_and_dispose(dispose);
+    }
+}
+
+void block_cache::dispose(block* blk) noexcept
+{
+    blk->unref();
+}
+
+// --------------------------------
+//
+//   block map
+//   Maps block indices to block instances.
+//
+// --------------------------------
+
+// TODO: Bucket array should be able to grow dynamically.
+block_map::block_map(size_t expected_load)
+    : m_buckets(round_towards_pow2(std::max(size_t(32), (expected_load * 4) / 3)))
+    , m_map(map_t::bucket_traits(m_buckets.data(), m_buckets.size()))
+{}
+
+block_map::~block_map()
+{
+    clear();
+}
+
+void block_map::clear() noexcept
+{
+    m_map.clear();
+}
+
+void block_map::insert(block& blk) noexcept
+{
+    EXTPP_ASSERT(!contains(blk), "block is already stored in a map.");
+
+    bool inserted;
+    std::tie(std::ignore, inserted) = m_map.insert(blk);
+    EXTPP_ASSERT(inserted, "a block with that index already exists.");
+}
+
+void block_map::remove(block& blk) noexcept
+{
+    EXTPP_ASSERT(contains(blk), "block not stored in map.");
+
+    m_map.erase(m_map.iterator_to(blk));
+}
+
+block* block_map::find(u64 index) const noexcept
+{
+    auto iter = m_map.find(index);
+    if (iter == m_map.end()) {
+        return nullptr;
     }
 
-    block_handle do_read(block_index index) override {
-        EXTPP_CHECK(index, "Invalid index.");
-        return {m_impl.read(index.value()).detach()};
+    const block& blk = *iter;
+    return const_cast<block*>(&blk);
+}
+
+// --------------------------------
+//
+//   block pool
+//   Holds reusable block instances.
+//
+// --------------------------------
+
+block_pool::block_pool()
+{}
+
+block_pool::~block_pool()
+{
+    EXTPP_ASSERT(m_list.empty(), "Blocks in the pool must not outlive the engine.");
+}
+
+void block_pool::clear() noexcept
+{
+    m_list.clear_and_dispose(dispose);
+}
+
+void block_pool::add(block& blk) noexcept
+{
+    EXTPP_ASSERT(blk.m_refcount == 0, "block must not be referenced.");
+    EXTPP_ASSERT(!blk.m_free_hook.is_linked(), "block must not be in the pool.");
+    m_list.push_back(blk);
+}
+
+block* block_pool::remove() noexcept
+{
+    if (m_list.empty())
+        return nullptr;
+
+    block* blk = &m_list.front();
+    m_list.pop_front();
+    return blk;
+}
+
+void block_pool::dispose(block* blk) noexcept
+{
+    delete blk;
+}
+
+// --------------------------------
+//
+//   block dirty set
+//
+// --------------------------------
+
+block_dirty_set::block_dirty_set()
+{}
+
+block_dirty_set::~block_dirty_set()
+{
+    clear();
+}
+
+void block_dirty_set::clear() noexcept
+{
+    m_list.clear();
+}
+
+void block_dirty_set::add(block& blk) noexcept
+{
+    if (!contains(blk)) {
+        m_list.push_back(blk);
+    }
+}
+
+void block_dirty_set::remove(block& blk) noexcept
+{
+    EXTPP_ASSERT(contains(blk), "block is not dirty");
+    m_list.erase(m_list.iterator_to(blk));
+}
+
+// --------------------------------
+//
+//   block engine
+//   Reads and writes blocks from a disk file
+//   and caches them in memory.
+//
+// --------------------------------
+
+file_engine_impl::file_engine_impl(file& fd, u32 block_size, u32 cache_size)
+    : m_file(&fd)
+    , m_capacity(cache_size + 32)
+    , m_block_size(block_size)
+    , m_pool()
+    , m_blocks(m_capacity)
+    , m_cache(cache_size)
+    , m_stats()
+{
+    EXTPP_CHECK(is_pow2(block_size), "block size must be a power of two.");
+}
+
+file_engine_impl::~file_engine_impl()
+{
+#ifdef EXTPP_DEBUG
+    for (block& b : m_blocks) {
+        // The engine is going to be destroyed; the user must not have
+        // any remaining block handles. However, the LRU cache may
+        // still hold some blocks.
+        EXTPP_ASSERT(b.m_refcount == 1 && m_cache.contains(b),
+                    "Blocks must not be referenced when the engine is destroyed.");
+
+    }
+#endif
+
+    // Make an attempt to flush pending IO.
+    try {
+        flush();
+    } catch (...) {}
+
+    // All blocks are forced to be clean.
+    // Clearing the cache removes the last reference to the blocks
+    // and prompts a call to finalize_block, which does no I/O
+    // and puts the blocks into the pool, which deletes them all inside clear().
+    m_dirty.clear();
+    m_cache.clear();
+    m_blocks.clear();
+    m_pool.clear();
+}
+
+boost::intrusive_ptr<block> file_engine_impl::read(u64 index)
+{
+    return read_impl(index, [&](byte* data) {
+        m_file->read(index * m_block_size, data, m_block_size);
+        ++m_stats.reads;
+    });
+}
+
+boost::intrusive_ptr<block> file_engine_impl::overwrite_zero(u64 index)
+{
+    // The read function is a no-op. Everything else is the same as in read().
+    auto blk = read_impl(index, [&](byte*) {});
+
+    std::memset(blk->m_data, 0, m_block_size);
+    blk->set_dirty();
+    return blk;
+}
+
+boost::intrusive_ptr<block> file_engine_impl::overwrite_with(u64 index, const byte* data)
+{
+    auto blk = read_impl(index, [&](byte*) {});
+
+    std::memcpy(blk->m_data, data, m_block_size);
+    blk->set_dirty();
+    return blk;
+}
+
+template<typename ReadAction>
+boost::intrusive_ptr<block> file_engine_impl::read_impl(u64 index, ReadAction&& read) {
+    rethrow_write_error();
+
+    if (block* blk = m_blocks.find(index)) {
+        ++m_stats.cache_hits;
+        return boost::intrusive_ptr<block>(blk);
     }
 
-    block_handle do_zeroed(block_index index) override {
-        EXTPP_CHECK(index, "Invalid index.");
-        return {m_impl.overwrite_zero(index.value()).detach()};
+    block& blk = allocate_block();
+    detail::rollback guard = [&]{
+        free_block(blk);
+    };
+
+    EXTPP_ASSERT(blk.m_block_size == m_block_size,
+                "block size invariant");
+    {
+        blk.m_index = index;
+        read(blk.m_data);
+    }
+    guard.commit();
+
+    boost::intrusive_ptr<block> result(&blk);
+    m_blocks.insert(blk);
+    m_cache.use(blk);       // This can cause a block write (and therefore an error) for a
+                            // block that is evicted from the cache.
+    rethrow_write_error();
+    return result;
+}
+
+void file_engine_impl::flush()
+{
+    rethrow_write_error();
+
+    for (auto i = m_dirty.begin(), e = m_dirty.end();
+         i != e; )
+    {
+        auto n = std::next(i);
+        flush_block(*i);
+        i = n;
     }
 
-    block_handle do_overwritten(block_index index, const byte* data) override {
-        EXTPP_CHECK(index, "Invalid index.");
-        return {m_impl.overwrite_with(index.value(), data).detach()};
+    EXTPP_ASSERT(m_dirty.begin() == m_dirty.end(),
+                "no dirty blocks can remain.");
+}
+
+void file_engine_impl::set_dirty(block& blk) noexcept {
+    m_dirty.add(blk);
+}
+
+void file_engine_impl::flush_block(block& blk)
+{
+    EXTPP_ASSERT(blk.m_block_size == m_block_size,
+                "block size invariant");
+
+    if (m_dirty.contains(blk)) {
+        m_file->write(blk.m_index * m_block_size, blk.m_data, m_block_size);
+        m_dirty.remove(blk);
+        ++m_stats.writes;
+    }
+}
+
+void file_engine_impl::finalize_block(block& blk) noexcept
+{
+    EXTPP_ASSERT(blk.m_refcount == 0, "refcount must be zero");
+    EXTPP_ASSERT(blk.m_engine == this, "block belongs to wrong engine");
+
+    try {
+        flush_block(blk);
+    } catch (...) {
+        // Because this function is called from a noexcept context (the block handle's
+        // destructor), we don't have a place where we can report the issue.
+        // Therefore we cache the error and report it at the next opportunity (read or flush).
+        // TODO: block index should be stored as well. Nested exception?
+        if (!m_write_error) {
+            m_write_error = std::current_exception();
+        }
+        m_dirty.remove(blk); // XXX See comment below.
     }
 
-    void do_flush() override {
-        m_impl.flush();
-    }
+    // TODO: Blocks with write errors are deleted form memory == data loss.
+    // Think of a better error handling scheme. For example, the user could be notified
+    // so that he can take a custom action to "rescue" the data.
+    m_blocks.remove(blk);
+    free_block(blk);
+}
 
-private:
-    detail::block_engine m_impl;
-};
+block& file_engine_impl::allocate_block()
+{
+    block* blk = m_pool.remove();
+    if (!blk) {
+        blk = new block(this, m_block_size);
+    }
+    return *blk;
+}
+
+// Add to pool or delete depending on the number of blocks in memory.
+void file_engine_impl::free_block(block& blk) noexcept
+{
+    if (m_blocks.size() + m_pool.size() < m_capacity) {
+        blk.reset();
+        m_pool.add(blk);
+    } else {
+        delete &blk;
+    }
+}
+
+void file_engine_impl::rethrow_write_error()
+{
+    if (m_write_error) {
+        auto error = std::exchange(m_write_error, std::exception_ptr());
+        std::rethrow_exception(std::move(error));
+    }
+}
+
+file_engine::file_engine(file& fd, u32 block_size, u32 cache_size)
+    : engine(block_size)
+    , m_impl(std::make_unique<file_engine_impl>(fd, block_size, cache_size))
+{}
+
+file_engine::~file_engine() {}
+
+file& file_engine::fd() const { return impl().fd(); }
+
+file_engine_stats file_engine::stats() const { return impl().stats(); }
+
+u64 file_engine::do_size() const {
+    return fd().file_size() / block_size();
+}
+
+void file_engine::do_grow(u64 n) {
+    u64 new_size_blocks = checked_add(do_size(), n);
+    u64 new_size_bytes = checked_mul<u64>(new_size_blocks, block_size());
+    fd().truncate(new_size_bytes);
+}
+
+block_handle file_engine::do_read(block_index index) {
+    EXTPP_CHECK(index, "Invalid index.");
+    return block_handle(this, impl().read(index.value()).detach());
+}
+
+block_handle file_engine::do_zeroed(block_index index) {
+    EXTPP_CHECK(index, "Invalid index.");
+    return block_handle(this, impl().overwrite_zero(index.value()).detach());
+}
+
+block_handle file_engine::do_overwritten(block_index index, const byte* data) {
+    EXTPP_CHECK(index, "Invalid index.");
+    return block_handle(this, impl().overwrite_with(index.value(), data).detach());
+}
+
+void file_engine::do_flush() {
+    impl().flush();
+}
+
+file_engine_impl& file_engine::impl() const {
+    EXTPP_ASSERT(m_impl, "Invalid instance.");
+    return *m_impl;
+}
 
 } // namespace extpp
-
-#endif // EXTPP_FILE_ENGINE_HPP

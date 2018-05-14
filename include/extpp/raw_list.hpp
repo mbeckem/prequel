@@ -5,10 +5,10 @@
 #include <extpp/binary_format.hpp>
 #include <extpp/block_index.hpp>
 #include <extpp/defs.hpp>
-#include <extpp/block_handle.hpp>
 #include <extpp/handle.hpp>
 
 #include <memory>
+#include <ostream>
 
 namespace extpp {
 
@@ -16,8 +16,6 @@ class raw_list;
 class raw_list_impl;
 class raw_list_cursor;
 class raw_list_cursor_impl;
-class raw_list_visitor;
-class raw_list_visitor_impl;
 
 class raw_list_anchor {
     /// The number of values in this list.
@@ -45,7 +43,6 @@ class raw_list
 {
 public:
     using anchor = raw_list_anchor;
-    using visitor = raw_list_visitor;
     using cursor = raw_list_cursor;
 
 public:
@@ -103,12 +100,6 @@ public:
 
     /// \}
 
-    /// Returns a visitor over all nodes of this list.
-    /// The visitor initially points to the first node of the list and can be
-    /// moved around freely.
-    /// The list must not be modified while the visitor is in use.
-    visitor create_visitor() const;
-
     /// Creates a new cursor associated with this list.
     /// The cursor is initially invalid and has to be moved to some element first,
     /// unless `seek_first` or `seek_last` are specified, in which case
@@ -123,84 +114,66 @@ public:
     /// The value must be `value_size()` bytes long.
     void push_back(const byte* value);
 
+    /// Removes all data from this list.
+    /// The list will not occupy any space on disk.
+    /// \post `empty() && byte_size() == 0`.
+    void reset();
+
     /// Removes all elements from the list.
     /// After clear() has returned, the list will not hold any nodes.
-    ///
-    /// Invalidates all iterators.
+    /// \post `empty()`.
     void clear();
 
     /// Removes the first element from the list.
-    ///
-    /// Invalidates any iterators that pointed to that element,
-    /// all other iterators remain unaffected.
     void pop_front();
 
     /// Removes the last element from the list.
-    ///
-    /// Invalidates any iterators that pointed to that element,
-    /// all other iterators remain unaffected.
     void pop_back();
+
+    // TODO: validate
+
+public:
+    class node_view {
+    public:
+        node_view() = default;
+        virtual ~node_view();
+
+        node_view(const node_view&) = delete;
+        node_view& operator=(const node_view&) = delete;
+
+    public:
+        virtual block_index address() const = 0;
+        virtual block_index next_address() const = 0;
+        virtual block_index prev_address() const = 0;
+
+        virtual u32 value_count() const = 0;
+        virtual const byte* value(u32 index) const = 0;
+    };
+
+    /// Visits internal node from begin to end.
+    /// The function will be invoked for every node until it returns false, at which point the iteration
+    /// through the list will stop.
+    /// The list must not be modified during this operation.
+    void visit(bool (*visit_fn)(const node_view& node, void* user_data), void* user_data = nullptr) const;
+
+    template<typename Func>
+    void visit(Func&& fn) const {
+        using func_t = std::remove_reference_t<Func>;
+
+        bool (*visit_fn)(const node_view&, void*) = [](const node_view& node, void* user_data) -> bool {
+            func_t* fn = reinterpret_cast<func_t*>(user_data);
+            return (*fn)(node);
+        };
+        visit(visit_fn, reinterpret_cast<void*>(std::addressof(fn)));
+    }
+
+    void dump(std::ostream& os) const;
 
 private:
     raw_list_impl& impl() const;
 
 private:
     std::unique_ptr<raw_list_impl> m_impl;
-};
-
-class raw_list_visitor {
-public:
-    ~raw_list_visitor();
-
-    raw_list_visitor(raw_list_visitor&&) noexcept;
-    raw_list_visitor& operator=(raw_list_visitor&&) noexcept;
-
-    /// Returns true if the visitor currently points at a valid node.
-    bool valid() const;
-    explicit operator bool() const { return valid(); }
-
-    /// Returns the address of this node's predecessor (or an invalid address).
-    raw_address prev_address() const;
-
-    /// Returns the address of this node's successor (or an invalid address).
-    raw_address next_address() const;
-
-    /// Returns the address of the current node (or an invalid address).
-    raw_address address() const;
-
-    /// Returns the number of values in the current node.
-    /// \pre `valid()`.
-    u32 size() const;
-
-    /// Returns the size (in bytes) of a value.
-    /// Same as the value size of the list.
-    u32 value_size() const;
-
-    /// Returns a pointer to the value at the current index.
-    /// \pre `valid() && index < size()`.
-    const byte* value(u32 index) const;
-
-    /// Moves to the next node.
-    void move_next();
-
-    /// Moves to the previous node.
-    void move_prev();
-
-    /// Moves to the first node.
-    void move_first();
-
-    /// Moves to the last node.
-    void move_last();
-
-private:
-    friend class raw_list;
-
-    explicit raw_list_visitor(std::unique_ptr<raw_list_visitor_impl> impl);
-
-    raw_list_visitor_impl& impl() const;
-
-private:
-    std::unique_ptr<raw_list_visitor_impl> m_impl;
 };
 
 class raw_list_cursor {
@@ -228,13 +201,13 @@ public:
 
     // Returns true if the cursor has become invalid (by iterating
     // past the end or the beginning).
-    bool invalid() const;
-
-    explicit operator bool() const { return !invalid(); }
+    bool at_end() const;
 
     // Returns true if the cursor's current list element has been erased.
     // Iterators to erased elements have to be moved before they can be useful again.
     bool erased() const;
+
+    explicit operator bool() const { return !at_end(); }
 
 private:
     friend class raw_list;

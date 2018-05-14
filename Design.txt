@@ -1,11 +1,10 @@
 Open Questions / Design Issues
 ==============================
 
-
-1) In which places should the BlockSize be a template parameter/compile time constant?
-
-Currently, the block size is required to be a constant in the generation of block-sized
-structures, e.g. B-Tree nodes. Therefore it has to be a template parameter for all
-external datastructures. We *could* also make it a compile time constant in
-classes like `address`, `allocator` or `block_engine`.
-
+-   Containers should cache some of their state in memory, so that it can inspected using a debugger.
+    Currently they all use a handle<T> for their anchor state, which is of course the right thing.
+    However, a handle only refers to the serialized value in a block (i.e. some byte blob) and does not
+    keep the deserialized object in memory. Doing so would introduce synchronization issues (e.g. handles
+    A and B refer to the same byte address but have different cached values, so they don't see each others
+    updates immediately).
+    I think the best way to solve this is to simply duplicate some fields (size, root node index etc).

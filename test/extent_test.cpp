@@ -1,7 +1,7 @@
 #include <catch.hpp>
 
+#include <extpp/default_allocator.hpp>
 #include <extpp/extent.hpp>
-#include <extpp/node_allocator.hpp>
 
 #include "./test_file.hpp"
 
@@ -14,7 +14,7 @@ constexpr u32 block_size = 4096;
 namespace {
 
 struct header {
-    node_allocator::anchor alloc;
+    default_allocator::anchor alloc;
     std::array<extent::anchor, 20> extents;
 
     static constexpr auto get_binary_format() {
@@ -25,12 +25,11 @@ struct header {
 }
 
 // TODO: Does not pass yet because the allocator is missing.
-TEST_CASE("extent", "[extent][!mayfail]") {
+TEST_CASE("extent", "[extent]") {
     test_file<header> file(4096);
     file.open();
 
-    // TODO real alloc
-    node_allocator alloc(file.get_anchor().member<&header::alloc>(), file.get_engine());
+    default_allocator alloc(file.get_anchor().member<&header::alloc>(), file.get_engine());
 
     auto extent_anchor = [&](u32 index) {
         EXTPP_ASSERT(index < file.get_anchor().get<&header::extents>().size(), "index out of bounds");

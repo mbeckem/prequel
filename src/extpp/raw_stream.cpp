@@ -63,8 +63,7 @@ public:
         u32 blk_offset = block_offset(index);
 
         auto handle = read(blk_index);
-        const byte* data = handle.data() + calc_offset_in_block(m_value_size, blk_offset);
-        std::memmove(value, data, m_value_size);
+        handle.read(calc_offset_in_block(m_value_size, blk_offset), value, m_value_size);
     }
 
     void set(u64 index, const byte* value) {
@@ -74,8 +73,7 @@ public:
         u32 blk_offset = block_offset(index);
 
         auto handle = read(blk_index);
-        byte* data = handle.writable_data() + calc_offset_in_block(m_value_size, blk_offset);
-        std::memmove(data, value, m_value_size);
+        handle.write(calc_offset_in_block(m_value_size, blk_offset), value, m_value_size);
     }
 
     void reserve(u64 n) {
@@ -96,8 +94,7 @@ public:
             grow_extent(blocks() + 1);
 
         auto handle = blk_offset == 0 ? create(blk_index) : read(blk_index);
-        byte* data = handle.writable_data() + calc_offset_in_block(value_size, blk_offset);
-        std::memmove(data, value, value_size);
+        handle.write(calc_offset_in_block(value_size, blk_offset), value, m_value_size);
 
         m_anchor.set<&anchor::size>(sz + 1);
 
@@ -243,6 +240,7 @@ double raw_stream::overhead() const { return impl().overhead(); }
 
 void raw_stream::get(u64 index, byte* value) const { impl().get(index, value); }
 void raw_stream::set(u64 index, const byte* value) { impl().set(index, value); }
+void raw_stream::reset() { impl().clear(); }
 void raw_stream::clear() { impl().clear(); }
 void raw_stream::resize(u64 n, const byte* value) { impl().resize(n, value); }
 void raw_stream::reserve(u64 n) { impl().reserve(n); }

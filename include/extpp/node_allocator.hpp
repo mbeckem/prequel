@@ -14,8 +14,6 @@ namespace extpp {
 ///
 /// This allocator can be used for very simple node based containers,
 /// such as lists and btrees.
-///
-/// TODO: pimpl
 class node_allocator : public allocator {
 public:
     class anchor {
@@ -53,9 +51,9 @@ public:
     u64 data_free() const;
 
 private:
-    raw_address do_allocate(u64 n) override;
-    raw_address do_reallocate(raw_address a, u64 n) override;
-    void do_free(raw_address a) override;
+    block_index do_allocate(u64 n) override;
+    block_index do_reallocate(block_index a, u64 n) override;
+    void do_free(block_index a) override;
 
 private:
     handle<anchor> m_anchor;

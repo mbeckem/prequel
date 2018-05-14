@@ -72,7 +72,11 @@ private:
     source_location m_where;
 };
 
-// TODO: use std class instead?
+class corruption_error : public exception {
+public:
+    using exception::exception;
+};
+
 class invalid_argument : public exception {
 public:
     using exception::exception;

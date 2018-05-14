@@ -4,6 +4,7 @@
 #include <extpp/assert.hpp>
 #include <extpp/binary_format.hpp>
 #include <extpp/defs.hpp>
+#include <extpp/exception.hpp>
 #include <extpp/type_traits.hpp>
 #include <extpp/detail/iter_tools.hpp>
 
@@ -13,7 +14,9 @@
 #include <array>
 #include <cstring>
 #include <tuple>
+#include <type_traits>
 #include <utility>
+#include <variant>
 
 namespace extpp {
 
@@ -41,7 +44,7 @@ struct has_explicit_serializer<T, void_t<typename T::binary_serializer>> : std::
 // and some common standard types. Arrays, tuples, etc. of serialized types are themselves
 // serializable.
 template<typename T, typename Enable = void>
-struct default_serializer {
+struct default_serializer {        
     static_assert(always_false<T>::value,
                   "The specified type cannot be serialized.");
 };
@@ -196,12 +199,123 @@ struct default_serializer<std::tuple<T...>> {
     }
 };
 
+// Returns the size of the largest type.
+template<typename... T>
+constexpr size_t max_size() {
+    size_t max = 0;
+    size_t values[] = { sizeof(T)... };
+    for (size_t v : values) {
+        if (v > max)
+            max = v;
+    }
+    return max;
+}
+
+template<typename... T>
+struct default_serializer<std::variant<T...>> {
+    static constexpr size_t alternatives = sizeof...(T);
+
+    static constexpr size_t max_alternatives = 16;
+
+    static_assert(alternatives <= max_alternatives,
+                  "Too many types in this variant");
+
+    static constexpr size_t serialized_size = 1 + max_size<T...>();
+
+    static void serialize(const std::variant<T...>& v, byte* b) {
+        if (v.valueless_by_exception())
+            EXTPP_THROW(invalid_argument("Cannot serialize a valueless_by_exception variant."));
+
+        // Remember for the zeroing at the end.
+        byte* const end = b + serialized_size;
+
+        // Serialize the `which` tag, then the actual value.
+        const byte which = static_cast<byte>(v.index());
+        b[0] = which;
+        ++b;
+
+        switch (which) {
+        // Don't make the compiler generate a god damn function pointer table for this.
+        #define EXTPP_VARIANT_CASE(i)                               \
+                case i: {                                           \
+                    if constexpr (i < alternatives) {               \
+                        b = extpp::serialize(std::get<i>(v), b);    \
+                        break;                                      \
+                    }                                               \
+                }
+
+            EXTPP_VARIANT_CASE(0)
+            EXTPP_VARIANT_CASE(1)
+            EXTPP_VARIANT_CASE(2)
+            EXTPP_VARIANT_CASE(3)
+            EXTPP_VARIANT_CASE(4)
+            EXTPP_VARIANT_CASE(5)
+            EXTPP_VARIANT_CASE(6)
+            EXTPP_VARIANT_CASE(7)
+            EXTPP_VARIANT_CASE(8)
+            EXTPP_VARIANT_CASE(9)
+            EXTPP_VARIANT_CASE(10)
+            EXTPP_VARIANT_CASE(11)
+            EXTPP_VARIANT_CASE(12)
+            EXTPP_VARIANT_CASE(13)
+            EXTPP_VARIANT_CASE(14)
+            EXTPP_VARIANT_CASE(15)
+
+        #undef EXTPP_VARIANT_CASE
+        }
+
+        // Zero the remainder of the variant.
+        std::memset(b, 0, end - b);
+    }
+
+    static void deserialize(std::variant<T...>&v, const byte* b) {
+        const byte which = b[0];
+        ++b;
+
+        if (which >= alternatives)
+            EXTPP_THROW(io_error("Invalid value for variant alternative index"));
+
+        switch (which) {
+        // Switch case for the type at the given index. The constexpr-if hides the body
+        // of the if statement if the current variant type does not have that many alternatives.
+        // This approach is better than a function table generated at compile time because
+        // it (probably) does not cause excessive binary bloat.
+        #define EXTPP_VARIANT_CASE(i)                                           \
+            case i: {                                                           \
+                if constexpr (i < alternatives) {                               \
+                    std::variant_alternative_t<i, std::variant<T...>> value;    \
+                    extpp::deserialize(value, b);                               \
+                    v.template emplace<i>(value);                               \
+                    break;                                                      \
+                }                                                               \
+            };
+
+            EXTPP_VARIANT_CASE(0)
+            EXTPP_VARIANT_CASE(1)
+            EXTPP_VARIANT_CASE(2)
+            EXTPP_VARIANT_CASE(3)
+            EXTPP_VARIANT_CASE(4)
+            EXTPP_VARIANT_CASE(5)
+            EXTPP_VARIANT_CASE(6)
+            EXTPP_VARIANT_CASE(7)
+            EXTPP_VARIANT_CASE(8)
+            EXTPP_VARIANT_CASE(9)
+            EXTPP_VARIANT_CASE(10)
+            EXTPP_VARIANT_CASE(11)
+            EXTPP_VARIANT_CASE(12)
+            EXTPP_VARIANT_CASE(13)
+            EXTPP_VARIANT_CASE(14)
+            EXTPP_VARIANT_CASE(15)
+
+        #undef EXTPP_VARIANT_CASE
+        }
+    }
+};
+
 template<typename T, typename U, typename V>
 decltype(auto) get_member(T&& instance, V U::*member) {
     return std::forward<T>(instance).*member;
 }
-
-// TODO: Specialization for std::variant.
 
 // Serializer for types that provide the get_binary_format function.
 // The type is serialized by serializing every member (in the order
@@ -391,6 +505,18 @@ template<typename T>
 T deserialized_value(const byte* buffer, size_t buffer_size) {
     T instance;
     deserialize(instance, buffer, buffer_size);
+    return instance;
+}
+
+/// Deserializes a value of type `T` from a buffer.
+/// The buffer must be large enough to hold the serialized representation
+/// of that value.
+///
+/// \ingroup serialization
+template<typename T>
+T deserialized_value(const byte* buffer) {
+    T instance;
+    deserialize(instance, buffer);
     return instance;
 }
 

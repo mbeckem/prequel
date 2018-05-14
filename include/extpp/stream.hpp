@@ -43,7 +43,6 @@ public:
     u64 byte_size() const { return inner.byte_size(); }
     double overhead() const { return inner.overhead(); }
 
-    // TODO: Use data pointer in block directly to avoid one memcopy.
     value_type get(u64 index) const {
         serialized_buffer<T> buffer;
         inner.get(index, buffer.data());
@@ -56,6 +55,8 @@ public:
         auto buffer = serialized_value(value);
         inner.set(index, buffer.data());
     }
+
+    void reset() { inner.reset(); }
 
     void clear() { inner.clear(); }
 

@@ -1,22 +1,13 @@
 #include <extpp/raw_list.hpp>
 
 #include <extpp/exception.hpp>
-
-#include <boost/intrusive/set.hpp>
-#include <boost/intrusive/set_hook.hpp>
+#include <extpp/detail/hex.hpp>
 
 #include <boost/intrusive/list.hpp>
 #include <boost/intrusive/list_hook.hpp>
+#include <fmt/ostream.h>
 
 namespace extpp {
-
-namespace {
-
-// Node, Index in node.
-// Lexicographical order.
-using list_position = std::tuple<block_index, u32>;
-
-} // namespace
 
 class raw_list_node {
 private:
@@ -112,16 +103,16 @@ public:
 
     bool valid() const { return m_node.valid(); }
 
-    raw_address prev_address() const {
-        return raw_address::block_address(node().get_prev(), block_size());
+    block_index prev_address() const {
+        return node().get_prev();
     }
 
-    raw_address next_address() const {
-        return raw_address::block_address(node().get_next(), block_size());
+    block_index next_address() const {
+        return node().get_next();
     }
 
-    raw_address address() const {
-        return raw_address::block_address(node().block().index(), block_size());
+    block_index address() const {
+        return node().block().index();
     }
 
     u32 size() const { return node().get_size(); }
@@ -198,6 +189,8 @@ public:
     raw_list_cursor_impl(const raw_list_cursor_impl&);
     raw_list_cursor_impl& operator=(const raw_list_cursor_impl&);
 
+    u32 value_size() const;
+
     void move_first();
     void move_last();
     void move_next();
@@ -206,6 +199,7 @@ public:
     void erase();
 
     bool invalid() const { return flags & INVALID; }
+    bool at_end() const { return !erased() && invalid(); }
     bool erased() const { return flags & DELETED; }
 
     const byte* get() const;
@@ -275,6 +269,10 @@ public:
     void pop_back();
     void pop_front();
 
+    void visit(bool (*visit_fn)(const raw_list::node_view& node, void* user_data), void* user_data) const;
+
+    void dump(std::ostream& os) const;
+
     raw_list_node read_node(block_index index) const;
 
 private:
@@ -287,6 +285,9 @@ private:
     void insert_first(const byte* value);
     void insert_at(raw_list_node node, u32 index, const byte* value);
     void erase_at(raw_list_node node, u32 index);
+
+    template<typename Func>
+    void visit_nodes(Func&& fn) const;
 
 private:
     friend class raw_list_cursor_impl;
@@ -345,13 +346,13 @@ raw_list_impl::~raw_list_impl() {
 }
 
 block_index raw_list_impl::allocate_node() {
-    block_index index = get_allocator().allocate(1).get_block_index(get_engine().block_size());
+    block_index index = get_allocator().allocate(1);
     m_anchor.set<&anchor::nodes>(nodes() + 1);
     return index;
 }
 
 void raw_list_impl::free_node(block_index index) {
-    get_allocator().free(raw_address::block_address(index, get_engine().block_size()));
+    get_allocator().free(index);
     m_anchor.set<&anchor::nodes>(nodes() - 1);
 }
 
@@ -622,39 +623,85 @@ void raw_list_impl::erase_at(raw_list_node node, u32 index) {
     }
 }
 
-// --------------------------------
-//
-//   Visitor implementation
-//
-// --------------------------------
+template<typename Func>
+void raw_list_impl::visit_nodes(Func&& fn) const {
+    block_index address = first();
+    while (address) {
+        raw_list_node node = read_node(address);
+        if (!fn(node))
+            return;
 
-raw_list_visitor_impl::raw_list_visitor_impl(const raw_list_impl* list)
-    : m_list(list)
-{
-    EXTPP_ASSERT(list, "Invalid list pointer");
-    move_to(m_list->first());
-}
-
-void raw_list_visitor_impl::move_next() { move_to(node().get_next()); }
-
-void raw_list_visitor_impl::move_prev() { move_to(node().get_prev()); }
-
-void raw_list_visitor_impl::move_first() { move_to(m_list->first()); }
-
-void raw_list_visitor_impl::move_last() { move_to(m_list->last()); }
-
-void raw_list_visitor_impl::move_to(block_index node_index) {
-    if (!node_index) {
-        m_node = raw_list_node();
-    } else {
-        m_node = m_list->read_node(node_index);
+        address = node.get_next();
     }
 }
 
-u32 raw_list_visitor_impl::value_size() const { return m_list->value_size(); }
+void raw_list_impl::visit(bool (*visit_fn)(const raw_list::node_view& node, void* user_data),
+                          void* user_data) const
+{
+    if (!visit_fn)
+        EXTPP_THROW(invalid_argument("Invalid visitation function."));
 
-u32 raw_list_visitor_impl::block_size() const { return m_list->block_size(); }
+    struct node_view_impl : raw_list::node_view {
+        raw_list_node node;
 
+        block_index address() const override { return node.index(); }
+        block_index next_address() const override { return node.get_next(); }
+        block_index prev_address() const override { return node.get_prev(); }
+
+        u32 value_count() const override { return node.get_size(); }
+
+        const byte* value(u32 index) const override {
+            if (index >= value_count())
+                EXTPP_THROW(invalid_argument("Value index out of bounds."));
+            return node.get(index);
+        }
+    };
+
+    node_view_impl view;
+    visit_nodes([&](const raw_list_node& node) {
+         view.node = node;
+         return visit_fn(view, user_data);
+    });
+}
+
+void raw_list_impl::dump(std::ostream& os) const {
+    fmt::print(
+        "Raw list:\n"
+        "  Value size: {}\n"
+        "  Block size: {}\n"
+        "  Node Capacity: {}\n"
+        "  Size: {}\n"
+        "  Nodes: {}\n"
+        "\n",
+        value_size(),
+        get_engine().block_size(),
+        node_capacity(),
+        size(),
+        nodes());
+
+    if (!empty())
+        os << "\n";
+
+    visit_nodes([&](const raw_list_node& node) -> bool{
+        fmt::print(
+            "  Node @{}:\n"
+            "    Previous: @{}\n"
+            "    Next: @{}\n"
+            "    Size: {}\n",
+            node.index(),
+            node.get_prev(),
+            node.get_next(),
+            node.get_size());
+
+        u32 size = node.get_size();
+        for (u32 i = 0; i < size; ++i) {
+            const byte* data = static_cast<const byte*>(node.get(i));
+            fmt::print("    {:>4}: {}\n", i, detail::hex_str(data, value_size()));
+        }
+        fmt::print("\n");
+        return true;
+    });
+}
 
 // --------------------------------
 //
@@ -678,8 +725,6 @@ static void check_cursor_valid_element(const raw_list_cursor_impl& c) {
     EXTPP_ASSERT(c.index < c.node.get_size(), "Invalid index.");
 }
 
-
-// TODO: Only link valid cursors
 raw_list_cursor_impl::raw_list_cursor_impl(raw_list_impl* list)
     : list(list)
 {
@@ -716,6 +761,11 @@ raw_list_cursor_impl& raw_list_cursor_impl::operator=(const raw_list_cursor_impl
             list->link_cursor(this);
     }
     return *this;
+}
+
+u32 raw_list_cursor_impl::value_size() const {
+    check_cursor_valid(*this);
+    return list->value_size();
 }
 
 void raw_list_cursor_impl::move_first() {
@@ -860,17 +910,11 @@ raw_list& raw_list::operator=(raw_list&& other) noexcept {
 }
 
 engine& raw_list::get_engine() const { return impl().get_engine(); }
-
 allocator& raw_list::get_allocator() const { return impl().get_allocator(); }
-
 u32 raw_list::value_size() const { return impl().value_size(); }
-
 u32 raw_list::node_capacity() const { return impl().node_capacity(); }
-
 bool raw_list::empty() const { return impl().empty(); }
-
 u64 raw_list::size() const { return impl().size(); }
-
 u64 raw_list::nodes() const { return impl().nodes(); }
 
 double raw_list::fill_factor() const {
@@ -889,72 +933,25 @@ raw_list_cursor raw_list::create_cursor(raw_list::cursor_seek_t seek) const {
     return raw_list_cursor(impl().create_cursor(seek));
 }
 
-raw_list_visitor raw_list::create_visitor() const { return raw_list_visitor(impl().create_visitor()); }
-
+void raw_list::reset() { impl().clear(); }
 void raw_list::clear() { impl().clear(); }
-
 void raw_list::push_front(const byte *value) { impl().push_front(value); }
-
 void raw_list::push_back(const byte* value) { impl().push_back(value); }
-
 void raw_list::pop_front() { impl().pop_front(); }
-
 void raw_list::pop_back() { impl().pop_back(); }
+
+raw_list::node_view::~node_view() {}
+
+void raw_list::visit(bool (*visit_fn)(const node_view& node, void* user_data), void* user_data) const {
+    return impl().visit(visit_fn, user_data);
+}
+
+void raw_list::dump(std::ostream& os) const { impl().dump(os); }
 
 raw_list_impl& raw_list::impl() const {
     EXTPP_ASSERT(m_impl, "Invalid list.");
     return *m_impl;
 }
-
-// --------------------------------
-//
-//   Visitor public interface
-//
-// --------------------------------
-
-raw_list_visitor::raw_list_visitor(std::unique_ptr<raw_list_visitor_impl> impl)
-    : m_impl(std::move(impl))
-{}
-
-raw_list_visitor::~raw_list_visitor() {}
-
-raw_list_visitor::raw_list_visitor(raw_list_visitor&& other) noexcept
-    : m_impl(std::move(other.m_impl))
-{}
-
-raw_list_visitor& raw_list_visitor::operator=(raw_list_visitor&& other) noexcept {
-    if (this != &other) {
-        m_impl = std::move(other.m_impl);
-    }
-    return *this;
-}
-
-raw_list_visitor_impl& raw_list_visitor::impl() const {
-    EXTPP_ASSERT(m_impl, "Visitor has been moved.");
-    return *m_impl;
-}
-
-bool raw_list_visitor::valid() const { return m_impl && impl().valid(); }
-
-raw_address raw_list_visitor::prev_address() const { return impl().prev_address(); }
-
-raw_address raw_list_visitor::next_address() const { return impl().next_address(); }
-
-raw_address raw_list_visitor::address() const { return impl().address(); }
-
-u32 raw_list_visitor::size() const { return impl().size(); }
-
-u32 raw_list_visitor::value_size() const { return impl().value_size(); }
-
-const byte* raw_list_visitor::value(u32 index) const { return impl().value(index); }
-
-void raw_list_visitor::move_next() { return impl().move_next(); }
-
-void raw_list_visitor::move_prev() { return impl().move_prev(); }
-
-void raw_list_visitor::move_first() { return impl().move_first(); }
-
-void raw_list_visitor::move_last() { return impl().move_last(); }
 
 // --------------------------------
 //
@@ -1015,10 +1012,9 @@ void raw_list_cursor::insert_after(const byte* data) { impl().insert_after(data)
 
 const byte* raw_list_cursor::get() const { return impl().get(); }
 void raw_list_cursor::set(const byte* data) { impl().set(data); }
-u32 raw_list_cursor::value_size() const { return impl().list->value_size(); }
+u32 raw_list_cursor::value_size() const { return impl().value_size(); }
 
-bool raw_list_cursor::invalid() const { return !m_impl || impl().invalid(); }
+bool raw_list_cursor::at_end() const { return !m_impl || impl().at_end(); }
 bool raw_list_cursor::erased() const { return m_impl && impl().erased(); }
-
 
 } // namespace extpp

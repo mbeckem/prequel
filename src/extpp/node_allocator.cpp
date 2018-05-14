@@ -27,7 +27,7 @@ u64 node_allocator::data_free() const {
     return m_anchor.get<&anchor::free>();
 }
 
-raw_address node_allocator::do_allocate(u64 n) {
+block_index node_allocator::do_allocate(u64 n) {
     if (n != 1)
         EXTPP_THROW(unsupported("The node_allocator does not support allocation sizes other than 1."));
 
@@ -43,17 +43,18 @@ raw_address node_allocator::do_allocate(u64 n) {
     }
 
     m_anchor.set<&anchor::free>(m_anchor.get<&anchor::free>() - 1);
-    return raw_address::block_address(m_list.pop(), block_size());
+    return m_list.pop();
 }
 
-raw_address node_allocator::do_reallocate(raw_address a, u64 n) {
-    unused(a, n);
+block_index node_allocator::do_reallocate(block_index a, u64 n) {
+    if (n == 1)
+        return a;
     EXTPP_THROW(unsupported("The node_allocator does not support reallocation."));
 }
 
-void node_allocator::do_free(raw_address a) {
+void node_allocator::do_free(block_index a) {
     m_anchor.set<&anchor::free>(m_anchor.get<&anchor::free>() + 1);
-    m_list.push(a.get_block_index(block_size()));
+    m_list.push(a);
 }
 
 } // namespace extpp

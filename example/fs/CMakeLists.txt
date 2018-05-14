@@ -5,7 +5,7 @@ if (NOT PKG_CONFIG_FOUND)
     return()
 endif()
 
-pkg_check_modules(FUSE REQUIRED fuse)
+pkg_check_modules(FUSE fuse)
 
 if (NOT FUSE_FOUND)
     message(STATUS "Not building the filesystem example because libfuse was not found.")

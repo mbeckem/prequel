@@ -47,7 +47,7 @@ public:
         if (empty())
             return;
 
-        get_allocator().free(addr());
+        get_allocator().free(data());
         m_anchor.set<&anchor::start>(block_index());
         m_anchor.set<&anchor::size>(0);
     }
@@ -56,13 +56,10 @@ public:
         if (new_size == size())
             return;
 
-        raw_address new_addr = get_allocator().reallocate(addr(), new_size);
-        m_anchor.set<&anchor::start>(new_addr.get_block_index(block_size()));
+        block_index new_data = get_allocator().reallocate(data(), new_size);
+        m_anchor.set<&anchor::start>(new_data);
         m_anchor.set<&anchor::size>(new_size);
     }
-
-    // TODO: Sucks
-    raw_address addr() const { return raw_address::block_address(data(), block_size()); }
 
 private:
     void check_index(u64 index) const {
@@ -109,6 +106,7 @@ block_handle extent::read(u64 index) const { return impl().read(index); }
 block_handle extent::zeroed(u64 index) const { return impl().zeroed(index); }
 block_handle extent::overwritten(u64 index, const byte* data, size_t data_size) const { return impl().overwritten(index, data, data_size); }
 void extent::clear() { impl().clear(); }
+void extent::reset() { impl().clear(); }
 void extent::resize(u64 new_size) { impl().resize(new_size); }
 
 extent_impl& extent::impl() const {

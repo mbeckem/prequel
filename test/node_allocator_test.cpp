@@ -25,7 +25,7 @@ TEST_CASE("node allocator", "[node-allocator]") {
 
         auto a1 = alloc.allocate(1);
         auto a2 = alloc.allocate(1);
-        REQUIRE(a1 + alloc.block_size() == a2);
+        REQUIRE(a1 + 1 == a2);
         REQUIRE(alloc.data_total() == alloc.chunk_size());
         REQUIRE(alloc.data_used() == 2);
         REQUIRE(alloc.data_free() == alloc.chunk_size() - 2);
