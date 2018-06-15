@@ -4,7 +4,7 @@
 
 namespace extpp {
 
-node_allocator::node_allocator(handle<anchor> anchor_, engine& engine_)
+node_allocator::node_allocator(anchor_handle<anchor> anchor_, engine& engine_)
     : allocator(engine_)
     , m_anchor(std::move(anchor_))
     , m_list(m_anchor.member<&anchor::list>(), engine_)

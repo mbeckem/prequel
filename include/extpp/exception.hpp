@@ -92,16 +92,9 @@ public:
     using exception::exception;
 };
 
-class bad_element : public exception {
+class bad_access : public exception {
 public:
-    bad_element();
-};
-
-class bad_cursor : public exception {
-public:
-    bad_cursor();
-
-    bad_cursor(const char* what);
+    bad_access(const char* what);
 };
 
 } // namespace extpp

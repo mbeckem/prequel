@@ -80,7 +80,7 @@ public:
     static constexpr cursor_seek_t seek_last = raw_list::seek_last;
 
 public:
-    explicit list(handle<anchor> anchor_, allocator& alloc_)
+    explicit list(anchor_handle<anchor> anchor_, allocator& alloc_)
         : inner(std::move(anchor_).template member<&anchor::list>(), value_size(), alloc_)
     {}
 

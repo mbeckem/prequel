@@ -19,12 +19,9 @@ TEST_CASE("default allocator", "[default-allocator]") {
     constexpr u32 metadata_chunk = 16;
 
     auto file = memory_vfs().open("testfile.bin", vfs::read_write, vfs::open_create);
-    file->truncate(bs);
-
     file_engine engine(*file, bs, 16);
 
-    handle<default_allocator::anchor> anchor(engine.zeroed(block_index(0)), 0);
-    anchor.construct();
+    auto anchor = make_anchor_handle(default_allocator::anchor());
 
     default_allocator alloc(anchor, engine);
     alloc.min_chunk(data_chunk);
@@ -36,7 +33,7 @@ TEST_CASE("default allocator", "[default-allocator]") {
 
     SECTION("simple alloc free") {
         auto a1 = alloc.allocate(1);
-        REQUIRE(a1 == block_index(17)); // First block, 16 metadata blocks, data block.
+        REQUIRE(a1 == block_index(16)); // 16 metadata blocks, data block.
         REQUIRE(alloc.allocated_size(a1) == 1);
         REQUIRE(alloc.stats().data_total == data_chunk);
         REQUIRE(alloc.stats().metadata_total == metadata_chunk);

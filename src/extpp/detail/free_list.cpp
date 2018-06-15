@@ -96,7 +96,7 @@ private:
 
 } // namespace
 
-free_list::free_list(handle<anchor> anchor_, engine& engine_)
+free_list::free_list(anchor_handle<anchor> anchor_, engine& engine_)
     : m_anchor(std::move(anchor_))
     , m_engine(&engine_)
     , m_block_capacity(free_list_node::capacity(m_engine->block_size()))

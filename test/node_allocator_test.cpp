@@ -7,13 +7,13 @@
 
 using namespace extpp;
 
-using file_t = test_file<node_allocator::anchor>;
-
 TEST_CASE("node allocator", "[node-allocator]") {
-    file_t file(512);
+    test_file file(512);
     file.open();
+
+    auto anchor = make_anchor_handle(node_allocator::anchor());
     {
-        node_allocator alloc(file.get_anchor(), file.get_engine());
+        node_allocator alloc(anchor, file.get_engine());
 
         REQUIRE(alloc.block_size() == 512);
         REQUIRE(alloc.data_total() == 0);

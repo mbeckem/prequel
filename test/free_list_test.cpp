@@ -9,18 +9,19 @@ using namespace extpp;
 constexpr u32 block_size = 512;
 
 using free_list_t = detail::free_list;
-using file_t = test_file<free_list_t::anchor>;
 
 TEST_CASE("freelist", "[freelist]") {
-    file_t file(block_size);
+    test_file file(block_size);
     file.open();
 
-    REQUIRE(file.get_engine().size() == 1);
+    REQUIRE(file.get_engine().size() == 0);
 
     file.get_engine().grow(1024);
 
+    anchor_handle anchor(free_list_t::anchor{});
+
     // block indices [1, 1024] are valid.
-    free_list_t list(file.get_anchor(), file.get_engine());
+    free_list_t list(anchor, file.get_engine());
 
     REQUIRE(list.empty());
     REQUIRE_THROWS_AS(list.pop(), std::logic_error);

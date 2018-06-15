@@ -21,7 +21,7 @@ class raw_stream_impl {
 public:
     using anchor = raw_stream_anchor;
 
-    raw_stream_impl(handle<anchor> _anchor, u32 value_size, allocator& alloc)
+    raw_stream_impl(anchor_handle<anchor> _anchor, u32 value_size, allocator& alloc)
         : m_anchor(std::move(_anchor))
         , m_extent(m_anchor.member<&anchor::storage>(), alloc)
         , m_value_size(value_size)
@@ -198,18 +198,18 @@ private:
 
     void check_index(u64 index) const {
         if (index >= size())
-            EXTPP_THROW(bad_element());
+            EXTPP_THROW(bad_access("index out of bounds."));
     }
 
 private:
-    handle<anchor> m_anchor;
+    anchor_handle<anchor> m_anchor;
     extent m_extent;
     u32 m_value_size = 0;
     u32 m_block_capacity = 0;
     growth_strategy m_growth = exponential_growth();
 };
 
-raw_stream::raw_stream(handle<anchor> _anchor, u32 value_size, allocator& alloc)
+raw_stream::raw_stream(anchor_handle<anchor> _anchor, u32 value_size, allocator& alloc)
     : m_impl(std::make_unique<raw_stream_impl>(std::move(_anchor), value_size, alloc))
 {}
 

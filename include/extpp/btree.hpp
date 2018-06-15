@@ -110,7 +110,7 @@ public:
     static constexpr auto overwrite_existing = raw_btree::overwrite_existing;
 
 public:
-    explicit btree(handle<anchor> anchor_, allocator& alloc_, DeriveKey derive_key = DeriveKey(), KeyLess less = KeyLess())
+    explicit btree(anchor_handle<anchor> anchor_, allocator& alloc_, DeriveKey derive_key = DeriveKey(), KeyLess less = KeyLess())
         : m_state(std::make_unique<state_t>(std::move(derive_key), std::move(less)))
         , m_inner(std::move(anchor_).template member<&anchor::tree>(), make_options(), alloc_)
     {}

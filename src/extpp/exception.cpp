@@ -2,13 +2,7 @@
 
 namespace extpp {
 
-bad_element::bad_element()
-    : exception("bad element") {}
-
-bad_cursor::bad_cursor()
-    : exception("bad cursor") {}
-
-bad_cursor::bad_cursor(const char* what)
+bad_access::bad_access(const char* what)
     : exception(what)
 {}
 

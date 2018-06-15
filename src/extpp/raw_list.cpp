@@ -213,7 +213,7 @@ class raw_list_impl : public uses_allocator {
 public:
     using anchor = raw_list_anchor;
 
-    raw_list_impl(handle<anchor> anchor_, u32 value_size, allocator& alloc_)
+    raw_list_impl(anchor_handle<anchor> anchor_, u32 value_size, allocator& alloc_)
         : uses_allocator(alloc_)
         , m_anchor(std::move(anchor_))
         , m_value_size(value_size)
@@ -322,7 +322,7 @@ private:
     }
 
 private:
-    handle<anchor> m_anchor;
+    anchor_handle<anchor> m_anchor;
     u32 m_value_size;
     u32 m_node_capacity;
 
@@ -711,15 +711,15 @@ void raw_list_impl::dump(std::ostream& os) const {
 
 static void check_cursor_valid(const raw_list_cursor_impl& c) {
     if (!c.list)
-        EXTPP_THROW(bad_cursor("the cursor's list instance has been destroyed"));
+        EXTPP_THROW(bad_access("the cursor's list instance has been destroyed"));
 }
 
 static void check_cursor_valid_element(const raw_list_cursor_impl& c) {
     check_cursor_valid(c);
     if (c.flags & raw_list_cursor_impl::DELETED)
-        EXTPP_THROW(bad_cursor("cursor points to deleted element"));
+        EXTPP_THROW(bad_access("cursor points to deleted element"));
     if (c.flags & raw_list_cursor_impl::INVALID)
-        EXTPP_THROW(bad_cursor());
+        EXTPP_THROW(bad_access("bad cursor"));
 
     EXTPP_ASSERT(c.node.valid(), "Invalid node.");
     EXTPP_ASSERT(c.index < c.node.get_size(), "Invalid index.");
@@ -802,7 +802,7 @@ void raw_list_cursor_impl::move_next() {
             return;
         }
     } else if (flags & INVALID) {
-        EXTPP_THROW(bad_cursor());
+        EXTPP_THROW(bad_access("bad cursor"));
     } else {
         ++index;
     }
@@ -833,7 +833,7 @@ void raw_list_cursor_impl::move_prev() {
             return;
         }
     } else if (flags & INVALID) {
-        EXTPP_THROW(bad_cursor());
+        EXTPP_THROW(bad_access("bad cursor"));
     }
 
     EXTPP_ASSERT(node.valid(), "Invalid node.");
@@ -892,7 +892,7 @@ void raw_list_cursor_impl::insert_after(const byte* data) {
 //
 // --------------------------------
 
-raw_list::raw_list(handle<anchor> anchor_, u32 value_size, allocator& alloc_)
+raw_list::raw_list(anchor_handle<anchor> anchor_, u32 value_size, allocator& alloc_)
     : m_impl(std::make_unique<raw_list_impl>(std::move(anchor_), value_size, alloc_))
 {}
 
@@ -996,7 +996,7 @@ raw_list_cursor& raw_list_cursor::operator=(raw_list_cursor&& other) noexcept {
 
 raw_list_cursor_impl& raw_list_cursor::impl() const {
     if (!m_impl)
-        EXTPP_THROW(bad_cursor());
+        EXTPP_THROW(bad_access("bad cursor"));
     return *m_impl;
 }
 

@@ -2,6 +2,7 @@
 #define EXTPP_DETAIL_FREE_LIST_HPP
 
 #include <extpp/address.hpp>
+#include <extpp/anchor_handle.hpp>
 #include <extpp/binary_format.hpp>
 #include <extpp/defs.hpp>
 #include <extpp/engine.hpp>
@@ -25,7 +26,7 @@ public:
     };
 
 public:
-    free_list(handle<anchor> anchor_, engine& engine_);
+    free_list(anchor_handle<anchor> anchor_, engine& engine_);
 
     engine& get_engine() const { return *m_engine; }
 
@@ -47,7 +48,7 @@ public:
     block_index pop();
 
 private:
-    handle<anchor> m_anchor;
+    anchor_handle<anchor> m_anchor;
     engine* m_engine;
     u32 m_block_capacity;
 };

@@ -101,14 +101,6 @@ public:
                      "Offset out of bounds.");
     }
 
-    template<auto MemberPtr>
-    handle<member_type_t<decltype(MemberPtr)>> member() const {
-        static_assert(std::is_same_v<object_type_t<decltype(MemberPtr)>, T>,
-                      "The member pointer must belong to this type.");
-        EXTPP_ASSERT(valid(), "Invalid handle.");
-        return {block(), m_offset + static_cast<u32>(serialized_offset<MemberPtr>())};
-    }
-
     /// Returns the address of this object on disk.
     extpp::address<T> address() const {
         if (!valid())
@@ -164,11 +156,19 @@ public:
 
    template<auto MemberPtr>
    void set(const member_type_t<decltype(MemberPtr)>& value) const {
-       static_assert(std::is_same_v<object_type_t<decltype(MemberPtr)>, T>,
-                     "The member pointer must belong to this type.");
-       EXTPP_ASSERT(valid(), "Invalid handle.");
-       u32 offset = m_offset + serialized_offset<MemberPtr>();
-       m_block.set<member_type_t<decltype(MemberPtr)>>(offset, value);
+        static_assert(std::is_same_v<object_type_t<decltype(MemberPtr)>, T>,
+                      "The member pointer must belong to this type.");
+        EXTPP_ASSERT(valid(), "Invalid handle.");
+        u32 offset = m_offset + serialized_offset<MemberPtr>();
+        m_block.set<member_type_t<decltype(MemberPtr)>>(offset, value);
+   }
+
+   template<auto MemberPtr>
+   handle<member_type_t<decltype(MemberPtr)>> member() const {
+        static_assert(std::is_same_v<object_type_t<decltype(MemberPtr)>, T>,
+                      "The member pointer must belong to this type.");
+        EXTPP_ASSERT(valid(), "Invalid handle.");
+        return {block(), m_offset + static_cast<u32>(serialized_offset<MemberPtr>())};
    }
 };
 

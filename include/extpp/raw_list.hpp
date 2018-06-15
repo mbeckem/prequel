@@ -2,6 +2,7 @@
 #define EXTPP_RAW_LIST_HPP
 
 #include <extpp/allocator.hpp>
+#include <extpp/anchor_handle.hpp>
 #include <extpp/binary_format.hpp>
 #include <extpp/block_index.hpp>
 #include <extpp/defs.hpp>
@@ -53,7 +54,7 @@ public:
     };
 
 public:
-    explicit raw_list(handle<anchor> _anchor, u32 value_size, allocator& _alloc);
+    explicit raw_list(anchor_handle<anchor> _anchor, u32 value_size, allocator& _alloc);
     ~raw_list();
 
     raw_list(const raw_list&) = delete;

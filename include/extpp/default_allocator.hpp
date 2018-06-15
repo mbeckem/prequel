@@ -128,7 +128,7 @@ public:
     };
 
 public:
-    default_allocator(handle<anchor> _anchor, engine& _engine);
+    default_allocator(anchor_handle<anchor> _anchor, engine& _engine);
     ~default_allocator();
 
     default_allocator(const default_allocator&) = delete;

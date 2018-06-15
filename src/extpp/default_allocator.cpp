@@ -12,7 +12,7 @@ struct default_allocator::impl_t {
     using free_extent_cursor = free_extent_tree_t::cursor;
 
 public:
-    impl_t(handle<anchor> _anchor, engine& _engine)
+    impl_t(anchor_handle<anchor> _anchor, engine& _engine)
         : m_anchor(std::move(_anchor))
         , m_engine(_engine)
         , m_meta_freelist(m_anchor.member<&anchor::meta_freelist>(), m_engine)
@@ -209,7 +209,7 @@ private:
     u64 data_free() const { return m_data_free; }
 
 private:
-    handle<anchor> m_anchor;
+    anchor_handle<anchor> m_anchor;
     engine& m_engine;
 
     /// Minimum allocation size for data blocks on file growth.
@@ -708,7 +708,7 @@ void default_allocator::impl_t::validate() const {
 //
 // --------------------------------
 
-default_allocator::default_allocator(handle<anchor> _anchor, engine& _engine)
+default_allocator::default_allocator(anchor_handle<anchor> _anchor, engine& _engine)
     : allocator(_engine)
     , m_impl(std::make_unique<impl_t>(std::move(_anchor), _engine))
 {}

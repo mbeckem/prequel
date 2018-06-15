@@ -119,10 +119,10 @@ void simple_tree_test(TestFunction&& test) {
     for (u32 block_size : block_sizes) {
         CAPTURE(block_size);
 
-        test_file<anchor> file(block_size);
+        test_file file(block_size);
         file.open();
-        node_allocator alloc(file.get_anchor().template member<&anchor::alloc>(), file.get_engine());
-        tree_type tree(file.get_anchor().template member<&anchor::tree>(), alloc);
+        node_allocator alloc(make_anchor_handle(node_allocator::anchor()), file.get_engine());
+        tree_type tree(make_anchor_handle(typename tree_type::anchor()), alloc);
         test(tree);
     }
 }
@@ -168,11 +168,14 @@ TEST_CASE("raw btree", "[btree]") {
         return lhs < rhs;
     };
 
-    test_file<raw_anchor> file(block_size);
+    test_file file(block_size);
     file.open();
-    node_allocator alloc(file.get_anchor().member<&raw_anchor::alloc>(), file.get_engine());
+
+    node_allocator alloc(make_anchor_handle(node_allocator::anchor()), file.get_engine());
     {
-        raw_btree tree(file.get_anchor().member<&raw_anchor::tree>(), options, alloc);
+        raw_btree tree(make_anchor_handle(raw_btree::anchor()), options, alloc);
+
+        // TODO: test bad cursor behaviour
 
         SECTION("empty tree invariants") {
             REQUIRE(tree.value_size() == serialized_size<raw_value>());

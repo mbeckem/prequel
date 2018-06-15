@@ -33,17 +33,13 @@ public:
 
     block_index& operator+=(u64 offset) {
         EXTPP_ASSERT(*this, "Invalid block index.");
-        EXTPP_ASSERT(offset <= invalid_value - m_value, "Offset too large.");
         m_value += offset;
-
         return *this;
     }
 
     block_index& operator-=(u64 offset) {
         EXTPP_ASSERT(*this, "Invalid block index.");
-        EXTPP_ASSERT(m_value >= offset, "Offset too large.");
         m_value -= offset;
-
         return *this;
     }
 
@@ -70,8 +66,6 @@ public:
 private:
     u64 m_value = invalid_value;
 };
-
-static_assert(sizeof(block_index) == sizeof(u64), "Requires EBO.");
 
 } // namespace extpp
 

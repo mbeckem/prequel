@@ -16,27 +16,14 @@ static constexpr u32 block_size = 512;
 
 using stream_t = stream<i32>;
 
-struct header {
-    default_allocator::anchor alloc;
-    stream_t::anchor stream;
-
-    static constexpr auto get_binary_format() {
-        return make_binary_format(&header::alloc, &header::stream);
-    }
-};
-
-using file_t = test_file<header>;
-
 }
 
 TEST_CASE("stream basics", "[stream]") {
-    file_t file(block_size);
+    test_file file(block_size);
     file.open();
 
-    auto blk = file.get_anchor().block();
-
-    default_allocator alloc(file.get_anchor().member<&header::alloc>(), file.get_engine());
-    stream_t stream(file.get_anchor().member<&header::stream>(), alloc);
+    default_allocator alloc(make_anchor_handle(default_allocator::anchor()), file.get_engine());
+    stream_t stream(make_anchor_handle(stream_t::anchor()), alloc);
 
     SECTION("stream wastes no space") {
         REQUIRE(stream.block_capacity() == block_size / serialized_size<i32>());
@@ -46,8 +33,8 @@ TEST_CASE("stream basics", "[stream]") {
         REQUIRE(stream.size() == 0);
         REQUIRE(stream.capacity() == 0);
         REQUIRE(stream.empty());
-        REQUIRE_THROWS_AS(stream.get(0), bad_element);
-        REQUIRE_THROWS_AS(stream.set(0, 1), bad_element);
+        REQUIRE_THROWS_AS(stream.get(0), bad_access);
+        REQUIRE_THROWS_AS(stream.set(0, 1), bad_access);
     }
 
     SECTION("stream grows when inserting") {
@@ -128,12 +115,15 @@ TEST_CASE("stream basics", "[stream]") {
 }
 
 TEST_CASE("stream state is persistent", "[stream]") {
-    file_t file(block_size);
+    test_file file(block_size);
+
+    auto alloc_anchor = make_anchor_handle(default_allocator::anchor());
+    auto stream_anchor = make_anchor_handle(stream_t::anchor());
 
     file.open();
     {
-        default_allocator alloc(file.get_anchor().member<&header::alloc>(), file.get_engine());
-        stream_t stream(file.get_anchor().member<&header::stream>(), alloc);
+        default_allocator alloc(alloc_anchor, file.get_engine());
+        stream_t stream(stream_anchor, alloc);
 
         stream.reserve(100000);
         for (int i = 0; i < 100000; ++i)
@@ -143,8 +133,8 @@ TEST_CASE("stream state is persistent", "[stream]") {
 
     file.open();
     {
-        default_allocator alloc(file.get_anchor().member<&header::alloc>(), file.get_engine());
-        stream_t stream(file.get_anchor().member<&header::stream>(), alloc);
+        default_allocator alloc(alloc_anchor, file.get_engine());
+        stream_t stream(stream_anchor, alloc);
 
         REQUIRE(stream.size() == 100000);
         for (int i = 0; i < 100000; ++i) {
@@ -156,11 +146,11 @@ TEST_CASE("stream state is persistent", "[stream]") {
 }
 
 TEST_CASE("customizable stream growth", "[stream]") {
-    file_t file(block_size);
+    test_file file(block_size);
     file.open();
     {
-        default_allocator alloc(file.get_anchor().member<&header::alloc>(), file.get_engine());
-        stream_t stream(file.get_anchor().member<&header::stream>(), alloc);
+        default_allocator alloc(make_anchor_handle(default_allocator::anchor()), file.get_engine());
+        stream_t stream(make_anchor_handle(stream_t::anchor()), alloc);
         REQUIRE(std::holds_alternative<exponential_growth>(stream.growth()));
 
         SECTION("exponential") {

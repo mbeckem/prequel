@@ -8,7 +8,7 @@ class extent_impl : public uses_allocator {
 public:
     using anchor = extent_anchor;
 
-    extent_impl(handle<anchor> _anchor, allocator& _alloc)
+    extent_impl(anchor_handle<anchor> _anchor, allocator& _alloc)
         : uses_allocator(_alloc)
         , m_anchor(std::move(_anchor))
         , m_block_size(_alloc.block_size())
@@ -64,11 +64,11 @@ public:
 private:
     void check_index(u64 index) const {
         if (index >= size())
-            EXTPP_THROW(bad_element());
+            EXTPP_THROW(bad_access("index out of bounds."));
     }
 
 private:
-    handle<anchor> m_anchor;
+    anchor_handle<anchor> m_anchor;
 
     u32 m_block_size = 0;
 };
@@ -79,7 +79,7 @@ private:
 //
 // --------------------------------
 
-extent::extent(handle<anchor> _anchor, allocator& alloc)
+extent::extent(anchor_handle<anchor> _anchor, allocator& alloc)
     : m_impl(std::make_unique<extent_impl>(std::move(_anchor), alloc))
 {}
 

@@ -329,13 +329,19 @@ public:
     engine(const engine&) = delete;
     engine& operator=(const engine&) = delete;
 
-private:
+protected:
     virtual u64 do_size() const = 0;
     virtual void do_grow(u64 n) = 0;
     virtual block_handle do_read(block_index index) = 0;
     virtual block_handle do_zeroed(block_index index) = 0;
     virtual block_handle do_overwritten(block_index index, const byte* data) = 0;
     virtual void do_flush() = 0;
+
+    // log_2 (block_size)
+    u32 block_size_log() const { return m_block_size_log; }
+
+    // bitwise AND with byte offset -> block offset (cuts of high bits).
+    u32 offset_mask() const { return m_offset_mask; }
 
 private:
     u32 m_block_size;

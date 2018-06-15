@@ -351,6 +351,8 @@ public:
 
     void clear() noexcept;
 
+    size_t size() const { return m_list.size(); }
+
     block_dirty_set(const block_dirty_set&) = delete;
     block_dirty_set& operator=(const block_dirty_set&) = delete;
 };
@@ -531,7 +533,7 @@ void block_cache::insert(block& blk) noexcept
     blk.ref();
 
     // Remove the least recently used element if the cache is full.
-    if (m_list.size() > m_max_size) {
+    while (m_list.size() > m_max_size) {
         m_list.pop_back_and_dispose(dispose);
     }
 }
@@ -798,6 +800,7 @@ void file_engine_impl::flush_block(block& blk)
     if (m_dirty.contains(blk)) {
         m_file->write(blk.m_index * m_block_size, blk.m_data, m_block_size);
         m_dirty.remove(blk);
+        blk.m_writable = false;
         ++m_stats.writes;
     }
 }
@@ -867,7 +870,7 @@ file& file_engine::fd() const { return impl().fd(); }
 file_engine_stats file_engine::stats() const { return impl().stats(); }
 
 u64 file_engine::do_size() const {
-    return fd().file_size() / block_size();
+    return fd().file_size() >> block_size_log();
 }
 
 void file_engine::do_grow(u64 n) {

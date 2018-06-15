@@ -2,6 +2,7 @@
 #define EXTPP_EXTENT_HPP
 
 #include <extpp/allocator.hpp>
+#include <extpp/anchor_handle.hpp>
 #include <extpp/binary_format.hpp>
 #include <extpp/block_index.hpp>
 #include <extpp/defs.hpp>
@@ -39,7 +40,7 @@ public:
     using anchor = extent_anchor;
 
 public:
-    explicit extent(handle<anchor> _anchor, allocator& alloc);
+    explicit extent(anchor_handle<anchor> _anchor, allocator& alloc);
     ~extent();
 
     extent(const extent&) = delete;

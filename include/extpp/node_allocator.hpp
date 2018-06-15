@@ -2,6 +2,7 @@
 #define EXTPP_NODE_ALLOCATOR_HPP
 
 #include <extpp/allocator.hpp>
+#include <extpp/anchor_handle.hpp>
 #include <extpp/binary_format.hpp>
 #include <extpp/handle.hpp>
 #include <extpp/detail/free_list.hpp>
@@ -35,7 +36,7 @@ public:
     };
 
 public:
-    node_allocator(handle<anchor> anchor_, engine& engine_);
+    node_allocator(anchor_handle<anchor> anchor_, engine& engine_);
 
     /// Number of blocks allocated at once.
     u32 chunk_size() const { return m_chunk_size; }
@@ -56,7 +57,7 @@ private:
     void do_free(block_index a) override;
 
 private:
-    handle<anchor> m_anchor;
+    anchor_handle<anchor> m_anchor;
     detail::free_list m_list;
     u32 m_chunk_size = 32;
 };

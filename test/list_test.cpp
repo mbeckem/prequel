@@ -18,25 +18,6 @@ using extpp::detail::hex_str;
 
 namespace {
 
-struct raw_anchor {
-    node_allocator::anchor alloc;
-    raw_list::anchor list;
-
-    static constexpr auto get_binary_format() {
-        return make_binary_format(&raw_anchor::alloc, &raw_anchor::list);
-    }
-};
-
-template<typename T>
-struct typed_anchor {
-    node_allocator::anchor alloc;
-    typename list<T>::anchor list;
-
-    static constexpr auto get_binary_format() {
-        return make_binary_format(&typed_anchor::alloc, &typed_anchor::list);
-    }
-};
-
 template<typename T>
 auto serialized(T val) {
     std::array<byte, serialized_size<T>()> result;
@@ -77,12 +58,12 @@ TEST_CASE("raw list", "[list]") {
     static const u32 value_size = 4;
     static const u32 block_size = 64;
 
-    test_file<raw_anchor> file(block_size);
+    test_file file(block_size);
     file.open();
 
-    node_allocator alloc(file.get_anchor().member<&raw_anchor::alloc>(), file.get_engine());
+    node_allocator alloc(make_anchor_handle(node_allocator::anchor()), file.get_engine());
     {
-        raw_list list(file.get_anchor().member<&raw_anchor::list>(), value_size, alloc);
+        raw_list list(make_anchor_handle(raw_list::anchor()), value_size, alloc);
 
         SECTION("Empty list") {
             REQUIRE(list.value_size() == 4);
@@ -163,11 +144,11 @@ TEST_CASE("raw list", "[list]") {
 TEST_CASE("front and back insertion produce dense nodes", "[list]") {
     using value_t = i32;
 
-    test_file<typed_anchor<value_t>> file(64);
+    test_file file(64);
     file.open();
 
-    node_allocator alloc(file.get_anchor().member<&typed_anchor<value_t>::alloc>(), file.get_engine());
-    list<value_t> ls(file.get_anchor().member<&typed_anchor<value_t>::list>(), alloc);
+    node_allocator alloc(make_anchor_handle(node_allocator::anchor()), file.get_engine());
+    list<value_t> ls(make_anchor_handle(list<value_t>::anchor()), alloc);
 
     const i32 COUNT = 1024;
     std::vector<i32> comp;
@@ -223,11 +204,11 @@ TEST_CASE("front and back insertion produce dense nodes", "[list]") {
 TEST_CASE("basic cursor usage iteration", "[list]") {
     using value_t = i32;
 
-    test_file<typed_anchor<value_t>> file(64);
+    test_file file(64);
     file.open();
 
-    node_allocator alloc(file.get_anchor().member<&typed_anchor<value_t>::alloc>(), file.get_engine());
-    list<value_t> ls(file.get_anchor().member<&typed_anchor<value_t>::list>(), alloc);
+    node_allocator alloc(make_anchor_handle(node_allocator::anchor()), file.get_engine());
+    list<value_t> ls(make_anchor_handle(list<value_t>::anchor()), alloc);
 
     SECTION("empty list") {
         auto c1 = ls.create_cursor(ls.seek_first);
@@ -290,24 +271,24 @@ TEST_CASE("invalid cursor behaviour", "[list]") {
 
     using value_t = i32;
 
-    test_file<typed_anchor<value_t>> file(64);
+    test_file file(64);
     file.open();
 
-    node_allocator alloc(file.get_anchor().member<&typed_anchor<value_t>::alloc>(), file.get_engine());
-    list<value_t> ls(file.get_anchor().member<&typed_anchor<value_t>::list>(), alloc);
+    node_allocator alloc(make_anchor_handle(node_allocator::anchor()), file.get_engine());
+    list<value_t> ls(make_anchor_handle(list<value_t>::anchor()), alloc);
 
     auto checks = [&](auto&& c) {
         REQUIRE(!c);
         REQUIRE(c.invalid());
         REQUIRE(!c.erased());
 
-        REQUIRE_THROWS_AS(c.get(), bad_cursor);
-        REQUIRE_THROWS_AS(c.set(0), bad_cursor);
-        REQUIRE_THROWS_AS(c.erase(), bad_cursor);
-        REQUIRE_THROWS_AS(c.insert_after(0), bad_cursor);
-        REQUIRE_THROWS_AS(c.insert_before(0), bad_cursor);
-        REQUIRE_THROWS_AS(c.move_next(), bad_cursor);
-        REQUIRE_THROWS_AS(c.move_prev(), bad_cursor);
+        REQUIRE_THROWS_AS(c.get(), bad_access);
+        REQUIRE_THROWS_AS(c.set(0), bad_access);
+        REQUIRE_THROWS_AS(c.erase(), bad_access);
+        REQUIRE_THROWS_AS(c.insert_after(0), bad_access);
+        REQUIRE_THROWS_AS(c.insert_before(0), bad_access);
+        REQUIRE_THROWS_AS(c.move_next(), bad_access);
+        REQUIRE_THROWS_AS(c.move_prev(), bad_access);
     };
 
     {
@@ -320,7 +301,7 @@ TEST_CASE("invalid cursor behaviour", "[list]") {
     {
         INFO("Default constructed");
         list<value_t>::cursor c;
-        REQUIRE_THROWS_AS(c.raw().value_size(), bad_cursor); // No impl
+        REQUIRE_THROWS_AS(c.raw().value_size(), bad_access); // No impl
         checks(c);
     }
 }
@@ -346,11 +327,11 @@ struct point_t {
 
 
 TEST_CASE("Iterating and deleting using list cursors", "[list]") {
-    test_file<typed_anchor<point_t>> file(64);
+    test_file file(64);
     file.open();
 
-    node_allocator alloc(file.get_anchor().member<&typed_anchor<point_t>::alloc>(), file.get_engine());
-    list<point_t> ls(file.get_anchor().member<&typed_anchor<point_t>::list>(), alloc);
+    node_allocator alloc(make_anchor_handle(node_allocator::anchor()), file.get_engine());
+    list<point_t> ls(make_anchor_handle(list<point_t>::anchor()), alloc);
 
     const i32 COUNT = 1024;
     std::vector<point_t> comp;
@@ -374,11 +355,11 @@ TEST_CASE("Iterating and deleting using list cursors", "[list]") {
 
         REQUIRE(c);
         REQUIRE(c.erased());
-        REQUIRE_THROWS_AS(c.erase(), bad_cursor);
-        REQUIRE_THROWS_AS(c.get(), bad_cursor);
-        REQUIRE_THROWS_AS(c.set({1, 2}), bad_cursor);
-        REQUIRE_THROWS_AS(c.insert_after({1, 2}), bad_cursor);
-        REQUIRE_THROWS_AS(c.insert_before({1, 2}), bad_cursor);
+        REQUIRE_THROWS_AS(c.erase(), bad_access);
+        REQUIRE_THROWS_AS(c.get(), bad_access);
+        REQUIRE_THROWS_AS(c.set({1, 2}), bad_access);
+        REQUIRE_THROWS_AS(c.insert_after({1, 2}), bad_access);
+        REQUIRE_THROWS_AS(c.insert_before({1, 2}), bad_access);
 
         SECTION("back again produces invalid cursor") {
             c.move_prev();
@@ -451,14 +432,14 @@ TEST_CASE("Iterating and deleting using list cursors", "[list]") {
 }
 
 TEST_CASE("List destruction -> Cursor invalidation", "[list]") {
-    test_file<typed_anchor<i32>> file(64);
+    test_file file(64);
     file.open();
 
     list<i32>::cursor pos;
 
     {
-        node_allocator alloc(file.get_anchor().member<&typed_anchor<i32>::alloc>(), file.get_engine());
-        list<i32> ls(file.get_anchor().member<&typed_anchor<i32>::list>(), alloc);
+        node_allocator alloc(make_anchor_handle(node_allocator::anchor()), file.get_engine());
+        list<i32> ls(make_anchor_handle(list<i32>::anchor()), alloc);
         ls.push_back(1);
         pos = ls.create_cursor(ls.seek_first);
         REQUIRE(pos);
@@ -466,15 +447,15 @@ TEST_CASE("List destruction -> Cursor invalidation", "[list]") {
     }
 
     REQUIRE(!pos);
-    REQUIRE_THROWS_AS(pos.get(), bad_cursor);
+    REQUIRE_THROWS_AS(pos.get(), bad_access);
 }
 
 TEST_CASE("List cursors to deleted elements change state", "[list]") {
-    test_file<typed_anchor<i32>> file(64);
+    test_file file(64);
     file.open();
 
-    node_allocator alloc(file.get_anchor().member<&typed_anchor<i32>::alloc>(), file.get_engine());
-    list<i32> ls(file.get_anchor().member<&typed_anchor<i32>::list>(), alloc);
+    node_allocator alloc(make_anchor_handle(node_allocator::anchor()), file.get_engine());
+    list<i32> ls(make_anchor_handle(list<i32>::anchor()), alloc);
 
     ls.push_back(1);
 
@@ -486,15 +467,15 @@ TEST_CASE("List cursors to deleted elements change state", "[list]") {
     REQUIRE(d.erased());
 
     REQUIRE(c.erased());
-    REQUIRE_THROWS_AS(c.get(), bad_cursor);
+    REQUIRE_THROWS_AS(c.get(), bad_access);
 }
 
 TEST_CASE("List cursors are stable", "[list]") {
-    test_file<typed_anchor<i32>> file(64);
+    test_file file(64);
     file.open();
 
-    node_allocator alloc(file.get_anchor().member<&typed_anchor<i32>::alloc>(), file.get_engine());
-    list<i32> ls(file.get_anchor().member<&typed_anchor<i32>::list>(), alloc);
+    node_allocator alloc(make_anchor_handle(node_allocator::anchor()), file.get_engine());
+    list<i32> ls(make_anchor_handle(list<i32>::anchor()), alloc);
 
     struct expectation {
         list<i32>::cursor cursor;

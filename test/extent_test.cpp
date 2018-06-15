@@ -9,34 +9,24 @@
 
 using namespace extpp;
 
-constexpr u32 block_size = 4096;
 
 namespace {
 
-struct header {
-    default_allocator::anchor alloc;
-    std::array<extent::anchor, 20> extents;
-
-    static constexpr auto get_binary_format() {
-        return make_binary_format(&header::alloc, &header::extents);
-    }
-};
+constexpr u32 block_size = 4096;
 
 }
 
-// TODO: Does not pass yet because the allocator is missing.
 TEST_CASE("extent", "[extent]") {
-    test_file<header> file(4096);
+    test_file file(4096);
     file.open();
 
-    default_allocator alloc(file.get_anchor().member<&header::alloc>(), file.get_engine());
+    anchor_handle<default_allocator::anchor> alloc_anchor(default_allocator::anchor{});
+    std::vector<anchor_handle<extent::anchor>> extent_anchors(20, anchor_handle<extent::anchor>(extent::anchor{}));
+
+    default_allocator alloc(alloc_anchor, file.get_engine());
 
     auto extent_anchor = [&](u32 index) {
-        EXTPP_ASSERT(index < file.get_anchor().get<&header::extents>().size(), "index out of bounds");
-
-        auto hdr = file.get_anchor();
-        u32 offset = serialized_offset<&header::extents>() + index * serialized_size<extent::anchor>();
-        return handle<extent::anchor>(hdr.block(), hdr.offset() + offset);
+        return extent_anchors[index];
     };
 
     SECTION("basic usage") {

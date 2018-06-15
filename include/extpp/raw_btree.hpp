@@ -2,10 +2,10 @@
 #define EXTPP_RAW_BTREE_HPP
 
 #include <extpp/allocator.hpp>
+#include <extpp/anchor_handle.hpp>
 #include <extpp/binary_format.hpp>
 #include <extpp/defs.hpp>
 #include <extpp/engine.hpp>
-#include <extpp/handle.hpp>
 
 #include <memory>
 
@@ -104,7 +104,7 @@ public:
     };
 
 public:
-    raw_btree(handle<anchor> _anchor, const raw_btree_options& options, allocator& alloc);
+    raw_btree(anchor_handle<anchor> _anchor, const raw_btree_options& options, allocator& alloc);
     ~raw_btree();
 
     raw_btree(raw_btree&& other) noexcept;

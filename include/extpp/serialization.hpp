@@ -67,8 +67,21 @@ struct big_endian_serializer {
     }
 };
 
+template<typename T>
+struct trivial_serializer {
+    static constexpr size_t serialized_size = sizeof(T);
+
+    static void serialize(T v, byte *b) {
+        std::memcpy(b, &v, sizeof(T));
+    }
+
+    static void deserialize(T& v, const byte* b) {
+        std::memcpy(&v, b, sizeof(T));
+    }
+};
+
 template<>
-struct default_serializer<u8> : big_endian_serializer<u8, 1> {};
+struct default_serializer<u8> : trivial_serializer<u8> {};
 template<>
 struct default_serializer<u16> : big_endian_serializer<u16, 2> {};
 template<>
@@ -78,13 +91,31 @@ struct default_serializer<u64> : big_endian_serializer<u64, 8> {};
 
 // std::intN_t types are specified to use 2s complement.
 template<>
-struct default_serializer<i8> : big_endian_serializer<i8, 1> {};
+struct default_serializer<i8> : trivial_serializer<i8> {};
 template<>
 struct default_serializer<i16> : big_endian_serializer<i16, 2> {};
 template<>
 struct default_serializer<i32> : big_endian_serializer<i32, 4> {};
 template<>
 struct default_serializer<i64> : big_endian_serializer<i64, 8> {};
+
+// Char weirdness below...
+template<typename T>
+struct default_serializer<
+        T,
+        std::enable_if_t<std::is_same_v<T, char> && !std::is_same_v<char, u8> && !std::is_same_v<char, i8>>
+> : trivial_serializer<char> {};
+
+template<typename T>
+struct default_serializer<
+        T,
+        std::enable_if_t<std::is_same_v<T, unsigned char> && !std::is_same_v<unsigned char, u8>>
+> : trivial_serializer<unsigned char> {};
+
+template<typename T>
+struct default_serializer<
+        T, std::enable_if_t<std::is_same_v<T, signed char> && !std::is_same_v<signed char, i8>>
+> : trivial_serializer<signed char> {};
 
 // Endianess for floating points is a complete mess if one wants to be
 // truly cross-platform. There are apparently machine that have different

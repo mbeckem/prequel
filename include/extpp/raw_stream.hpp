@@ -2,6 +2,7 @@
 #define EXTPP_RAW_STREAM_HPP
 
 #include <extpp/allocator.hpp>
+#include <extpp/anchor_handle.hpp>
 #include <extpp/binary_format.hpp>
 #include <extpp/block_index.hpp>
 #include <extpp/defs.hpp>
@@ -56,7 +57,7 @@ public:
     using anchor = raw_stream_anchor;
 
 public:
-    explicit raw_stream(handle<anchor> _anchor, u32 value_size, allocator& alloc);
+    explicit raw_stream(anchor_handle<anchor> _anchor, u32 value_size, allocator& alloc);
     ~raw_stream();
 
     raw_stream(const raw_stream&) = delete;

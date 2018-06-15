@@ -130,7 +130,7 @@ class raw_btree_impl : public uses_allocator {
     using anchor = raw_btree_anchor;
 
 public:
-    raw_btree_impl(handle<anchor> _anchor, const raw_btree_options& opts, allocator& alloc);
+    raw_btree_impl(anchor_handle<anchor> _anchor, const raw_btree_options& opts, allocator& alloc);
     ~raw_btree_impl();
 
     raw_btree_impl(const raw_btree_impl&) = delete;
@@ -353,7 +353,7 @@ public:
     }
 
 private:
-    handle<anchor> m_anchor;
+    anchor_handle<anchor> m_anchor;
     raw_btree_options m_options;
     u32 m_internal_capacity;
     u32 m_leaf_capacity;
@@ -378,7 +378,7 @@ private:
 //
 // --------------------------------
 
-raw_btree_impl::raw_btree_impl(handle<anchor> _anchor, const raw_btree_options& opts, allocator& alloc)
+raw_btree_impl::raw_btree_impl(anchor_handle<anchor> _anchor, const raw_btree_options& opts, allocator& alloc)
     : uses_allocator(alloc)
     , m_anchor(std::move(_anchor))
     , m_options(opts)
@@ -1852,17 +1852,17 @@ void raw_btree_cursor_impl::copy(const raw_btree_cursor_impl& other) {
 
 void raw_btree_cursor_impl::check_tree_valid() const {
     if (!tree)
-        EXTPP_THROW(bad_cursor("the cursor's tree instance has been destroyed"));
+        EXTPP_THROW(bad_access("the cursor's tree instance has been destroyed"));
 }
 
 void raw_btree_cursor_impl::check_element_valid() const {
     check_tree_valid();
     if (flags & raw_btree_cursor_impl::INPROGRESS)
-        EXTPP_THROW(bad_cursor("leak of in-progress cursor."));
+        EXTPP_THROW(bad_access("leak of in-progress cursor."));
     if (flags & raw_btree_cursor_impl::DELETED)
-        EXTPP_THROW(bad_cursor("cursor points to deleted element"));
+        EXTPP_THROW(bad_access("cursor points to deleted element"));
     if (flags & raw_btree_cursor_impl::INVALID)
-        EXTPP_THROW(bad_cursor());
+        EXTPP_THROW(bad_access("bad cursor"));
 
 #ifdef EXTPP_DEBUG
     {
@@ -1984,7 +1984,7 @@ bool raw_btree_cursor_impl::move_prev() {
         if (flags & INVALID)
             return false;
     } else if (flags & INVALID) {
-        EXTPP_THROW(bad_cursor());
+        EXTPP_THROW(bad_access("bad cursor"));
     }
 
 
@@ -2027,7 +2027,7 @@ bool raw_btree_cursor_impl::move_next() {
         if (flags & INVALID)
             return false;
     } else if (flags & INVALID) {
-        EXTPP_THROW(bad_cursor());
+        EXTPP_THROW(bad_access("bad cursor"));
     } else {
         ++index;
     }
@@ -2141,7 +2141,7 @@ bool raw_btree_cursor_impl::operator==(const raw_btree_cursor_impl& other) const
 //
 // --------------------------------
 
-raw_btree::raw_btree(handle<anchor> _anchor, const raw_btree_options& options, allocator& alloc)
+raw_btree::raw_btree(anchor_handle<anchor> _anchor, const raw_btree_options& options, allocator& alloc)
     : m_impl(std::make_unique<raw_btree_impl>(std::move(_anchor), options, alloc))
 {}
 
@@ -2280,7 +2280,7 @@ raw_btree_cursor& raw_btree_cursor::operator=(raw_btree_cursor&& other) noexcept
 
 raw_btree_cursor_impl& raw_btree_cursor::impl() const {
     if (!m_impl)
-        EXTPP_THROW(bad_cursor());
+        EXTPP_THROW(bad_access("bad cursor"));
     return *m_impl;
 }
 

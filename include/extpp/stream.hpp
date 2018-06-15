@@ -24,7 +24,7 @@ public:
     };
 
 public:
-    explicit stream(handle<anchor> _anchor, allocator& alloc)
+    explicit stream(anchor_handle<anchor> _anchor, allocator& alloc)
         : inner(std::move(_anchor).template member<&anchor::stream>(), value_size(), alloc)
     {}
 

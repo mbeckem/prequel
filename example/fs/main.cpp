@@ -40,15 +40,19 @@
 namespace example {
 
 using std::size_t;
+using std::uint32_t;
 using std::uint64_t;
+using std::optional;
 
 // The block size must be a power of two.
-static constexpr std::uint32_t block_size = 4096;
+static constexpr uint32_t block_size = 4096;
 
 // We use short strings to represent file names.
 // A real file system would allow for much larger names than 32 bytes.
-// However, the current btree implemention can only support fixed length keys.
-struct short_string {
+// However, the current btree implemention can only support fixed length keys,
+// so variable length names would have to be stored by address with their
+// real data somewhere else.
+struct file_name {
 public:
     static constexpr size_t max_size = 32;
 
@@ -57,108 +61,141 @@ private:
     char m_data[max_size];
 
 public:
-    short_string() {
-        std::fill(std::begin(m_data), std::end(m_data), 0);
+    file_name() {
+        std::memset(m_data, 0, max_size);
     }
 
-    explicit short_string(std::string_view str) {
+    explicit file_name(std::string_view str) {
         if (str.size() > max_size)
             throw std::runtime_error("String is too long.");
 
-        auto pos = std::copy(str.begin(), str.end(), std::begin(m_data));
-        std::fill(pos, std::end(m_data), 0);
+        std::memcpy(m_data, str.data(), str.size());
+        std::memset(m_data + str.size(), 0, max_size - str.size());
     }
+
+    const char* begin() const { return m_data; }
+    const char* end() const { return m_data + size(); }
 
     const char* data() const { return m_data; }
 
     size_t size() const {
+        // Index of first 0 byte (or max_size).
         return std::find(std::begin(m_data), std::end(m_data), 0) - std::begin(m_data);
     }
 
-    std::string_view view() const {
-        return {m_data, size()};
+    static constexpr auto get_binary_format() {
+        return extpp::make_binary_format(&file_name::m_data);
     }
 
-    friend bool operator<(const short_string& lhs, const short_string& rhs)  {
-        return lhs.view() < rhs.view();
+    friend bool operator<(const file_name& lhs, const file_name& rhs)  {
+        return std::lexicographical_compare(lhs.begin(), lhs.end(), rhs.begin(), rhs.end());
     }
 
-    friend bool operator==(const short_string& lhs, const short_string& rhs) {
-        return lhs.view() == rhs.view();
+    friend bool operator==(const file_name& lhs, const file_name& rhs) {
+        return std::equal(lhs.begin(), lhs.end(), rhs.begin(), rhs.end());
     }
 
-    friend bool operator!=(const short_string& lhs, const short_string& rhs) {
-        return lhs.view() != rhs.view();
+    friend bool operator!=(const file_name& lhs, const file_name& rhs) {
+        return !(lhs == rhs);
     }
 };
 
 // File content is stored in a range of contiguous blocks.
-using file_extent = extpp::extent<block_size>;
+using file_extent = extpp::extent;
 
 // Represents a file and will be stored in the directory's btree.
-// Only trivally copyable types are allowed for external datastructures.
 struct file {
-    short_string name;
+    file_name name;
     uint64_t size = 0; // In bytes.
     file_extent::anchor extent;
 
+    static constexpr auto get_binary_format() {
+        return extpp::make_binary_format(&file::name, &file::size, &file::extent);
+    }
+
     // Files are indexed by their name.
     struct key_extract {
-        short_string operator()(const file& f) const { return f.name; }
+        file_name operator()(const file& f) const { return f.name; }
     };
 };
 
-// A directory is an ordered tree of file entries.
-using directory = extpp::btree<file, file::key_extract, std::less<>, block_size>;
+// A directory is an ordered tree of file entries, indexed by file name.
+using directory = extpp::btree<file, file::key_extract>;
 
 // The file system has only a single directory.
 // It's btree is anchored in the first block on disk.
 struct header {
     directory::anchor root;
+
+    static constexpr auto get_binary_format() {
+        return extpp::make_binary_format(&header::root);
+    }
 };
 
 class file_system {
     // A helper class that automatically constructs the first block
     // the first time the file is opened and comes with a default
     // allocation strategy.
-    extpp::default_file_format<header, block_size> m_fmt;
+    extpp::default_file_format<header> m_fmt;
 
-    // The header block of our filesystem remains pinned in memory.
-    extpp::handle<header> m_header;
+    /// The header (content of the first block on disk).
+    extpp::anchor_handle<header> m_header;
 
     // The root directory that contains all our files.
     directory m_root;
 
 public:
-    explicit file_system(extpp::file& file, std::uint32_t cache_size)
-        : m_fmt(file, cache_size)
-        , m_header(m_fmt.user_data())
-        , m_root(m_header.member(&header::root), m_fmt.get_allocator())
+    explicit file_system(extpp::file& file, uint32_t cache_size)
+        : m_fmt(file, block_size, cache_size)
+        , m_header(extpp::make_anchor_handle(m_fmt.get_user_data().get()))
+        , m_root(m_header.member<&header::root>(), m_fmt.get_allocator())
     {
-        m_fmt.get_allocator().debug_print(std::cout);
+        m_fmt.get_allocator().dump(std::cout);
     }
 
-    auto& get_engine() { return m_fmt.get_engine(); }
-    auto& get_allocator() { return m_fmt.get_allocator(); }
+    ~file_system() {
+        flush();
+    }
+
+    extpp::engine& get_engine() { return m_fmt.get_engine(); }
+    extpp::allocator& get_allocator() { return m_fmt.get_allocator(); }
 
     directory& root() { return m_root; }
 
-    std::optional<short_string> filename_from_path(std::string_view path) {
+    optional<file_name> filename_from_path(std::string_view path) {
         if (path.size() <= 1 || path.front() != '/')
             return {};
         path = path.substr(1);
-        if (path.size() > short_string::max_size)
+        if (path.size() > file_name::max_size)
             return {};
-        return short_string(path);
+        return file_name(path);
     }
 
-    auto create_file(const short_string& name) {
+    /// Attempts to create a new (empty) file with the given name.
+    /// Returns the cursor (a reference to the location in the btree)
+    /// and a boolean (true if a file with that name did not exist
+    /// and the entry is now new).
+    std::pair<directory::cursor, bool> create_file(const file_name& name) {
         file new_entry;
         new_entry.name = name;
         return root().insert(new_entry);
     }
 
+    /// Return the file's data to the allocator.
+    void destroy_file(file entry) {
+        extpp::extent data(make_anchor_handle(entry.extent), m_fmt.get_allocator());
+        data.reset();
+    }
+
+    /// Flush unwritten data to disk.
     void flush() {
+        std::cout << "Flush" <<  std::endl;
+
+        if (m_header.changed()) {
+            m_fmt.get_user_data().set(m_header.get());
+            m_header.reset_changed();
+        }
+
         m_fmt.flush();
     }
 };
@@ -188,12 +225,15 @@ static int fs_readdir(const char* path, void* buf, fuse_fill_dir_t filler,
 
     // Fuse expects zero-terminated strings.
     std::string name_buf;
-    for (const file& entry : fs.root()) {
+
+    // Iterate over all files in the root directory and push them into FUSE's filler function.
+    for (auto cursor = fs.root().create_cursor(directory::seek_min); cursor; cursor.move_next()) {
+        file entry = cursor.get();
         name_buf.assign(entry.name.data(), entry.name.size());
 
         struct stat st;
         memset(&st, 0, sizeof(st));
-        st.st_mode = S_IFREG | 0644;
+        st.st_mode = S_IFREG | 0644;    // All files are regular in this example.
         st.st_size = entry.size;
 
         filler(buf, name_buf.c_str(), &st, 0);
@@ -213,11 +253,12 @@ static int fs_getattr(const char* path, struct stat *st) {
     }
 
     file_system& fs = fs_context();
-    if (auto name = fs.filename_from_path(view)) {
-        auto entry = fs.root().find(*name);
-        if (entry != fs.root().end()) {
+    if (optional<file_name> name = fs.filename_from_path(view)) {
+        auto cursor = fs.root().find(*name);
+        if (cursor) {
+            file entry = cursor.get();
             st->st_mode = S_IFREG | 0644;
-            st->st_size = entry->size;
+            st->st_size = entry.size;
             return 0;
         }
     }
@@ -228,28 +269,28 @@ static int fs_getattr(const char* path, struct stat *st) {
 static int fs_rename(const char* from, const char* to) {
     file_system& fs = fs_context();
 
-    auto from_name = fs.filename_from_path(from);
-    auto to_name = fs.filename_from_path(to);
+    optional<file_name> from_name = fs.filename_from_path(from);
+    optional<file_name> to_name = fs.filename_from_path(to);
     if (!from_name || !to_name)
         return -EINVAL;
 
-    auto entry_pos = fs.root().find(*from_name);
-    if (entry_pos == fs.root().end())
+    auto cursor = fs.root().find(*from_name);
+    if (!cursor)
         return -ENOENT;
 
     if (*from_name == *to_name)
         return 0;
 
-    file entry = *entry_pos;
+    file entry = cursor.get();
     entry.name = *to_name;
-    fs.root().erase(entry_pos); // Invalidates iterators.
+    cursor.erase();
 
     // Try to insert the new entry. If an entry with the same
     // name exists, simply overwrite it.
-    auto [to_pos, inserted] = fs.root().insert(entry);
+    auto [new_cursor, inserted] = fs.root().insert(entry);
     if (!inserted) {
-        file_extent::destroy(to_pos->extent, fs.get_allocator());
-        fs.root().replace(to_pos, entry);
+        fs.destroy_file(new_cursor.get()); // Remove the old file's data.
+        new_cursor.set(entry);
     }
     return 0;
 }
@@ -259,11 +300,10 @@ static int fs_create(const char* path, mode_t mode, struct fuse_file_info* fi) {
     (void) fi;
     (void) mode;
 
-    std::string_view view();
     file_system& fs = fs_context();
-    if (auto name = fs.filename_from_path(path)) {
-        auto [iter, inserted] = fs.create_file(*name);
-        (void) iter;
+    if (optional<file_name> name = fs.filename_from_path(path)) {
+        auto [cursor, inserted] = fs.create_file(*name);
+        (void) cursor;
         (void) inserted;
         return 0;
     }
@@ -275,13 +315,13 @@ static int fs_open(const char* path, struct fuse_file_info* fi) {
     (void) fi;
 
     file_system& fs = fs_context();
-    if (auto name = fs.filename_from_path(path)) {
-        auto entry = fs.root().find(*name);
+    if (optional<file_name> name = fs.filename_from_path(path)) {
+        auto cursor = fs.root().find(*name);
         // We could allocate some state here and store it in fi->fh
         // for later use in read() etc. That would avoid
         // the need of repeatedly looking up the file in every read()
         // or write() call.
-        if (entry != fs.root().end())
+        if (cursor)
             return 0;
     }
     return -EINVAL;
@@ -294,26 +334,30 @@ static int fs_read(const char* path, char* buf, size_t size, off_t offset,
     (void) fi;
 
     file_system& fs = fs_context();
-    auto name = fs.filename_from_path(path);
+    optional<file_name> name = fs.filename_from_path(path);
     if (!name)
         return -ENOENT;
 
-    auto entry_pos = fs.root().find(*name);
-    if (entry_pos == fs.root().end())
+    auto cursor = fs.root().find(*name);
+    if (!cursor)
         return -ENOENT;
 
-    // Very careful with raw pointers into disk based memory.
-    // If we would modify the btree, it can move its values around,
-    // which will invalidate all pointers.
-    auto entry = fs.root().pointer_to(entry_pos);
+    file entry = cursor.get();
     if (offset < 0)
         return -EINVAL;
-    if (static_cast<uint64_t>(offset) >= entry->size)
+    if (static_cast<uint64_t>(offset) >= entry.size)
         return 0; // End of file.
 
-    const size_t n = std::min(entry->size - offset, size);
-    file_extent extent(entry.member(&file::extent), fs.get_allocator());
-    extpp::read(fs.get_engine(), extent.data() + static_cast<uint64_t>(offset), buf, n);
+    const size_t n = std::min(entry.size - offset, size);
+
+    auto anchor = extpp::make_anchor_handle(entry.extent);
+    file_extent extent(anchor, fs.get_allocator());
+    extpp::read(fs.get_engine(), fs.get_engine().to_address(extent.data()) + static_cast<uint64_t>(offset), buf, n);
+    if (anchor.changed()) {
+        entry.extent = anchor.get();
+        cursor.set(entry);
+    }
+
     return n;
 }
 
@@ -327,7 +371,7 @@ static bool adapt_capacity(file_extent& extent, uint64_t required_bytes) {
 
         // Zero the new memory.
         extpp::zero(extent.get_engine(),
-                    extent.data() + old_blocks * block_size,
+                    extent.get_engine().to_address(extent.data()) + old_blocks * block_size,
                     (new_blocks - old_blocks) * block_size);
         assert(extent.size() * block_size >= required_bytes);
         return true;
@@ -351,22 +395,37 @@ static int fs_write(const char* path, const char* buf, size_t size, off_t offset
 
     file_system& fs = fs_context();
 
-    auto name = fs.filename_from_path(path);
+    optional<file_name> name = fs.filename_from_path(path);
     if (!name)
         return -ENOENT;
 
-    auto entry_pos = fs.root().find(*name);
-    if (entry_pos == fs.root().end())
+    auto cursor = fs.root().find(*name);
+    if (!cursor)
         return -ENOENT;
 
-    auto entry = fs.root().pointer_to(entry_pos);
-    file_extent extent(entry.member(&file::extent), fs.get_allocator());
-    adapt_capacity(extent, offset + size);
+    file entry = cursor.get();
 
-    extpp::write(fs.get_engine(), extent.data() + static_cast<uint64_t>(offset), buf, size);
-    if (offset + size > entry->size) {
-        entry->size = offset + size;
-        entry.dirty();
+    // Open the anchor and write the data.
+    auto anchor = extpp::make_anchor_handle(entry.extent);
+    file_extent extent(anchor, fs.get_allocator());
+    if (offset + size > entry.size) {
+        adapt_capacity(extent, offset + size);
+    }
+    extpp::write(fs.get_engine(), fs.get_engine().to_address(extent.data()) + static_cast<uint64_t>(offset), buf, size);
+
+    // Update the file entry if something changed.
+    bool changed = false;
+    if (anchor.changed()) {
+        entry.extent = anchor.get();
+        changed = true;
+    }
+    if (offset + size > entry.size) {
+        entry.size = offset + size;
+        changed = true;
+    }
+
+    if (changed) {
+        cursor.set(entry);
     }
     return size;
 }
@@ -379,21 +438,31 @@ static int fs_truncate(const char* path, off_t off) {
     const uint64_t new_size = static_cast<uint64_t>(off);
 
     file_system& fs = fs_context();
-    auto name = fs.filename_from_path(path);
+    optional<file_name> name = fs.filename_from_path(path);
     if (!name)
         return -ENOENT;
 
-    auto entry_pos = fs.root().find(*name);
-    if (entry_pos == fs.root().end())
+    auto cursor = fs.root().find(*name);
+    if (!cursor)
         return -ENOENT;
 
-    auto entry = fs.root().pointer_to(entry_pos);
-    file_extent extent(entry.member(&file::extent), fs.get_allocator());
+    file entry = cursor.get();
+
+    auto anchor = extpp::make_anchor_handle(entry.extent);
+    file_extent extent(anchor, fs.get_allocator());
     adapt_capacity(extent, new_size);
 
-    if (new_size != entry->size) {
-        entry->size = new_size;
-        entry.dirty();
+    bool changed = false;
+    if (anchor.changed()) {
+        entry.extent = anchor.get();
+        changed = true;
+    }
+    if (new_size != entry.size) {
+        entry.size = new_size;
+        changed = true;
+    }
+    if (changed) {
+        cursor.set(entry);
     }
     return 0;
 }
@@ -401,16 +470,16 @@ static int fs_truncate(const char* path, off_t off) {
 // Delete a file.
 static int fs_unlink(const char* path) {
     file_system& fs = fs_context();
-    auto name = fs.filename_from_path(path);
+    optional<file_name> name = fs.filename_from_path(path);
     if (!name)
         return -ENOENT;
 
-    auto entry_pos = fs.root().find(*name);
-    if (entry_pos == fs.root().end())
+    auto cursor = fs.root().find(*name);
+    if (!cursor)
         return -ENOENT;
 
-    file_extent::destroy(entry_pos->extent, fs.get_allocator());
-    fs.root().erase(entry_pos);
+    fs.destroy_file(cursor.get());
+    cursor.erase();
     return 0;
 }
 
@@ -480,7 +549,7 @@ static int option_callback(void *data, const char *arg, int key, struct fuse_arg
         exit(1);
 
     case KEY_VERSION:
-        fprintf(stderr, "Example-FS version 1\n");
+        fprintf(stderr, "Example-FS version 2\n");
         fuse_opt_add_arg(outargs, "--version");
         fuse_main(outargs->argc, outargs->argv, &noops, NULL);
         exit(0);
@@ -488,12 +557,27 @@ static int option_callback(void *data, const char *arg, int key, struct fuse_arg
     return 1;
 }
 
+/*
+ * Call the program with --file=myfile.blob to specify where the "file system" contents
+ * shall be stored. The path will be forwarded to the file engine used by this program.
+ *
+ * NOTE: Program must be launched with -s to force single threaded fuse mode.
+ * Multithreaded access to extpp datastructures is not supported (for now).
+ *
+ * Call the program with -d for debug output or -f for foreground operation (fuse
+ * will deamonize otherwise).
+ */
 int main(int argc, char* argv[]) {
     struct fuse_args args = FUSE_ARGS_INIT(argc, argv);
 
     options.filename = strdup("");
     if (fuse_opt_parse(&args, &options, option_spec, option_callback) == -1) {
         std::cerr << "Failed to parse command line arguments." << std::endl;
+        return 1;
+    }
+
+    if (strcmp(options.filename, "") == 0) {
+        std::cerr << "You must specify the --file= option." << std::endl;
         return 1;
     }
 
