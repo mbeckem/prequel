@@ -25,6 +25,7 @@ set(PUBLIC_HEADERS
     ${HEADER_ROOT}/extent.hpp
     ${HEADER_ROOT}/file_engine.hpp
     ${HEADER_ROOT}/handle.hpp
+    ${HEADER_ROOT}/id_generator.hpp
     ${HEADER_ROOT}/io.hpp
     ${HEADER_ROOT}/list.hpp
     ${HEADER_ROOT}/math.hpp
@@ -45,17 +46,16 @@ set(PRIVATE_HEADERS
 set(SOURCES
      address.cpp
      assert.cpp
-     file_engine.cpp
-     exception.cpp
-     node_allocator.cpp
-     io.cpp
-
      default_allocator.cpp
+     exception.cpp
      extent.cpp
+     file_engine.cpp
+     id_generator.cpp
+     io.cpp
+     node_allocator.cpp
+     raw_btree.cpp
      raw_list.cpp
      raw_stream.cpp
-     raw_btree.cpp
-
      detail/free_list.cpp
 )
 

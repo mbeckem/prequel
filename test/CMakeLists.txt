@@ -7,6 +7,7 @@ set(SOURCES
     default_allocator_test.cpp
     extent_test.cpp
     free_list_test.cpp
+    id_generator.cpp
     inlined_any_test.cpp
     io_test.cpp
     iter_tools_test.cpp
