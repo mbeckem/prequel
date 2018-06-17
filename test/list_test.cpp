@@ -61,9 +61,11 @@ TEST_CASE("raw list", "[list]") {
     test_file file(block_size);
     file.open();
 
-    node_allocator alloc(make_anchor_handle(node_allocator::anchor()), file.get_engine());
+    node_allocator::anchor alloc_anchor;
+    node_allocator alloc(make_anchor_handle(alloc_anchor), file.get_engine());
     {
-        raw_list list(make_anchor_handle(raw_list::anchor()), value_size, alloc);
+        raw_list::anchor list_anchor;
+        raw_list list(make_anchor_handle(list_anchor), value_size, alloc);
 
         SECTION("Empty list") {
             REQUIRE(list.value_size() == 4);
@@ -147,8 +149,11 @@ TEST_CASE("front and back insertion produce dense nodes", "[list]") {
     test_file file(64);
     file.open();
 
-    node_allocator alloc(make_anchor_handle(node_allocator::anchor()), file.get_engine());
-    list<value_t> ls(make_anchor_handle(list<value_t>::anchor()), alloc);
+    node_allocator::anchor node_anchor;
+    node_allocator alloc(make_anchor_handle(node_anchor), file.get_engine());
+
+    list<value_t>::anchor list_anchor;
+    list<value_t> ls(make_anchor_handle(list_anchor), alloc);
 
     const i32 COUNT = 1024;
     std::vector<i32> comp;
@@ -207,8 +212,11 @@ TEST_CASE("basic cursor usage iteration", "[list]") {
     test_file file(64);
     file.open();
 
-    node_allocator alloc(make_anchor_handle(node_allocator::anchor()), file.get_engine());
-    list<value_t> ls(make_anchor_handle(list<value_t>::anchor()), alloc);
+    node_allocator::anchor node_anchor;
+    node_allocator alloc(make_anchor_handle(node_anchor), file.get_engine());
+
+    list<value_t>::anchor list_anchor;
+    list<value_t> ls(make_anchor_handle(list_anchor), alloc);
 
     SECTION("empty list") {
         auto c1 = ls.create_cursor(ls.seek_first);
@@ -274,8 +282,11 @@ TEST_CASE("invalid cursor behaviour", "[list]") {
     test_file file(64);
     file.open();
 
-    node_allocator alloc(make_anchor_handle(node_allocator::anchor()), file.get_engine());
-    list<value_t> ls(make_anchor_handle(list<value_t>::anchor()), alloc);
+    node_allocator::anchor node_anchor;
+    node_allocator alloc(make_anchor_handle(node_anchor), file.get_engine());
+
+    list<value_t>::anchor list_anchor;
+    list<value_t> ls(make_anchor_handle(list_anchor), alloc);
 
     auto checks = [&](auto&& c) {
         REQUIRE(!c);
@@ -330,8 +341,11 @@ TEST_CASE("Iterating and deleting using list cursors", "[list]") {
     test_file file(64);
     file.open();
 
-    node_allocator alloc(make_anchor_handle(node_allocator::anchor()), file.get_engine());
-    list<point_t> ls(make_anchor_handle(list<point_t>::anchor()), alloc);
+    node_allocator::anchor node_anchor;
+    node_allocator alloc(make_anchor_handle(node_anchor), file.get_engine());
+
+    list<point_t>::anchor list_anchor;
+    list<point_t> ls(make_anchor_handle(list_anchor), alloc);
 
     const i32 COUNT = 1024;
     std::vector<point_t> comp;
@@ -438,8 +452,10 @@ TEST_CASE("List destruction -> Cursor invalidation", "[list]") {
     list<i32>::cursor pos;
 
     {
-        node_allocator alloc(make_anchor_handle(node_allocator::anchor()), file.get_engine());
-        list<i32> ls(make_anchor_handle(list<i32>::anchor()), alloc);
+        node_allocator::anchor alloc_anchor;
+        node_allocator alloc(make_anchor_handle(alloc_anchor), file.get_engine());
+        list<i32>::anchor list_anchor;
+        list<i32> ls(make_anchor_handle(list_anchor), alloc);
         ls.push_back(1);
         pos = ls.create_cursor(ls.seek_first);
         REQUIRE(pos);
@@ -454,8 +470,10 @@ TEST_CASE("List cursors to deleted elements change state", "[list]") {
     test_file file(64);
     file.open();
 
-    node_allocator alloc(make_anchor_handle(node_allocator::anchor()), file.get_engine());
-    list<i32> ls(make_anchor_handle(list<i32>::anchor()), alloc);
+    node_allocator::anchor alloc_anchor;
+    node_allocator alloc(make_anchor_handle(alloc_anchor), file.get_engine());
+    list<i32>::anchor list_anchor;
+    list<i32> ls(make_anchor_handle(list_anchor), alloc);
 
     ls.push_back(1);
 
@@ -474,8 +492,10 @@ TEST_CASE("List cursors are stable", "[list]") {
     test_file file(64);
     file.open();
 
-    node_allocator alloc(make_anchor_handle(node_allocator::anchor()), file.get_engine());
-    list<i32> ls(make_anchor_handle(list<i32>::anchor()), alloc);
+    node_allocator::anchor alloc_anchor;
+    node_allocator alloc(make_anchor_handle(alloc_anchor), file.get_engine());
+    list<i32>::anchor list_anchor;
+    list<i32> ls(make_anchor_handle(list_anchor), alloc);
 
     struct expectation {
         list<i32>::cursor cursor;

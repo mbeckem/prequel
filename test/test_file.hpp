@@ -5,7 +5,7 @@
 #include <extpp/handle.hpp>
 #include <extpp/io.hpp>
 
-#include <extpp/detail/rollback.hpp>
+#include <extpp/detail/deferred.hpp>
 
 #include <boost/optional.hpp>
 #include <boost/noncopyable.hpp>

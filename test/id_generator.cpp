@@ -16,9 +16,11 @@ TEST_CASE("ID generator", "[id_generator]") {
     test_file file(block_size);
     file.open();
 
-    node_allocator node_alloc(make_anchor_handle(node_allocator::anchor()), file.get_engine());
+    node_allocator::anchor anchor;
+    node_allocator node_alloc(make_anchor_handle(anchor), file.get_engine());
     {
-        id_generator gen(make_anchor_handle(id_generator::anchor()), node_alloc);
+        id_generator::anchor gen_anchor;
+        id_generator gen(make_anchor_handle(gen_anchor), node_alloc);
 
         SECTION("Sequential IDs") {
             REQUIRE(gen.allocate() == 1);

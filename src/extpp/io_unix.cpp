@@ -3,7 +3,7 @@
 #include <extpp/assert.hpp>
 #include <extpp/exception.hpp>
 #include <extpp/math.hpp>
-#include <extpp/detail/rollback.hpp>
+#include <extpp/detail/deferred.hpp>
 
 #include <fcntl.h>
 #include <unistd.h>
@@ -219,12 +219,12 @@ std::unique_ptr<file> unix_vfs::open(const char* path, access_t access, flags_t 
         ));
     }
 
-    detail::rollback guard = [&]{
+    detail::deferred guard = [&]{
         ::close(fd);
     };
 
     auto ret = std::make_unique<unix_file>(*this, fd, path);
-    guard.commit();
+    guard.disable();
     return ret;
 }
 
@@ -240,7 +240,7 @@ std::unique_ptr<file> unix_vfs::create_temp()
         ));
     }
 
-    detail::rollback guard = [&]{
+    detail::deferred guard = [&]{
         ::close(fd);
     };
 
@@ -252,7 +252,7 @@ std::unique_ptr<file> unix_vfs::create_temp()
     }
 
     auto ret = std::make_unique<unix_file>(*this, fd, std::move(name));
-    guard.commit();
+    guard.disable();
     return ret;
 }
 

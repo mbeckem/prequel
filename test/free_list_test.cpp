@@ -18,10 +18,10 @@ TEST_CASE("freelist", "[freelist]") {
 
     file.get_engine().grow(1024);
 
-    anchor_handle anchor(free_list_t::anchor{});
+    free_list_t::anchor anchor{};
 
     // block indices [1, 1024] are valid.
-    free_list_t list(anchor, file.get_engine());
+    free_list_t list(make_anchor_handle(anchor), file.get_engine());
 
     REQUIRE(list.empty());
     REQUIRE_THROWS_AS(list.pop(), std::logic_error);

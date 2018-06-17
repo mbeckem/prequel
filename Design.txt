@@ -8,3 +8,12 @@ Open Questions / Design Issues
     A and B refer to the same byte address but have different cached values, so they don't see each others
     updates immediately).
     I think the best way to solve this is to simply duplicate some fields (size, root node index etc).
+
+    
+    
+    
+Open Tasks
+==========
+
+- Async prefetch for block reads. Engine should have function for reading that returns a future.
+  Real I/O should be done in a worker thread.

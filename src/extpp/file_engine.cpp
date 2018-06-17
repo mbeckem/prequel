@@ -4,12 +4,12 @@
 #include <extpp/assert.hpp>
 #include <extpp/block_index.hpp>
 #include <extpp/math.hpp>
+#include <extpp/detail/deferred.hpp>
 
 #include <boost/intrusive_ptr.hpp>
 #include <boost/intrusive/list.hpp>
 #include <boost/intrusive/unordered_set.hpp>
 #include <boost/intrusive/list_hook.hpp>
-#include <extpp/detail/rollback.hpp>
 
 #include <exception>
 #include <iosfwd>
@@ -88,7 +88,7 @@ public:
         EXTPP_ASSERT(!m_dirty_hook.is_linked(), "in dirty list");
 
         m_index = 0;
-        m_writable = false;
+        m_dirty = false;
         // Not zeroing the data array because it will
         // be overwritten by a read() anyway.
     }
@@ -118,9 +118,8 @@ public:
         unref();
     }
 
-    virtual void make_writable() override {
+    virtual void make_dirty() override {
         set_dirty();
-        m_writable = true;
     }
 
     friend void intrusive_ptr_add_ref(block* b) {
@@ -450,9 +449,11 @@ private:
     template<typename ReadAction>
     boost::intrusive_ptr<block> read_impl(u64 index, ReadAction&& read);
 
-    void set_dirty(block& blk) noexcept;
+    /// Adds the block to the set of dirty blocks.
+    void add_dirty_set(block& blk) noexcept;
 
-    bool is_dirty(block& blk) const noexcept { return m_dirty.contains(blk); }
+    /// Tests whether the block is in the dirty set.
+    bool in_dirty_set(block& blk) const noexcept { return m_dirty.contains(blk); }
 
     /// Write a single block back to disk (throws).
     /// Does nothing if the block isn't marked as dirty.
@@ -484,8 +485,12 @@ inline void block::unref() noexcept {
 }
 
 inline void block::set_dirty() noexcept {
-    if (!m_engine->is_dirty(*this)) {
-        m_engine->set_dirty(*this);
+    if (!m_dirty) {
+        EXTPP_ASSERT(!m_engine->in_dirty_set(*this), "Must not be in the dirty set since m_dirty is false.");
+        m_engine->add_dirty_set(*this);
+        m_dirty = true;
+    } else {
+        EXTPP_ASSERT(m_engine->in_dirty_set(*this), "Must keep dirty flag and set membership in sync.");
     }
 }
 
@@ -752,7 +757,7 @@ boost::intrusive_ptr<block> file_engine_impl::read_impl(u64 index, ReadAction&& 
     }
 
     block& blk = allocate_block();
-    detail::rollback guard = [&]{
+    detail::deferred guard = [&]{
         free_block(blk);
     };
 
@@ -762,7 +767,7 @@ boost::intrusive_ptr<block> file_engine_impl::read_impl(u64 index, ReadAction&& 
         blk.m_index = index;
         read(blk.m_data);
     }
-    guard.commit();
+    guard.disable();
 
     boost::intrusive_ptr<block> result(&blk);
     m_blocks.insert(blk);
@@ -788,7 +793,7 @@ void file_engine_impl::flush()
                 "no dirty blocks can remain.");
 }
 
-void file_engine_impl::set_dirty(block& blk) noexcept {
+void file_engine_impl::add_dirty_set(block& blk) noexcept {
     m_dirty.add(blk);
 }
 
@@ -800,7 +805,7 @@ void file_engine_impl::flush_block(block& blk)
     if (m_dirty.contains(blk)) {
         m_file->write(blk.m_index * m_block_size, blk.m_data, m_block_size);
         m_dirty.remove(blk);
-        blk.m_writable = false;
+        blk.m_dirty = false;
         ++m_stats.writes;
     }
 }

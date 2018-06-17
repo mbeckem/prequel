@@ -47,10 +47,9 @@ public:
     handle<UserData> get_user_data() const { return m_handle.template member<&main_anchor::user>(); }
 
     void flush() {
-        // FIXME think more about anchor handles they're awkward.
-        if (m_allocator_anchor.changed()) {
-            m_handle.template set<&main_anchor::alloc>(m_allocator_anchor.get());
-            m_allocator_anchor.reset_changed();
+        if (m_allocator_anchor_changed) {
+            m_handle.template set<&main_anchor::alloc>(m_allocator_anchor);
+            m_allocator_anchor_changed.reset();
         }
 
         m_engine->flush(); // TODO: Sync?
@@ -60,7 +59,8 @@ private:
     file* m_file = nullptr;
     std::unique_ptr<file_engine> m_engine;
     handle<main_anchor> m_handle;
-    anchor_handle<default_allocator::anchor> m_allocator_anchor;
+    default_allocator::anchor m_allocator_anchor;
+    anchor_flag m_allocator_anchor_changed;
     std::unique_ptr<default_allocator> m_allocator;
 };
 
@@ -88,8 +88,10 @@ inline default_file_format<Anchor>::default_file_format(file& f, u32 block_size,
         // TODO: Verify first block (checksum etc ?)
     }
 
-    m_allocator_anchor = make_anchor_handle(m_handle.template get<&main_anchor::alloc>());
-    m_allocator = std::make_unique<default_allocator>(m_allocator_anchor, *m_engine);
+    m_allocator_anchor = m_handle.template get<&main_anchor::alloc>();
+    m_allocator = std::make_unique<default_allocator>(
+                anchor_handle(m_allocator_anchor, m_allocator_anchor_changed),
+                *m_engine);
 }
 
 } // namespace extpp

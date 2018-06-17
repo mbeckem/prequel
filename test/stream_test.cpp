@@ -22,8 +22,10 @@ TEST_CASE("stream basics", "[stream]") {
     test_file file(block_size);
     file.open();
 
-    default_allocator alloc(make_anchor_handle(default_allocator::anchor()), file.get_engine());
-    stream_t stream(make_anchor_handle(stream_t::anchor()), alloc);
+    default_allocator::anchor alloc_anchor;
+    default_allocator alloc(make_anchor_handle(alloc_anchor), file.get_engine());
+    stream_t::anchor stream_anchor;
+    stream_t stream(make_anchor_handle(stream_anchor), alloc);
 
     SECTION("stream wastes no space") {
         REQUIRE(stream.block_capacity() == block_size / serialized_size<i32>());
@@ -117,13 +119,13 @@ TEST_CASE("stream basics", "[stream]") {
 TEST_CASE("stream state is persistent", "[stream]") {
     test_file file(block_size);
 
-    auto alloc_anchor = make_anchor_handle(default_allocator::anchor());
-    auto stream_anchor = make_anchor_handle(stream_t::anchor());
+    default_allocator::anchor alloc_anchor;
+    stream_t::anchor stream_anchor;
 
     file.open();
     {
-        default_allocator alloc(alloc_anchor, file.get_engine());
-        stream_t stream(stream_anchor, alloc);
+        default_allocator alloc(make_anchor_handle(alloc_anchor), file.get_engine());
+        stream_t stream(make_anchor_handle(stream_anchor), alloc);
 
         stream.reserve(100000);
         for (int i = 0; i < 100000; ++i)
@@ -133,8 +135,8 @@ TEST_CASE("stream state is persistent", "[stream]") {
 
     file.open();
     {
-        default_allocator alloc(alloc_anchor, file.get_engine());
-        stream_t stream(stream_anchor, alloc);
+        default_allocator alloc(make_anchor_handle(alloc_anchor), file.get_engine());
+        stream_t stream(make_anchor_handle(stream_anchor), alloc);
 
         REQUIRE(stream.size() == 100000);
         for (int i = 0; i < 100000; ++i) {
@@ -149,8 +151,11 @@ TEST_CASE("customizable stream growth", "[stream]") {
     test_file file(block_size);
     file.open();
     {
-        default_allocator alloc(make_anchor_handle(default_allocator::anchor()), file.get_engine());
-        stream_t stream(make_anchor_handle(stream_t::anchor()), alloc);
+        default_allocator::anchor alloc_anchor;
+        default_allocator alloc(make_anchor_handle(alloc_anchor), file.get_engine());
+        stream_t::anchor stream_anchor;
+        stream_t stream(make_anchor_handle(stream_anchor), alloc);
+
         REQUIRE(std::holds_alternative<exponential_growth>(stream.growth()));
 
         SECTION("exponential") {

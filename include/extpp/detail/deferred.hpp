@@ -1,5 +1,5 @@
-#ifndef EXTPP_DETAIL_FUNC_UTILS_HPP
-#define EXTPP_DETAIL_FUNC_UTILS_HPP
+#ifndef EXTPP_DETAIL_DEFERRED_HPP
+#define EXTPP_DETAIL_DEFERRED_HPP
 
 #include <extpp/defs.hpp>
 
@@ -10,26 +10,29 @@
 namespace extpp {
 namespace detail {
 
-/// A scope guard that executes a function in its destructor,
-/// unless the commit() function has been called previouly.
+/// An object that performs some action when the enclosing scope ends.
+///
+/// The deferred class stores a function object and invokes it from its
+/// destructor. The execution of the function object can be disabled by using
+/// the `disable()` member function prior to its destruction.
 template<typename Function>
-class rollback {
+class deferred {
 private:
     Function fn;
     bool invoke;
 
 public:
-    rollback(const Function& fn)
+    deferred(const Function& fn)
         : fn(fn)
         , invoke(true)
     {}
 
-    rollback(Function&& fn)
+    deferred(Function&& fn)
         : fn(std::move(fn))
         , invoke(true)
     {}
 
-    ~rollback() noexcept(noexcept(fn())) {
+    ~deferred() noexcept(noexcept(fn())) {
         if (invoke) {
             if (std::uncaught_exceptions()) {
                 try {
@@ -41,17 +44,17 @@ public:
         }
     }
 
-    /// Once `commit` has been called on a rollback object,
+    /// Once `disable` has been called on a rollback object,
     /// the rollback function will not be executed upon destruction.
-    void commit() {
+    void disable() {
         invoke = false;
     }
 
-    rollback(rollback&& other) = delete;
-    rollback& operator=(const rollback&) = delete;
+    deferred(deferred&& other) = delete;
+    deferred& operator=(const deferred&) = delete;
 };
 
 } // namespace detail
 } // namespace extpp
 
-#endif // EXTPP_DETAIL_FUNC_UTILS_HPP
+#endif // EXTPP_DETAIL_DEFERRED_HPP

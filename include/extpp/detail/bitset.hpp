@@ -47,7 +47,7 @@ public:
         m_blocks.assign(m_blocks.size(), 0);
     }
 
-    /// Returns true iff the bit at the position
+    /// Returns true iff the bit at the position is set.
     bool test(size_t bit) const {
         EXTPP_ASSERT(bit < m_bits, "Index out of bounds.");
         return m_blocks[block_index(bit)] & (block_t(1) << bit_index(bit));

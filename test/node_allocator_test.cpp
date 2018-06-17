@@ -11,9 +11,9 @@ TEST_CASE("node allocator", "[node-allocator]") {
     test_file file(512);
     file.open();
 
-    auto anchor = make_anchor_handle(node_allocator::anchor());
     {
-        node_allocator alloc(anchor, file.get_engine());
+        node_allocator::anchor anchor;
+        node_allocator alloc(make_anchor_handle(anchor), file.get_engine());
 
         REQUIRE(alloc.block_size() == 512);
         REQUIRE(alloc.data_total() == 0);

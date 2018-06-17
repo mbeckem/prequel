@@ -35,11 +35,11 @@ public:
     }
 
     byte* writable_data() {
-        if (!m_writable) {
-            make_writable();
+        if (!m_dirty) {
+            make_dirty();
         }
 
-        EXTPP_ASSERT(m_writable, "The instance was not made writable.");
+        EXTPP_ASSERT(m_dirty, "The instance was not made writable.");
         EXTPP_ASSERT(m_data, "Data pointer was not initialized.");
         return m_data;
     }
@@ -54,7 +54,7 @@ protected:
     // that the data pointer can be written to.
     // Making a block writable might involve moving the block in memory to
     // protect existing readers from side effects.
-    virtual void make_writable() = 0;
+    virtual void make_dirty() = 0;
 
 public:
     /// The index of this block in the underlying file. Must be updated by the implementor.
@@ -64,7 +64,7 @@ public:
     u32 m_block_size = 0;
 
     /// True if the data can be written to.
-    bool m_writable = false;
+    bool m_dirty = false;
 
     /// The location where this block's content resides in memory right now.
     /// Can change as a result of make_writable().
@@ -76,6 +76,8 @@ public:
 /// A block handle is a (possibly invalid) reference to a block
 /// loaded into memory by the block engine.
 /// The handle gives access to the block's raw data and it's dirty flag.
+/// While a block is being referenced by at least one block handle,
+/// it will not be evicted from main memory.
 class block_handle {
 public:
     /// Constructs an invalid handle.

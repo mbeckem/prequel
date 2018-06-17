@@ -100,14 +100,11 @@ public:
     }
 };
 
-// File content is stored in a range of contiguous blocks.
-using file_extent = extpp::extent;
-
 // Represents a file and will be stored in the directory's btree.
 struct file {
     file_name name;
     uint64_t size = 0; // In bytes.
-    file_extent::anchor extent;
+    extpp::extent::anchor extent;
 
     static constexpr auto get_binary_format() {
         return extpp::make_binary_format(&file::name, &file::size, &file::extent);
@@ -139,7 +136,8 @@ class file_system {
     extpp::default_file_format<header> m_fmt;
 
     /// The header (content of the first block on disk).
-    extpp::anchor_handle<header> m_header;
+    header m_header;
+    extpp::anchor_flag m_header_changed;
 
     // The root directory that contains all our files.
     directory m_root;
@@ -147,8 +145,9 @@ class file_system {
 public:
     explicit file_system(extpp::file& file, uint32_t cache_size)
         : m_fmt(file, block_size, cache_size)
-        , m_header(extpp::make_anchor_handle(m_fmt.get_user_data().get()))
-        , m_root(m_header.member<&header::root>(), m_fmt.get_allocator())
+        , m_header(m_fmt.get_user_data().get())
+        , m_root(extpp::anchor_handle(m_header, m_header_changed).member<&header::root>(),
+                 m_fmt.get_allocator())
     {
         m_fmt.get_allocator().dump(std::cout);
     }
@@ -191,9 +190,9 @@ public:
     void flush() {
         std::cout << "Flush" <<  std::endl;
 
-        if (m_header.changed()) {
-            m_fmt.get_user_data().set(m_header.get());
-            m_header.reset_changed();
+        if (m_header_changed) {
+            m_fmt.get_user_data().set(m_header);
+            m_header_changed.reset();
         }
 
         m_fmt.flush();
@@ -350,18 +349,17 @@ static int fs_read(const char* path, char* buf, size_t size, off_t offset,
 
     const size_t n = std::min(entry.size - offset, size);
 
-    auto anchor = extpp::make_anchor_handle(entry.extent);
-    file_extent extent(anchor, fs.get_allocator());
+    extpp::anchor_flag extent_changed;
+    extpp::extent extent(extpp::anchor_handle(entry.extent, extent_changed), fs.get_allocator());
     extpp::read(fs.get_engine(), fs.get_engine().to_address(extent.data()) + static_cast<uint64_t>(offset), buf, n);
-    if (anchor.changed()) {
-        entry.extent = anchor.get();
+    if (extent_changed) {
         cursor.set(entry);
     }
 
     return n;
 }
 
-static bool adapt_capacity(file_extent& extent, uint64_t required_bytes) {
+static bool adapt_capacity(extpp::extent& extent, uint64_t required_bytes) {
     const uint64_t old_blocks = extent.size();
     const uint64_t required_blocks = extpp::ceil_div(required_bytes, static_cast<uint64_t>(block_size));
     if (required_blocks > old_blocks) {
@@ -404,27 +402,21 @@ static int fs_write(const char* path, const char* buf, size_t size, off_t offset
         return -ENOENT;
 
     file entry = cursor.get();
+    extpp::anchor_flag entry_changed;
 
-    // Open the anchor and write the data.
-    auto anchor = extpp::make_anchor_handle(entry.extent);
-    file_extent extent(anchor, fs.get_allocator());
+    // Write the data to the file.
+    extpp::extent extent(extpp::anchor_handle(entry.extent, entry_changed), fs.get_allocator());
     if (offset + size > entry.size) {
         adapt_capacity(extent, offset + size);
     }
     extpp::write(fs.get_engine(), fs.get_engine().to_address(extent.data()) + static_cast<uint64_t>(offset), buf, size);
 
     // Update the file entry if something changed.
-    bool changed = false;
-    if (anchor.changed()) {
-        entry.extent = anchor.get();
-        changed = true;
-    }
     if (offset + size > entry.size) {
         entry.size = offset + size;
-        changed = true;
+        entry_changed.set();
     }
-
-    if (changed) {
+    if (entry_changed) {
         cursor.set(entry);
     }
     return size;
@@ -447,21 +439,16 @@ static int fs_truncate(const char* path, off_t off) {
         return -ENOENT;
 
     file entry = cursor.get();
+    extpp::anchor_flag entry_changed;
 
-    auto anchor = extpp::make_anchor_handle(entry.extent);
-    file_extent extent(anchor, fs.get_allocator());
+    extpp::extent extent(extpp::anchor_handle(entry.extent, entry_changed), fs.get_allocator());
     adapt_capacity(extent, new_size);
 
-    bool changed = false;
-    if (anchor.changed()) {
-        entry.extent = anchor.get();
-        changed = true;
-    }
     if (new_size != entry.size) {
         entry.size = new_size;
-        changed = true;
+        entry_changed.set();
     }
-    if (changed) {
+    if (entry_changed) {
         cursor.set(entry);
     }
     return 0;

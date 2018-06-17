@@ -20,13 +20,13 @@ TEST_CASE("extent", "[extent]") {
     test_file file(4096);
     file.open();
 
-    anchor_handle<default_allocator::anchor> alloc_anchor(default_allocator::anchor{});
-    std::vector<anchor_handle<extent::anchor>> extent_anchors(20, anchor_handle<extent::anchor>(extent::anchor{}));
+    default_allocator::anchor alloc_anchor;
+    std::vector<extent::anchor> extent_anchors(20);
 
-    default_allocator alloc(alloc_anchor, file.get_engine());
+    default_allocator alloc(make_anchor_handle(alloc_anchor), file.get_engine());
 
     auto extent_anchor = [&](u32 index) {
-        return extent_anchors[index];
+        return make_anchor_handle(extent_anchors[index]);
     };
 
     SECTION("basic usage") {

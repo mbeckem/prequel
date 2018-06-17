@@ -18,7 +18,7 @@
 // TODO: Own debugging macro
 #ifndef NDEBUG
 
-/// EXTPP_DEBUG is defined when this library was built in debug mode.
+/// EXTPP_DEBUG is defined when this library is used in debug mode.
 #define EXTPP_DEBUG
 
 #endif

@@ -10,6 +10,7 @@
 
 namespace extpp {
 
+/// References a block in secondary storage by index.
 class block_index :
         public detail::make_addable<block_index, u64>,
         public detail::make_subtractable<block_index, u64>,
@@ -19,17 +20,26 @@ public:
     static constexpr u64 invalid_value = u64(-1);
 
 public:
+    /// Constructs an invalid block index.
     block_index() = default;
 
+    /// Constructs a block index with the given value.
+    /// Passing \ref invalid_value creates an invalid block index.
     explicit block_index(u64 index)
         : m_value(index)
     {}
 
+    /// Returns true if the block index refers to a block in secondary storage.
+    /// \{
     bool valid() const { return m_value != invalid_value; }
-    u64 value() const { return m_value; }
-
-    explicit operator u64() const { return value(); }
     explicit operator bool() const { return valid(); }
+    /// \}
+
+    /// Returns the raw value of the block index (which might be \ref invalid_value).
+    /// \{
+    u64 value() const { return m_value; }
+    explicit operator u64() const { return value(); }
+    /// \}
 
     block_index& operator+=(u64 offset) {
         EXTPP_ASSERT(*this, "Invalid block index.");

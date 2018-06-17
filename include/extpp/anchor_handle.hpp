@@ -10,29 +10,24 @@
 
 namespace extpp {
 
-class anchor_storage_base {
+/// Dirty flag for anchors.
+class anchor_flag {
 public:
-    void set_changed(bool changed) { if (m_changed != changed) m_changed = changed; }
+    anchor_flag() = default;
+
+    // Other parts of the application take the address of this flag.
+    // It should not move in memory.
+    anchor_flag(const anchor_flag&) = delete;
+    anchor_flag& operator=(const anchor_flag&) = delete;
+
+    explicit operator bool() const { return m_changed; }
     bool changed() const { return m_changed; }
+
+    void set(bool changed = true) { m_changed = changed; }
+    void reset() { set(false); }
 
 private:
     bool m_changed = false;
-};
-
-template<typename Anchor>
-class anchor_storage : public anchor_storage_base {
-public:
-    anchor_storage(const Anchor& anchor)
-        : m_anchor(anchor)
-    {}
-
-    anchor_storage(const anchor_storage&) = delete;
-    anchor_storage& operator=(const anchor_storage&) = delete;
-
-    Anchor* get_anchor() { return std::addressof(m_anchor); }
-
-private:
-    Anchor m_anchor;
 };
 
 template<typename Anchor>
@@ -41,14 +36,18 @@ public:
     using anchor_type = Anchor;
 
 public:
+    /// Constructs an invalid anchor handle.
     anchor_handle() = default;
-    explicit anchor_handle(const Anchor& anchor);
 
-    anchor_handle(const anchor_handle& other);
-    anchor_handle(anchor_handle&& other) noexcept;
+    /// Constructs an anchor handle that does not point to a dirty flag.
+    explicit anchor_handle(Anchor& anchor): anchor_handle(anchor, nullptr) {}
 
-    anchor_handle& operator=(const anchor_handle& other);
-    anchor_handle& operator=(anchor_handle&& other) noexcept;
+    /// Constructs an anchor handle that references a dirty flag.
+    /// The flag will be set to "changed" when the anchor was modified through
+    /// the anchor or one of its aliasing children.
+    explicit anchor_handle(Anchor& anchor, anchor_flag& changed): anchor_handle(anchor, &changed) {}
+
+    explicit anchor_handle(Anchor& anchor, anchor_flag* changed);
 
 public:
     /// Returns the anchor's value.
@@ -57,7 +56,7 @@ public:
     /// Sets the anchor's value.
     void set(const Anchor& value) const;
 
-    /// Returns anchor's member value specified by the given member data pointer.
+    /// Returns the anchor's member value specified by the given member data pointer.
     template<auto MemberPtr>
     member_type_t<decltype(MemberPtr)> get() const;
 
@@ -72,69 +71,38 @@ public:
     bool valid() const { return m_anchor != nullptr; }
     explicit operator bool() const { return valid(); }
 
-    /// Returns true if the anchor value has changed since the last call to `reset_changed()`.
-    bool changed() const {
-        check_valid();
-        return m_base->changed();
-    }
-
-    /// Resets the changed flag of the anchor value.
-    void reset_changed() const {
-        check_valid();
-        m_base->set_changed(false);
-    }
-
 private:
-    template<typename Other>
+    template<typename A>
     friend class anchor_handle;
 
-    anchor_handle(std::shared_ptr<anchor_storage_base>&& base, Anchor* anchor);
-
     void check_valid() const;
+    void set_changed() const;
 
 private:
-    std::shared_ptr<anchor_storage_base> m_base; // For memory management + changed flag
     Anchor* m_anchor = nullptr;
+    anchor_flag* m_flag = nullptr;
 };
 
 template<typename Anchor>
-anchor_handle<Anchor> make_anchor_handle(const Anchor& anchor) {
+anchor_handle<Anchor> make_anchor_handle(Anchor& anchor) {
     return anchor_handle<Anchor>(anchor);
 }
 
 template<typename Anchor>
-anchor_handle<Anchor>::anchor_handle(const Anchor& anchor) {
-    auto base = std::make_shared<anchor_storage<Anchor>>(anchor);
-    m_anchor = base->get_anchor();
-    m_base = std::move(base); // Erases concrete type.
+anchor_handle<Anchor> make_anchor_handle(Anchor& anchor, anchor_flag& changed) {
+    return anchor_handle<Anchor>(anchor, changed);
 }
 
 template<typename Anchor>
-anchor_handle<Anchor>::anchor_handle(const anchor_handle& other)
-    : m_base(other.m_base)
-    , m_anchor(other.m_anchor)
-{}
-
-template<typename Anchor>
-anchor_handle<Anchor>::anchor_handle(anchor_handle&& other) noexcept
-    : m_base(std::move(other.m_base))
-    , m_anchor(std::exchange(other.m_anchor, nullptr))
-{}
-
-template<typename Anchor>
-anchor_handle<Anchor>& anchor_handle<Anchor>::operator=(const anchor_handle& other) {
-    m_base = other.m_base;
-    m_anchor = other.m_anchor;
-    return *this;
+anchor_handle<Anchor> make_anchor_handle(Anchor& anchor, anchor_flag* changed) {
+    return anchor_handle<Anchor>(anchor, changed);
 }
 
 template<typename Anchor>
-anchor_handle<Anchor>& anchor_handle<Anchor>::operator=(anchor_handle&& other) noexcept {
-    if (this != &other) {
-        m_base = std::move(other.m_base);
-        m_anchor = std::exchange(other.m_anchor, nullptr);
-    }
-    return *this;
+anchor_handle<Anchor>::anchor_handle(Anchor& anchor, anchor_flag* changed)
+    : m_anchor(std::addressof(anchor))
+    , m_flag(changed)
+{
 }
 
 template<typename Anchor>
@@ -147,7 +115,7 @@ template<typename Anchor>
 void anchor_handle<Anchor>::set(const Anchor& value) const {
     check_valid();
     *m_anchor = value;
-    m_base->set_changed(true);
+    set_changed();
 }
 
 template<typename Anchor>
@@ -166,7 +134,7 @@ void anchor_handle<Anchor>::set(const member_type_t<decltype(MemberPtr)>& value)
                  "The member pointer must belong to this type.");
     check_valid();
     m_anchor->*MemberPtr = value;
-    m_base->set_changed(true);
+    set_changed();
 }
 
 template<typename Anchor>
@@ -175,21 +143,19 @@ anchor_handle<member_type_t<decltype(MemberPtr)>> anchor_handle<Anchor>::member(
     static_assert(std::is_same_v<object_type_t<decltype(MemberPtr)>, Anchor>,
                   "The member pointer must belong to this type.");
     check_valid();
-
     member_type_t<decltype(MemberPtr)>* member = std::addressof(m_anchor->*MemberPtr);
-    auto member_base = m_base;
-    return {std::move(member_base), member};
+    return anchor_handle<member_type_t<decltype(MemberPtr)>>(*member, m_flag);
 }
-
-template<typename Anchor>
-anchor_handle<Anchor>::anchor_handle(std::shared_ptr<anchor_storage_base>&& base, Anchor* anchor)
-    : m_base(std::move(base))
-    , m_anchor(anchor)
-{}
 
 template<typename Anchor>
 void anchor_handle<Anchor>::check_valid() const {
     EXTPP_ASSERT(valid(), "Invalid handle."); // TODO: Exception?
+}
+
+template<typename Anchor>
+void anchor_handle<Anchor>::set_changed() const {
+    if (m_flag)
+        m_flag->set(true);
 }
 
 } // namespace extpp

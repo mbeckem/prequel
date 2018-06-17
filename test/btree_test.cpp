@@ -106,23 +106,18 @@ template<typename Value, typename KeyDerive = identity_t, typename TestFunction>
 void simple_tree_test(TestFunction&& test) {
     using tree_type = btree<Value, KeyDerive>;
 
-    struct anchor {
-        node_allocator::anchor alloc;
-        typename tree_type::anchor tree;
-
-        static constexpr auto get_binary_format() {
-            return make_binary_format(&anchor::alloc, &anchor::tree);
-        }
-    };
-
     u32 block_sizes[] = { 128, 512, 4096 };
     for (u32 block_size : block_sizes) {
         CAPTURE(block_size);
 
         test_file file(block_size);
         file.open();
-        node_allocator alloc(make_anchor_handle(node_allocator::anchor()), file.get_engine());
-        tree_type tree(make_anchor_handle(typename tree_type::anchor()), alloc);
+
+        node_allocator::anchor alloc_anchor;
+        node_allocator alloc(make_anchor_handle(alloc_anchor), file.get_engine());
+
+        typename tree_type::anchor tree_anchor;
+        tree_type tree(make_anchor_handle(tree_anchor), alloc);
         test(tree);
     }
 }
@@ -171,9 +166,11 @@ TEST_CASE("raw btree", "[btree]") {
     test_file file(block_size);
     file.open();
 
-    node_allocator alloc(make_anchor_handle(node_allocator::anchor()), file.get_engine());
+    node_allocator::anchor alloc_anchor;
+    node_allocator alloc(make_anchor_handle(alloc_anchor), file.get_engine());
     {
-        raw_btree tree(make_anchor_handle(raw_btree::anchor()), options, alloc);
+        raw_btree::anchor tree_anchor;
+        raw_btree tree(make_anchor_handle(tree_anchor), options, alloc);
 
         // TODO: test bad cursor behaviour
 
@@ -567,4 +564,136 @@ TEST_CASE("btree deletion", "[btree]") {
             tree.clear();
         }
     });
+}
+
+TEST_CASE("btree cursor stability", "[btree]") {
+    simple_tree_test<i32>([](auto&& tree) {
+        using cursor_t = typename std::decay_t<decltype(tree)>::cursor;
+
+        struct stable_cursor {
+            cursor_t cursor;
+            i32 value = 0;
+        };
+
+        auto numbers = generate_numbers(10000, 444666);
+
+        std::vector<stable_cursor> cursors;
+        for (i32 value : numbers) {
+            stable_cursor c;
+            c.cursor = tree.insert(value).first;
+            c.value = value;
+
+            cursors.push_back(std::move(c));
+        }
+        REQUIRE(tree.size() == numbers.size());
+
+        for (auto& c : cursors) {
+            if (!c.cursor)
+                FAIL("Invalid cursor for value" << c.value);
+            if (c.cursor.get() != c.value)
+                FAIL("Invalid value for value " << c.value << ": " << c.cursor.get());
+        }
+
+        std::mt19937_64 rng(123123);
+        std::shuffle(numbers.begin(), numbers.end(), rng);
+
+        for (size_t i = 100; i < numbers.size(); ++i)  {
+            tree.find(numbers[i]).erase();
+        }
+        numbers.resize(100);
+        REQUIRE(tree.size() == 100);
+
+        auto has_number = [&](i32 n) {
+            return std::find(numbers.begin(), numbers.end(), n) != numbers.end();
+        };
+
+        for (auto& c : cursors) {
+            CAPTURE(c.value);
+            if (c.cursor.erased()) {
+                if (has_number(c.value)) {
+                    FAIL("Should not have been erased.");
+                }
+            } else {
+                if (!has_number(c.value)) {
+                    FAIL("Should have been erased.");
+                }
+                if (c.cursor.get() != c.value) {
+                    FAIL("Invalid value: " << c.cursor.get());
+                }
+            }
+        }
+
+        for (i32 n : numbers) {
+            tree.find(n).erase();
+        }
+
+        for (auto& c : cursors) {
+            CAPTURE(c.value);
+
+            if (!c.cursor.erased())
+                FAIL("Should have been erased.");
+        }
+
+        REQUIRE(tree.size() == 0);
+    });
+}
+
+TEST_CASE("btree fuzzy  tests", "[btree][.slow]") {
+    using tree_t = btree<u64>;
+
+    test_file file(4096);
+    file.open();
+
+    node_allocator::anchor alloc_anchor;
+    node_allocator alloc(make_anchor_handle(alloc_anchor), file.get_engine());
+    {
+        tree_t::anchor tree_anchor;
+        tree_t tree(make_anchor_handle(tree_anchor), alloc);
+
+        std::vector<u64> numbers =  generate_numbers<u64>(1000000, 23546);
+
+        u64 count = 0;
+        for (u64 n : numbers) {
+            INFO("Inserting number " << n << " << at index " << count);
+
+            tree_t::cursor pos;
+            bool inserted;
+            std::tie(pos, inserted) = tree.insert(n);
+            if (!inserted) {
+                FAIL("Failed to insert");
+            }
+            if (!pos) {
+                FAIL("Got the invalid cursor");
+            }
+            if (pos.get() != n) {
+                FAIL("Cursor points to wrong value " << pos.get());
+            }
+
+            ++count;
+        }
+
+        tree.validate();
+
+        std::mt19937_64 rng(12345);
+        std::shuffle(numbers.begin(), numbers.end(), rng);
+        for (u64 n : numbers) {
+            INFO("Searching for number " << n);
+
+            auto pos = tree.find(n);
+            if (!pos) {
+                FAIL("Failed to find the number");
+            }
+            if (pos.get() != n) {
+                FAIL("Cursor points to wrong value " << pos.get());
+            }
+        }
+
+        for (u64 n : numbers) {
+            tree.find(n).erase();
+        }
+
+        REQUIRE(tree.size() == 0);
+        REQUIRE(tree.height() == 0);
+        REQUIRE(tree.nodes() == 0);
+    }
 }

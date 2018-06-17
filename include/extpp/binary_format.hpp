@@ -10,6 +10,8 @@
 
 namespace extpp {
 
+/// Stores a series of member data pointers in order to reflect
+/// over the members of a class. Only used at compile time.
 template<typename T, typename... V>
 class binary_format {
 public:

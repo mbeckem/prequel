@@ -21,9 +21,9 @@ TEST_CASE("default allocator", "[default-allocator]") {
     auto file = memory_vfs().open("testfile.bin", vfs::read_write, vfs::open_create);
     file_engine engine(*file, bs, 16);
 
-    auto anchor = make_anchor_handle(default_allocator::anchor());
+    default_allocator::anchor anchor;
 
-    default_allocator alloc(anchor, engine);
+    default_allocator alloc(make_anchor_handle(anchor), engine);
     alloc.min_chunk(data_chunk);
     alloc.min_meta_chunk(metadata_chunk);
     alloc.validate();
