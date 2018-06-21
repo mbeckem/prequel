@@ -1,14 +1,8 @@
 Open Questions / Design Issues
 ==============================
 
--   Containers should cache some of their state in memory, so that it can inspected using a debugger.
-    Currently they all use a handle<T> for their anchor state, which is of course the right thing.
-    However, a handle only refers to the serialized value in a block (i.e. some byte blob) and does not
-    keep the deserialized object in memory. Doing so would introduce synchronization issues (e.g. handles
-    A and B refer to the same byte address but have different cached values, so they don't see each others
-    updates immediately).
-    I think the best way to solve this is to simply duplicate some fields (size, root node index etc).
-
+-   Should there be static constructor functions like btree::open() btree::create()
+    for types that don't have a reasonable default construction?
     
     
     

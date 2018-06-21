@@ -10,7 +10,7 @@ using namespace extpp;
 
 namespace {
 
-constexpr u32 bs = 256;
+constexpr u32 block_size = 256;
 
 }
 
@@ -19,7 +19,7 @@ TEST_CASE("default allocator", "[default-allocator]") {
     constexpr u32 metadata_chunk = 16;
 
     auto file = memory_vfs().open("testfile.bin", vfs::read_write, vfs::open_create);
-    file_engine engine(*file, bs, 16);
+    file_engine engine(*file, block_size, 16);
 
     default_allocator::anchor anchor;
 
@@ -194,5 +194,57 @@ TEST_CASE("default allocator", "[default-allocator]") {
         REQUIRE(alloc.stats().data_used == 33);
 
         alloc.validate();
+    }
+}
+
+namespace {
+
+struct test_block_source : block_source {
+    block_index m_begin;
+    u64 m_size = 0;
+    u64 m_capacity = 0;
+
+public:
+    block_index begin() override { return m_begin; }
+    u64 available() override { return m_capacity - m_size; }
+    u64 size() override { return m_size; }
+
+    void grow(u64 n) override {
+        if (n > available()) {
+            EXTPP_THROW(bad_alloc("Not enough space left in test_block_source."));
+        }
+
+        m_size += n;
+    }
+};
+
+} // namespace
+
+TEST_CASE("default allocator with custom block source", "[default-allocator]") {
+    constexpr u32 data_chunk = 32;
+    constexpr u32 metadata_chunk = 16;
+
+    auto file = memory_vfs().open("testfile.bin", vfs::read_write, vfs::open_create);
+    file_engine engine(*file, block_size, 16);
+    engine.grow(1337);
+
+    test_block_source source;
+    source.m_begin = block_index(50);
+    source.m_capacity = 987;
+
+    default_allocator::anchor anchor;
+
+    default_allocator alloc(make_anchor_handle(anchor), engine, source);
+    alloc.min_chunk(data_chunk);
+    alloc.min_meta_chunk(metadata_chunk);
+    {
+        block_index i1 = alloc.allocate(1);
+        REQUIRE(i1 == block_index(66)); // after the first 16 metadata blocks
+        REQUIRE(source.size() == 48);   // 32 data, 16 metadata
+
+        alloc.allocate(alloc.stats().data_free);
+        REQUIRE(source.size() == 48); // No change.
+
+        REQUIRE_THROWS_AS(alloc.allocate(source.available() + 1), extpp::bad_alloc);
     }
 }

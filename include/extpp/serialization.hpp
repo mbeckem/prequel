@@ -44,7 +44,7 @@ struct has_explicit_serializer<T, void_t<typename T::binary_serializer>> : std::
 // and some common standard types. Arrays, tuples, etc. of serialized types are themselves
 // serializable.
 template<typename T, typename Enable = void>
-struct default_serializer {        
+struct default_serializer {
     static_assert(always_false<T>::value,
                   "The specified type cannot be serialized.");
 };

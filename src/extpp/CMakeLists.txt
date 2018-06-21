@@ -33,6 +33,7 @@ set(PUBLIC_HEADERS
     ${HEADER_ROOT}/raw_btree.hpp
     ${HEADER_ROOT}/raw_list.hpp
     ${HEADER_ROOT}/raw_stream.hpp
+    ${HEADER_ROOT}/region_allocator.hpp
     ${HEADER_ROOT}/serialization.hpp
     ${HEADER_ROOT}/stream.hpp
     ${HEADER_ROOT}/type_traits.hpp
@@ -56,6 +57,7 @@ set(SOURCES
      raw_btree.cpp
      raw_list.cpp
      raw_stream.cpp
+     region_allocator.cpp
      detail/free_list.cpp
 )
 

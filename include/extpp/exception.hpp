@@ -72,6 +72,10 @@ private:
     source_location m_where;
 };
 
+class bad_alloc : public exception {
+    using exception::exception;
+};
+
 class corruption_error : public exception {
 public:
     using exception::exception;

@@ -13,6 +13,31 @@
 
 namespace extpp {
 
+// TODO: Should probably end up somewhere else.
+class block_source {
+public:
+    block_source() = default;
+    virtual ~block_source();
+
+    /// Returns the first block index of this instance.
+    virtual block_index begin() = 0;
+
+    /// Returns an estimate of the number of available blocks that
+    /// can still be allocated through this instance.
+    /// Should return `u64(-1)` if there is no physical limit.
+    virtual u64 available() = 0;
+
+    /// Returns the current size (number of allocated blocks)
+    /// of this instance.
+    virtual u64 size() = 0;
+
+    /// Grow by exactly `n` blocks.
+    virtual void grow(u64 n) = 0;
+};
+
+// TODO: Review the implementation and make sure that allocation failures are always
+// recoverable, i.e. a future allocation (with a smaller size) should be able to succeed
+// and no data should be leaked.
 class default_allocator : public allocator {
 private:
     // An extent represents a region of allocated space.
@@ -129,6 +154,7 @@ public:
 
 public:
     default_allocator(anchor_handle<anchor> _anchor, engine& _engine);
+    default_allocator(anchor_handle<anchor> _anchor, engine& _engine, block_source& source);
     ~default_allocator();
 
     default_allocator(const default_allocator&) = delete;

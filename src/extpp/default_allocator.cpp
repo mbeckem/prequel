@@ -4,6 +4,33 @@
 
 namespace extpp {
 
+block_source::~block_source() {}
+
+namespace {
+
+class engine_block_source : public block_source {
+public:
+    engine_block_source(engine* _engine)
+        : m_engine(_engine)
+    {
+        EXTPP_ASSERT(m_engine, "Engine must not be null.");
+    }
+
+    block_index begin() override { return block_index(0); }
+
+    /// TODO: Max size for engines.
+    u64 available() override { return u64(-1); }
+
+    u64 size() override { return m_engine->size(); }
+
+    void grow(u64 n) override { m_engine->grow(n); }
+
+private:
+    engine* m_engine = nullptr;
+};
+
+} // namespace
+
 // TODO: Metadata blocks will interleave with normal data allocations
 // and cause needless fragmentation because those allocations are not
 // immediate neighbors. This needs improvement.
@@ -13,8 +40,21 @@ struct default_allocator::impl_t {
 
 public:
     impl_t(anchor_handle<anchor> _anchor, engine& _engine)
+        : impl_t(std::move(_anchor), _engine, nullptr, std::make_unique<engine_block_source>(&_engine))
+    {}
+
+
+    impl_t(anchor_handle<anchor> _anchor, engine& _engine, block_source& _source)
+        : impl_t(std::move(_anchor), _engine, &_source, {})
+    {}
+
+private:
+    // Either source or unique source must be valid.
+    impl_t(anchor_handle<anchor> _anchor, engine& _engine, block_source* source, std::unique_ptr<block_source> unique_source)
         : m_anchor(std::move(_anchor))
         , m_engine(_engine)
+        , m_source(source ? *source : *unique_source)
+        , m_owned_source(std::move(unique_source))
         , m_meta_freelist(m_anchor.member<&anchor::meta_freelist>(), m_engine)
         , m_meta_alloc(this, m_engine)
         , m_extents(m_anchor.member<&anchor::extents>(), m_meta_alloc)
@@ -27,6 +67,7 @@ public:
         m_data_free = m_anchor.get<&anchor::data_free>();
     }
 
+public:
     impl_t(const impl_t&) = delete;
     impl_t& operator=(const impl_t&) = delete;
 
@@ -61,7 +102,9 @@ private:
     block_index allocate_new_space(u64 request);
 
     bool grow_in_place(extent_cursor& pos, extent_t& extent, u64 additional);
-    u64 allocate_blocks(u64 additional);
+    std::pair<block_index, u64> allocate_blocks(u64 additional, u32 chunk_size);
+    std::pair<block_index, u64> allocate_data_blocks(u64 additional);
+    std::pair<block_index, u64> allocate_metadata_blocks(u64 additional);
 
     enum merge_direction_t {
         merge_none = 0,
@@ -148,9 +191,9 @@ private:
     }
 
     /// Returns true iff the extent is exactly at the end of file.
-    bool borders_file_end(const extent_t& e) const {
+    bool borders_end(const extent_t& e) const {
         EXTPP_ASSERT(e.block, "Extent must be valid.");
-        return e.block + e.size == block_index(m_engine.size());
+        return e.block + e.size == block_index(m_source.begin() + m_source.size());
     }
 
 private:
@@ -211,6 +254,8 @@ private:
 private:
     anchor_handle<anchor> m_anchor;
     engine& m_engine;
+    block_source& m_source;
+    std::unique_ptr<block_source> m_owned_source; // Temp storage.
 
     /// Minimum allocation size for data blocks on file growth.
     u32 m_min_chunk = 128;
@@ -382,7 +427,7 @@ block_index default_allocator::impl_t::allocate_new_space(u64 request) {
         auto pos = m_extents.create_cursor(m_extents.seek_max);
         if (pos) {
             auto extent = pos.get();
-            if (extent.free && borders_file_end(extent)) {
+            if (extent.free && borders_end(extent)) {
                 EXTPP_ASSERT(extent.size < request,
                              "Extent should have been chosen by best-fit allocation.");
                 extent.free = false;
@@ -396,13 +441,14 @@ block_index default_allocator::impl_t::allocate_new_space(u64 request) {
 
     // If there is no viable candidate, start at the end of the file.
     if (!pos) {
-        extent.block = block_index(m_engine.size());
+        extent.block = block_index(m_source.begin() + m_source.size());
     }
 
     // Allocate space at the end of the file.
     const u64 required = request - extent.size;
-    const u64 allocated = allocate_blocks(required);
+    const auto [begin, allocated] = allocate_data_blocks(required);
     const u64 remainder = allocated - required;
+    EXTPP_ASSERT(extent.block + extent.size == begin, "Unexpected allocated block index.");
     EXTPP_ASSERT(allocated >= required, "Basic allocation invariant.");
     EXTPP_ASSERT(extent.size + allocated >= request, "Insufficient allocation.");
 
@@ -428,10 +474,11 @@ bool default_allocator::impl_t::grow_in_place(extent_cursor& pos, extent_t& exte
     EXTPP_ASSERT(additional > 0, "Zero sized allocation.");
 
     // Attempt to allocate from the end of file.
-    if (borders_file_end(extent)) {
-        const u64 allocated = allocate_blocks(additional);
-        const u64 remainder = allocated - additional;
+    if (borders_end(extent)) {
+        const auto [begin, allocated] = allocate_data_blocks(additional);
+        EXTPP_ASSERT(extent.block + extent.size == begin, "Unexpected block index.");
 
+        const u64 remainder = allocated - additional;
         extent.size += additional;
         pos.set(extent);
 
@@ -459,9 +506,11 @@ bool default_allocator::impl_t::grow_in_place(extent_cursor& pos, extent_t& exte
         remove_free(next_extent);
     }
     // Otherwise, if the extent borders the end of the file, we can grow and use it.
-    else if (next_extent.size < additional && borders_file_end(next_extent)) {
+    else if (next_extent.size < additional && borders_end(next_extent)) {
         remove_free(next_extent);
-        const u64 allocated = allocate_blocks(additional - next_extent.size);
+        const auto [begin, allocated] = allocate_data_blocks(additional - next_extent.size);
+        EXTPP_ASSERT(next_extent.block + next_extent.size == begin, "Unexpected block index.");
+
         next_extent.size += allocated;
         set_data_free(data_free() + allocated);
     }
@@ -495,11 +544,31 @@ bool default_allocator::impl_t::grow_in_place(extent_cursor& pos, extent_t& exte
 
 /// Allocate at least `additional` blocks at the end of the file.
 /// Returns the number of blocks that have been allocated.
-u64 default_allocator::impl_t::allocate_blocks(u64 additional) {
-    const u64 chunk = chunk_size(additional, m_min_chunk);
-    m_engine.grow(chunk);
-    set_data_total(data_total() + chunk);
-    return chunk;
+std::pair<block_index, u64> default_allocator::impl_t::allocate_blocks(u64 additional, u32 chunk) {
+    const u64 available = m_source.available();
+    if (available < additional) {
+        EXTPP_THROW(bad_alloc("Not enough space left on device."));
+    }
+
+    const block_index begin = m_source.begin();
+    const u64 size = m_source.size();
+    const u64 request = std::min(chunk_size(additional, chunk), available);
+    m_source.grow(request);
+
+    EXTPP_CHECK(m_source.size() == size + request, "Source did not grow by enough blocks.");
+    return std::make_pair(begin + size, request);
+}
+
+std::pair<block_index, u64> default_allocator::impl_t::allocate_data_blocks(u64 additional) {
+    auto range = allocate_blocks(additional, m_min_chunk);
+    set_data_total(data_total() + range.second);
+    return range;
+}
+
+std::pair<block_index, u64> default_allocator::impl_t::allocate_metadata_blocks(u64 additional) {
+    auto range = allocate_blocks(additional, m_min_meta_chunk);
+    set_metadata_total(metadata_total() + range.second);
+    return range;
 }
 
 void default_allocator::impl_t::register_free(extent_t extent, int merge_direction) {
@@ -556,15 +625,12 @@ void default_allocator::impl_t::register_free(extent_t& extent, extent_cursor& p
 
 // Allocate a new chunk of metadata storage and put it on the free list.
 void default_allocator::impl_t::allocate_metadata_chunk() {
-    const u64 chunk = chunk_size(2, m_min_meta_chunk);
-    const block_index block(m_engine.size());
-    m_engine.grow(chunk);
+    const auto [begin, allocated] = allocate_metadata_blocks(2);
 
-    for (u64 i = 0; i < chunk; ++i) {
-        m_meta_freelist.push(block + i);
+    for (u64 i = 0; i < allocated; ++i) {
+        m_meta_freelist.push(begin + i);
     }
-    set_metadata_total(metadata_total() + chunk);
-    set_metadata_free(metadata_free() + chunk);
+    set_metadata_free(metadata_free() + allocated);
 }
 
 block_index default_allocator::impl_t::allocate_metadata_block() {
@@ -597,7 +663,7 @@ default_allocator::allocation_stats_t default_allocator::impl_t::stats() const {
 void default_allocator::impl_t::dump(std::ostream& os) const {
     auto st = stats();
     fmt::print(os,
-               "Default allocator state: \n"
+               "Default allocator state:\n"
                "  Data total:       {} blocks\n"
                "  Data used:        {} blocks\n"
                "  Data free:        {} blocks\n"
@@ -620,7 +686,6 @@ void default_allocator::impl_t::dump(std::ostream& os) const {
         free_extent_t e = c.get();
         fmt::print(os, "  Start: {}, Length: {}\n", e.block, e.size);
     }
-    os << std::flush;
 }
 
 void default_allocator::impl_t::validate() const {
@@ -711,6 +776,11 @@ void default_allocator::impl_t::validate() const {
 default_allocator::default_allocator(anchor_handle<anchor> _anchor, engine& _engine)
     : allocator(_engine)
     , m_impl(std::make_unique<impl_t>(std::move(_anchor), _engine))
+{}
+
+default_allocator::default_allocator(anchor_handle<anchor> _anchor, engine& _engine, block_source& source)
+    : allocator(_engine)
+    , m_impl(std::make_unique<impl_t>(std::move(_anchor), _engine, source))
 {}
 
 default_allocator::~default_allocator() {}

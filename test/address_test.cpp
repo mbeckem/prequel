@@ -67,20 +67,20 @@ TEST_CASE("instance <-> member", "[address]") {
 
 
 namespace {
-static constexpr u32 bs = 32;
+static constexpr u32 block_size = 32;
 }
 
 TEST_CASE("copy", "[address]") {
     auto file = memory_vfs().open("testfile.bin", vfs::read_write, vfs::open_create);
-    file->truncate(50 * bs);
+    file->truncate(50 * block_size);
 
-    file_engine e(*file, bs, 2);
+    file_engine e(*file, block_size, 2);
 
     std::vector<byte> test_data(256);
     for (int i = 0; i < 256; ++i)
         test_data[i] = i;
 
-    std::vector<byte> mem_file(50 * bs); // Mirrors file on "disk".
+    std::vector<byte> mem_file(50 * block_size); // Mirrors file on "disk".
 
     auto write = [&](size_t dest, const byte* data, size_t size) {
         std::memmove(&mem_file[dest], data, size);
@@ -93,7 +93,7 @@ TEST_CASE("copy", "[address]") {
     };
 
     auto equal = [&]() {
-        std::vector<byte> verify(50 * bs);
+        std::vector<byte> verify(50 * block_size);
         read(e, raw_address(0), verify.data(), verify.size());
         REQUIRE(std::equal(mem_file.begin(), mem_file.end(), verify.begin(), verify.end()));
     };

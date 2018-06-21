@@ -58,6 +58,7 @@ public:
 
 private:
     // Unset bytes at the end are zero.
+    // String is not null terminated (i.e. all max_size bytes can be used).
     char m_data[max_size];
 
 public:
@@ -180,6 +181,15 @@ public:
         return root().insert(new_entry);
     }
 
+    /// Search for the file. Returns a cursor to the file entry or an invalid cursor
+    /// if no such file exists.
+    directory::cursor find_file(std::string_view path) {
+        optional<file_name> filename = filename_from_path(path);
+        if (!filename)
+            return {};
+        return root().find(*filename);
+    }
+
     /// Return the file's data to the allocator.
     void destroy_file(file entry) {
         extpp::extent data(make_anchor_handle(entry.extent), m_fmt.get_allocator());
@@ -245,21 +255,18 @@ static int fs_getattr(const char* path, struct stat *st) {
     memset(st, 0, sizeof(*st));
 
     std::string_view view(path);
-
     if (view == "/") {
         st->st_mode = S_IFDIR | 0755;
         return 0;
     }
 
     file_system& fs = fs_context();
-    if (optional<file_name> name = fs.filename_from_path(view)) {
-        auto cursor = fs.root().find(*name);
-        if (cursor) {
-            file entry = cursor.get();
-            st->st_mode = S_IFREG | 0644;
-            st->st_size = entry.size;
-            return 0;
-        }
+    directory::cursor cursor = fs.find_file(view);
+    if (cursor) {
+        file entry = cursor.get();
+        st->st_mode = S_IFREG | 0644;
+        st->st_size = entry.size;
+        return 0;
     }
     return -ENOENT;
 }
@@ -301,9 +308,8 @@ static int fs_create(const char* path, mode_t mode, struct fuse_file_info* fi) {
 
     file_system& fs = fs_context();
     if (optional<file_name> name = fs.filename_from_path(path)) {
-        auto [cursor, inserted] = fs.create_file(*name);
-        (void) cursor;
-        (void) inserted;
+        std::pair<directory::cursor, bool> result = fs.create_file(*name);
+        (void) result; // Ignored for now; just ensure that the file exists.
         return 0;
     }
     return -EINVAL;
@@ -314,16 +320,11 @@ static int fs_open(const char* path, struct fuse_file_info* fi) {
     (void) fi;
 
     file_system& fs = fs_context();
-    if (optional<file_name> name = fs.filename_from_path(path)) {
-        auto cursor = fs.root().find(*name);
-        // We could allocate some state here and store it in fi->fh
-        // for later use in read() etc. That would avoid
-        // the need of repeatedly looking up the file in every read()
-        // or write() call.
-        if (cursor)
-            return 0;
+    directory::cursor cursor = fs.find_file(path);
+    if (cursor) {
+        return 0;
     }
-    return -EINVAL;
+    return -ENOENT;
 }
 
 // Read from a file.
@@ -333,11 +334,7 @@ static int fs_read(const char* path, char* buf, size_t size, off_t offset,
     (void) fi;
 
     file_system& fs = fs_context();
-    optional<file_name> name = fs.filename_from_path(path);
-    if (!name)
-        return -ENOENT;
-
-    auto cursor = fs.root().find(*name);
+    directory::cursor cursor = fs.find_file(path);
     if (!cursor)
         return -ENOENT;
 
@@ -359,7 +356,8 @@ static int fs_read(const char* path, char* buf, size_t size, off_t offset,
     return n;
 }
 
-static bool adapt_capacity(extpp::extent& extent, uint64_t required_bytes) {
+// Grows or shrinks the given extent to fit the number of required bytes.
+static void adapt_capacity(extpp::extent& extent, uint64_t required_bytes) {
     const uint64_t old_blocks = extent.size();
     const uint64_t required_blocks = extpp::ceil_div(required_bytes, static_cast<uint64_t>(block_size));
     if (required_blocks > old_blocks) {
@@ -372,15 +370,14 @@ static bool adapt_capacity(extpp::extent& extent, uint64_t required_bytes) {
                     extent.get_engine().to_address(extent.data()) + old_blocks * block_size,
                     (new_blocks - old_blocks) * block_size);
         assert(extent.size() * block_size >= required_bytes);
-        return true;
+        return;
     }
     if (required_blocks <= old_blocks / 4) {
         // Shrink.
         const uint64_t new_blocks = extpp::round_towards_pow2(required_blocks);
         extent.resize(new_blocks);
-        return true;
+        return;
     }
-    return false;
 }
 
 // Write to a file.
@@ -392,12 +389,7 @@ static int fs_write(const char* path, const char* buf, size_t size, off_t offset
         return -EINVAL;
 
     file_system& fs = fs_context();
-
-    optional<file_name> name = fs.filename_from_path(path);
-    if (!name)
-        return -ENOENT;
-
-    auto cursor = fs.root().find(*name);
+    directory::cursor cursor = fs.find_file(path);
     if (!cursor)
         return -ENOENT;
 
@@ -430,11 +422,7 @@ static int fs_truncate(const char* path, off_t off) {
     const uint64_t new_size = static_cast<uint64_t>(off);
 
     file_system& fs = fs_context();
-    optional<file_name> name = fs.filename_from_path(path);
-    if (!name)
-        return -ENOENT;
-
-    auto cursor = fs.root().find(*name);
+    directory::cursor cursor = fs.find_file(path);
     if (!cursor)
         return -ENOENT;
 
@@ -457,11 +445,7 @@ static int fs_truncate(const char* path, off_t off) {
 // Delete a file.
 static int fs_unlink(const char* path) {
     file_system& fs = fs_context();
-    optional<file_name> name = fs.filename_from_path(path);
-    if (!name)
-        return -ENOENT;
-
-    auto cursor = fs.root().find(*name);
+    directory::cursor cursor = fs.find_file(path);
     if (!cursor)
         return -ENOENT;
 

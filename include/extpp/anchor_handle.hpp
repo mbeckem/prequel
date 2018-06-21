@@ -51,22 +51,46 @@ public:
 
 public:
     /// Returns the anchor's value.
-    Anchor get() const;
+    Anchor get() const {
+        check_valid();
+        return *m_anchor;
+    }
 
     /// Sets the anchor's value.
-    void set(const Anchor& value) const;
+    void set(const Anchor& value) const {
+        check_valid();
+        *m_anchor = value;
+        set_changed();
+    }
 
     /// Returns the anchor's member value specified by the given member data pointer.
     template<auto MemberPtr>
-    member_type_t<decltype(MemberPtr)> get() const;
+    member_type_t<decltype(MemberPtr)> get() const {
+        static_assert(std::is_same_v<object_type_t<decltype(MemberPtr)>, Anchor>,
+                      "The member pointer must belong to this type.");
+        check_valid();
+        return m_anchor->*MemberPtr;
+    }
 
     /// Sets the anchor's member value specified by the given member data pointer.
     template<auto MemberPtr>
-    void set(const member_type_t<decltype(MemberPtr)>& value) const;
+    void set(const member_type_t<decltype(MemberPtr)>& value) const {
+       static_assert(std::is_same_v<object_type_t<decltype(MemberPtr)>, Anchor>,
+                     "The member pointer must belong to this type.");
+        check_valid();
+        m_anchor->*MemberPtr = value;
+        set_changed();
+    }
 
     /// Returns the member of the anchor wrapped into an anchor handle.
     template<auto MemberPtr>
-    anchor_handle<member_type_t<decltype(MemberPtr)>> member() const;
+    anchor_handle<member_type_t<decltype(MemberPtr)>> member() const {
+        static_assert(std::is_same_v<object_type_t<decltype(MemberPtr)>, Anchor>,
+                      "The member pointer must belong to this type.");
+        check_valid();
+        member_type_t<decltype(MemberPtr)>* member = std::addressof(m_anchor->*MemberPtr);
+        return anchor_handle<member_type_t<decltype(MemberPtr)>>(*member, m_flag);
+    }
 
     bool valid() const { return m_anchor != nullptr; }
     explicit operator bool() const { return valid(); }
@@ -75,8 +99,14 @@ private:
     template<typename A>
     friend class anchor_handle;
 
-    void check_valid() const;
-    void set_changed() const;
+    void check_valid() const {
+        EXTPP_ASSERT(valid(), "Invalid handle."); // TODO: Exception?
+    }
+
+    void set_changed() const {
+        if (m_flag)
+            m_flag->set(true);
+    }
 
 private:
     Anchor* m_anchor = nullptr;
@@ -103,59 +133,6 @@ anchor_handle<Anchor>::anchor_handle(Anchor& anchor, anchor_flag* changed)
     : m_anchor(std::addressof(anchor))
     , m_flag(changed)
 {
-}
-
-template<typename Anchor>
-Anchor anchor_handle<Anchor>::get() const {
-    check_valid();
-    return *m_anchor;
-}
-
-template<typename Anchor>
-void anchor_handle<Anchor>::set(const Anchor& value) const {
-    check_valid();
-    *m_anchor = value;
-    set_changed();
-}
-
-template<typename Anchor>
-template<auto MemberPtr>
-member_type_t<decltype(MemberPtr)> anchor_handle<Anchor>::get() const {
-    static_assert(std::is_same_v<object_type_t<decltype(MemberPtr)>, Anchor>,
-                  "The member pointer must belong to this type.");
-    check_valid();
-    return m_anchor->*MemberPtr;
-}
-
-template<typename Anchor>
-template<auto MemberPtr>
-void anchor_handle<Anchor>::set(const member_type_t<decltype(MemberPtr)>& value) const {
-   static_assert(std::is_same_v<object_type_t<decltype(MemberPtr)>, Anchor>,
-                 "The member pointer must belong to this type.");
-    check_valid();
-    m_anchor->*MemberPtr = value;
-    set_changed();
-}
-
-template<typename Anchor>
-template<auto MemberPtr>
-anchor_handle<member_type_t<decltype(MemberPtr)>> anchor_handle<Anchor>::member() const {
-    static_assert(std::is_same_v<object_type_t<decltype(MemberPtr)>, Anchor>,
-                  "The member pointer must belong to this type.");
-    check_valid();
-    member_type_t<decltype(MemberPtr)>* member = std::addressof(m_anchor->*MemberPtr);
-    return anchor_handle<member_type_t<decltype(MemberPtr)>>(*member, m_flag);
-}
-
-template<typename Anchor>
-void anchor_handle<Anchor>::check_valid() const {
-    EXTPP_ASSERT(valid(), "Invalid handle."); // TODO: Exception?
-}
-
-template<typename Anchor>
-void anchor_handle<Anchor>::set_changed() const {
-    if (m_flag)
-        m_flag->set(true);
 }
 
 } // namespace extpp
