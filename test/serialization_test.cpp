@@ -41,6 +41,19 @@ struct test1 {
     }
 };
 
+// Trivial serialization for bytes and byte containers. The compile down to a single memcpy call.
+static_assert(detail::use_trivial_serializer<char>());
+static_assert(detail::use_trivial_serializer<unsigned char>());
+static_assert(detail::use_trivial_serializer<signed char>());
+static_assert(detail::use_trivial_serializer<i8>());
+static_assert(detail::use_trivial_serializer<u8>());
+static_assert(detail::use_trivial_serializer<char[32]>());
+static_assert(detail::use_trivial_serializer<std::array<char, 16>>());
+static_assert(detail::use_trivial_serializer<std::array<std::array<std::array<char, 16>, 16>, 16>>());
+static_assert(detail::use_trivial_serializer<std::array<char[32], 5>>());
+static_assert(!detail::use_trivial_serializer<u32>());
+static_assert(!detail::use_trivial_serializer<test1>());
+
 template<typename T>
 auto make_serialized(const T& value) {
     std::array<byte, serialized_size<T>()> buffer;

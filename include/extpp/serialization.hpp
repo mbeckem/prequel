@@ -34,6 +34,49 @@ const byte* deserialize(T& v, const byte* buffer);
 
 namespace detail {
 
+template<typename T>
+struct detect_array : std::false_type {};
+
+template<typename T, size_t N>
+struct detect_array<T[N]> : std::true_type {
+    using value_type = T;
+};
+
+template<typename T>
+struct detect_std_array : std::false_type {};
+
+template<typename T, size_t N>
+struct detect_std_array<std::array<T, N>> : std::true_type {};
+
+template<typename T>
+constexpr bool is_byte_v = std::is_same_v<T, char> || std::is_same_v<T, signed char> || std::is_same_v<T, unsigned char> || std::is_same_v<T, u8> || std::is_same_v<T, i8>;
+
+template<typename T>
+constexpr bool use_trivial_serializer() {
+    if constexpr (is_byte_v<T>) {
+        return true;
+    } else if constexpr (detect_array<T>::value) {
+        return use_trivial_serializer<typename detect_array<T>::value_type>();
+    } else if constexpr (detect_std_array<T>::value) {
+        return use_trivial_serializer<typename T::value_type>();
+    } else {
+        return false;
+    }
+}
+
+template<typename T>
+struct trivial_serializer {
+    static constexpr size_t serialized_size = sizeof(T);
+
+    static void serialize(const T& v, byte* b) {
+        std::memcpy(b, std::addressof(v), sizeof(T));
+    }
+
+    static void deserialize(T& v, const byte* b) {
+        std::memcpy(std::addressof(v), b, sizeof(T));
+    }
+};
+
 template<typename T, typename = void>
 struct has_explicit_serializer : std::false_type {};
 
@@ -67,21 +110,6 @@ struct big_endian_serializer {
     }
 };
 
-template<typename T>
-struct trivial_serializer {
-    static constexpr size_t serialized_size = sizeof(T);
-
-    static void serialize(T v, byte *b) {
-        std::memcpy(b, &v, sizeof(T));
-    }
-
-    static void deserialize(T& v, const byte* b) {
-        std::memcpy(&v, b, sizeof(T));
-    }
-};
-
-template<>
-struct default_serializer<u8> : trivial_serializer<u8> {};
 template<>
 struct default_serializer<u16> : big_endian_serializer<u16, 2> {};
 template<>
@@ -91,31 +119,11 @@ struct default_serializer<u64> : big_endian_serializer<u64, 8> {};
 
 // std::intN_t types are specified to use 2s complement.
 template<>
-struct default_serializer<i8> : trivial_serializer<i8> {};
-template<>
 struct default_serializer<i16> : big_endian_serializer<i16, 2> {};
 template<>
 struct default_serializer<i32> : big_endian_serializer<i32, 4> {};
 template<>
 struct default_serializer<i64> : big_endian_serializer<i64, 8> {};
-
-// Char weirdness below...
-template<typename T>
-struct default_serializer<
-        T,
-        std::enable_if_t<std::is_same_v<T, char> && !std::is_same_v<char, u8> && !std::is_same_v<char, i8>>
-> : trivial_serializer<char> {};
-
-template<typename T>
-struct default_serializer<
-        T,
-        std::enable_if_t<std::is_same_v<T, unsigned char> && !std::is_same_v<unsigned char, u8>>
-> : trivial_serializer<unsigned char> {};
-
-template<typename T>
-struct default_serializer<
-        T, std::enable_if_t<std::is_same_v<T, signed char> && !std::is_same_v<signed char, i8>>
-> : trivial_serializer<signed char> {};
 
 // Endianess for floating points is a complete mess if one wants to be
 // truly cross-platform. There are apparently machine that have different
@@ -400,6 +408,7 @@ struct explicit_serializer {
 };
 
 enum class serializer_kind {
+    trivial_serialization,
     default_serialization,
     binary_format_serialization,
     explicit_serialization,
@@ -407,10 +416,13 @@ enum class serializer_kind {
 
 template<typename T>
 constexpr auto which_serializer() {
+    if constexpr (use_trivial_serializer<T>()) {
+        return serializer_kind::trivial_serialization;
+    }
     if constexpr (std::is_class_v<T> || std::is_union_v<T>) {
         if constexpr (has_explicit_serializer<T>::value) {
             return serializer_kind::explicit_serialization;
-        } else if (has_binary_format<T>()) {
+        } else if constexpr (has_binary_format<T>()) {
             return serializer_kind::binary_format_serialization;
         }
     }
@@ -419,6 +431,11 @@ constexpr auto which_serializer() {
 
 template<typename T, serializer_kind Kind = which_serializer<T>()>
 struct select_serializer;
+
+template<typename T>
+struct select_serializer<T, serializer_kind::trivial_serialization> {
+    using type = trivial_serializer<T>;
+};
 
 template<typename T>
 struct select_serializer<T, serializer_kind::default_serialization> {
