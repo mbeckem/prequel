@@ -451,6 +451,7 @@ block_index default_allocator::impl_t::allocate_new_space(u64 request) {
     EXTPP_ASSERT(extent.block + extent.size == begin, "Unexpected allocated block index.");
     EXTPP_ASSERT(allocated >= required, "Basic allocation invariant.");
     EXTPP_ASSERT(extent.size + allocated >= request, "Insufficient allocation.");
+    unused(begin);
 
     extent.size = request;
     if (pos) {
@@ -477,6 +478,7 @@ bool default_allocator::impl_t::grow_in_place(extent_cursor& pos, extent_t& exte
     if (borders_end(extent)) {
         const auto [begin, allocated] = allocate_data_blocks(additional);
         EXTPP_ASSERT(extent.block + extent.size == begin, "Unexpected block index.");
+        unused(begin);
 
         const u64 remainder = allocated - additional;
         extent.size += additional;
@@ -510,6 +512,7 @@ bool default_allocator::impl_t::grow_in_place(extent_cursor& pos, extent_t& exte
         remove_free(next_extent);
         const auto [begin, allocated] = allocate_data_blocks(additional - next_extent.size);
         EXTPP_ASSERT(next_extent.block + next_extent.size == begin, "Unexpected block index.");
+        unused(begin);
 
         next_extent.size += allocated;
         set_data_free(data_free() + allocated);

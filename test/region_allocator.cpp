@@ -50,4 +50,6 @@ TEST_CASE("region allocator usage", "[region-allocator]") {
     block_index i2 = alloc.allocate(1);
     REQUIRE(alloc.used() == 64 + 16); // Enough space remained.
     REQUIRE(i2.value() == (i1 + 40).value());
+
+    alloc.validate();
 }
