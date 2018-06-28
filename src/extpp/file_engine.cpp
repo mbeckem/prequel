@@ -9,11 +9,22 @@
 #include <boost/intrusive_ptr.hpp>
 #include <boost/intrusive/list.hpp>
 #include <boost/intrusive/unordered_set.hpp>
+#include <boost/intrusive/set.hpp>
 #include <boost/intrusive/list_hook.hpp>
+
+#include <fmt/format.h>
 
 #include <exception>
 #include <iosfwd>
 #include <type_traits>
+
+#ifdef EXTPP_TRACE_IO
+#   define EXTPP_PRINT_READ(index) (fmt::print("Reading block {}\n", (index)))
+#   define EXTPP_PRINT_WRITE(index) (fmt::print("Writing block {}\n", (index)))
+#else
+#   define EXTPP_PRINT_READ(index)
+#   define EXTPP_PRINT_WRITE(index)
+#endif
 
 namespace extpp {
 
@@ -62,8 +73,8 @@ public:
     boost::intrusive::unordered_set_member_hook<> m_map_hook;
 
     /// Marks the block as dirty and links all dirty blocks together
-    /// in a list. Used by the block_dirty_set.
-    boost::intrusive::list_member_hook<> m_dirty_hook;
+    /// in an ordered sequence. Used by the block_dirty_set.
+    boost::intrusive::set_member_hook<> m_dirty_hook;
 
     explicit block(file_engine_impl* engine, u32 block_size)
         : m_engine(engine)
@@ -131,6 +142,15 @@ public:
     }
 };
 
+// Blocks are indexed by their block index.
+struct block_key {
+    using type = u64;
+
+    u64 operator()(const block& blk) const noexcept {
+        return blk.index();
+    }
+};
+
 /// Keeps the N most recently used blocks in a linked list.
 /// Membership in the cache counts as an additional reference,
 /// keeping the block alive for further use.
@@ -190,15 +210,6 @@ private:
 /// it will be removed from this map.
 /// Note: Membership does *not* count towards the ref count.
 struct block_map {
-    // Blocks are indexed by their block index.
-    struct block_key {
-        using type = u64;
-
-        u64 operator()(const block& blk) const noexcept {
-            return blk.index();
-        }
-    };
-
     struct block_index_hash {
         size_t operator()(u64 index) const noexcept {
             return boost::hash_value(index);
@@ -273,7 +284,8 @@ public:
 };
 
 /// Stores reuseable block instances.
-class block_pool {
+struct block_pool {
+private:
     using list_t = boost::intrusive::list<
         block,
         boost::intrusive::member_hook<
@@ -317,26 +329,29 @@ private:
     static void dispose(block* blk) noexcept;
 };
 
-class block_dirty_set {
-    using list_t = boost::intrusive::list<
+struct block_dirty_set {
+private:
+    // Set of dirty blocks, indexed by block index.
+    using set_t = boost::intrusive::set<
         block,
         boost::intrusive::member_hook<
-            block, boost::intrusive::list_member_hook<>, &block::m_dirty_hook
-        >
+            block, boost::intrusive::set_member_hook<>, &block::m_dirty_hook
+        >,
+        boost::intrusive::key_of_value<block_key>
     >;
 
 private:
     /// List of all dirty blocks.
-    list_t m_list;
+    set_t m_set;
 
 public:
     block_dirty_set();
 
     ~block_dirty_set();
 
-    auto begin() noexcept { return m_list.begin(); }
+    auto begin() noexcept { return m_set.begin(); }
 
-    auto end() noexcept { return m_list.end(); }
+    auto end() noexcept { return m_set.end(); }
 
     /// Marks the block as dirty.
     void add(block& blk) noexcept;
@@ -350,7 +365,7 @@ public:
 
     void clear() noexcept;
 
-    size_t size() const { return m_list.size(); }
+    size_t size() const { return m_set.size(); }
 
     block_dirty_set(const block_dirty_set&) = delete;
     block_dirty_set& operator=(const block_dirty_set&) = delete;
@@ -402,6 +417,9 @@ public:
     u32 block_size() const noexcept { return m_block_size; }
 
     const file_engine_stats& stats() const noexcept { return m_stats; }
+
+    /// Access the block if it's cached, otherwise return an invalid pointer.
+    boost::intrusive_ptr<block> access(u64 index);
 
     /// Reads the block at the given address and returns a handle to it.
     /// No actual I/O is performed if the block is already in memory.
@@ -656,20 +674,22 @@ block_dirty_set::~block_dirty_set()
 
 void block_dirty_set::clear() noexcept
 {
-    m_list.clear();
+    m_set.clear();
 }
 
 void block_dirty_set::add(block& blk) noexcept
 {
     if (!contains(blk)) {
-        m_list.push_back(blk);
+        auto pair = m_set.insert(blk);
+        EXTPP_ASSERT(pair.second, "Insertion must have succeeded "
+                                  "because the block was not dirty.");
     }
 }
 
 void block_dirty_set::remove(block& blk) noexcept
 {
     EXTPP_ASSERT(contains(blk), "block is not dirty");
-    m_list.erase(m_list.iterator_to(blk));
+    m_set.erase(m_set.iterator_to(blk));
 }
 
 // --------------------------------
@@ -720,9 +740,16 @@ file_engine_impl::~file_engine_impl()
     m_pool.clear();
 }
 
+boost::intrusive_ptr<block> file_engine_impl::access(u64 index)
+{
+    block* blk = m_blocks.find(index);
+    return boost::intrusive_ptr<block>(blk);
+}
+
 boost::intrusive_ptr<block> file_engine_impl::read(u64 index)
 {
     return read_impl(index, [&](byte* data) {
+        EXTPP_PRINT_READ(index);
         m_file->read(index * m_block_size, data, m_block_size);
         ++m_stats.reads;
     });
@@ -784,6 +811,8 @@ void file_engine_impl::flush()
     for (auto i = m_dirty.begin(), e = m_dirty.end();
          i != e; )
     {
+        // Compute successor iterator here, flush_block will remove
+        // the block from the dirty set and invalidate `i`.
         auto n = std::next(i);
         flush_block(*i);
         i = n;
@@ -801,13 +830,16 @@ void file_engine_impl::flush_block(block& blk)
 {
     EXTPP_ASSERT(blk.m_block_size == m_block_size,
                 "block size invariant");
+    EXTPP_ASSERT(m_dirty.contains(blk),
+                 "Block must be registered as dirty.");
+    EXTPP_ASSERT(blk.m_dirty,
+                 "Block must be marked as dirty, too.");
 
-    if (m_dirty.contains(blk)) {
-        m_file->write(blk.m_index * m_block_size, blk.m_data, m_block_size);
-        m_dirty.remove(blk);
-        blk.m_dirty = false;
-        ++m_stats.writes;
-    }
+    EXTPP_PRINT_WRITE(blk.m_index);
+    m_file->write(blk.m_index * m_block_size, blk.m_data, m_block_size);
+    m_dirty.remove(blk);
+    blk.m_dirty = false;
+    ++m_stats.writes;
 }
 
 void file_engine_impl::finalize_block(block& blk) noexcept
@@ -816,7 +848,9 @@ void file_engine_impl::finalize_block(block& blk) noexcept
     EXTPP_ASSERT(blk.m_engine == this, "block belongs to wrong engine");
 
     try {
-        flush_block(blk);
+        if (blk.m_dirty) {
+            flush_block(blk);
+        }
     } catch (...) {
         // Because this function is called from a noexcept context (the block handle's
         // destructor), we don't have a place where we can report the issue.
@@ -884,18 +918,22 @@ void file_engine::do_grow(u64 n) {
     fd().truncate(new_size_bytes);
 }
 
+block_handle file_engine::do_access(block_index index) {
+    if (boost::intrusive_ptr<block> blk = impl().access(index.value())) {
+        return block_handle(this, blk.detach());
+    }
+    return block_handle();
+}
+
 block_handle file_engine::do_read(block_index index) {
-    EXTPP_CHECK(index, "Invalid index.");
     return block_handle(this, impl().read(index.value()).detach());
 }
 
 block_handle file_engine::do_zeroed(block_index index) {
-    EXTPP_CHECK(index, "Invalid index.");
     return block_handle(this, impl().overwrite_zero(index.value()).detach());
 }
 
 block_handle file_engine::do_overwritten(block_index index, const byte* data) {
-    EXTPP_CHECK(index, "Invalid index.");
     return block_handle(this, impl().overwrite_with(index.value(), data).detach());
 }
 

@@ -36,7 +36,9 @@ public:
     explicit default_file_format(file& f, u32 block_size, u32 cache_size);
 
     ~default_file_format() {
-        flush();
+        try {
+            flush();
+        } catch (...) {}
     }
 
     default_file_format(const default_file_format&) = delete;

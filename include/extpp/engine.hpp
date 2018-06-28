@@ -292,6 +292,13 @@ public:
     /// Grows the underyling storage by `n` blocks.
     void grow(u64 n) { return do_grow(n); }
 
+    /// Returns a handle to the given block if it already loaded into main memory.
+    /// Otherwise returns an invalid handle.
+    block_handle access(block_index index) {
+        EXTPP_CHECK(index, "Invalid index.");
+        return do_access(index);
+    }
+
     /// Reads the block at the given index and returns a handle to it.
     /// Throws if an I/O error occurs.
     block_handle read(block_index index) {
@@ -334,6 +341,7 @@ public:
 protected:
     virtual u64 do_size() const = 0;
     virtual void do_grow(u64 n) = 0;
+    virtual block_handle do_access(block_index index) = 0;
     virtual block_handle do_read(block_index index) = 0;
     virtual block_handle do_zeroed(block_index index) = 0;
     virtual block_handle do_overwritten(block_index index, const byte* data) = 0;

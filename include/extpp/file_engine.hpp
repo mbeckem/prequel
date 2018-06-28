@@ -53,6 +53,7 @@ public:
 private:
     u64 do_size() const override;
     void do_grow(u64 n) override;
+    block_handle do_access(block_index index) override;
     block_handle do_read(block_index index) override;
     block_handle do_zeroed(block_index index) override;
     block_handle do_overwritten(block_index index, const byte* data) override;
