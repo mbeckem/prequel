@@ -232,7 +232,6 @@ static const fuse_operations operations = []{
     fuse_operations ops;
     std::memset(&ops, 0, sizeof(ops));
 
-    // TODO set attr
     ops.readdir = trap<fs_readdir>();
     ops.utimens = trap<fs_utimens>();
     ops.getattr = trap<fs_getattr>();
@@ -329,7 +328,9 @@ int main(int argc, char* argv[]) {
     auto file = extpp::system_vfs().open(options.filename,
                                          extpp::vfs::read_write,
                                          extpp::vfs::open_create);
-    file_engine engine(*file, block_size, (128 * (1 << 20)) / block_size); // TODO config for cache.
+
+    // Limits the cache to 128 MB.
+    file_engine engine(*file, block_size, (128 * (1 << 20)) / block_size);
     filesystem fs(engine);
 
     int ret = fuse_main(args.argc, args.argv, &operations, &fs);
