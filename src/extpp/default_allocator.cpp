@@ -1,5 +1,7 @@
 #include <extpp/default_allocator.hpp>
 
+#include <extpp/detail/deferred.hpp>
+
 #include <fmt/ostream.h>
 
 namespace extpp {
@@ -102,6 +104,9 @@ private:
     block_index allocate_new_space(u64 request);
 
     bool grow_in_place(extent_cursor& pos, extent_t& extent, u64 additional);
+    bool grow_at_end(extent_cursor& pos, extent_t& extent, u64 additional);
+    block_index grow_left(extent_cursor& pos, extent_t& extent, u64 additional);
+
     std::pair<block_index, u64> allocate_blocks(u64 additional, u32 chunk_size);
     std::pair<block_index, u64> allocate_data_blocks(u64 additional);
     std::pair<block_index, u64> allocate_metadata_blocks(u64 additional);
@@ -331,21 +336,31 @@ block_index default_allocator::impl_t::reallocate(block_index block, u64 request
         return block;
     }
 
-    // Try to grow without reallocation.
+    // Try to grow without reallocation by claiming space to the right.
     if (grow_in_place(pos, extent, request - extent.size)) {
         return block;
     }
 
-    // TODO: The might be a free neighbor to the left.
+    // Attempt to use free space to the left.
+    if (block_index new_block = grow_left(pos, extent, request - extent.size)) {
+        return new_block;
+    }
+
+    // Attept to allocate from the end of the file (if this is the last extent).
+    if (grow_at_end(pos, extent, request - extent.size)) {
+        return block;
+    }
 
     // Allocate a new chunk that is large enough and copy the data over.
     block_index new_block = allocate(request);
-    copy(m_engine,
-         m_engine.to_address(new_block),
-         m_engine.to_address(extent.block),
-         extent.size * m_engine.block_size());
+    detail::deferred guard = [&]{
+        free(new_block);
+    };
+
+    copy_blocks(m_engine, new_block, extent.block, extent.size);
 
     free(extent.block);
+    guard.disable();
     return new_block;
 }
 
@@ -474,23 +489,6 @@ bool default_allocator::impl_t::grow_in_place(extent_cursor& pos, extent_t& exte
     EXTPP_ASSERT(pos, "Invalid cursor.");
     EXTPP_ASSERT(additional > 0, "Zero sized allocation.");
 
-    // Attempt to allocate from the end of file.
-    if (borders_end(extent)) {
-        const auto [begin, allocated] = allocate_data_blocks(additional);
-        EXTPP_ASSERT(extent.block + extent.size == begin, "Unexpected block index.");
-        unused(begin);
-
-        const u64 remainder = allocated - additional;
-        extent.size += additional;
-        pos.set(extent);
-
-        if (remainder > 0) {
-            register_free(extent_t(extent.block + extent.size, remainder, true), merge_none);
-            set_data_free(data_free() + remainder);
-        }
-        return true;
-    }
-
     // Try to allocate from the right free extent (if it exists).
     extent_cursor next_pos = pos;
     next_pos.move_next();
@@ -545,6 +543,70 @@ bool default_allocator::impl_t::grow_in_place(extent_cursor& pos, extent_t& exte
     return true;
 }
 
+/// Attempt to allocate from the end of file.
+bool default_allocator::impl_t::grow_at_end(extent_cursor& pos, extent_t& extent, u64 additional) {
+    if (!borders_end(extent)) {
+        return false;
+    }
+
+    const auto [begin, allocated] = allocate_data_blocks(additional);
+    EXTPP_ASSERT(extent.block + extent.size == begin, "Unexpected block index.");
+    unused(begin);
+
+    const u64 remainder = allocated - additional;
+    extent.size += additional;
+    pos.set(extent);
+
+    if (remainder > 0) {
+        register_free(extent_t(extent.block + extent.size, remainder, true), merge_none);
+        set_data_free(data_free() + remainder);
+    }
+    return true;
+}
+
+/// Try to allocate `additional` blocks for the existing extent by merging with
+/// a free neighbor immediately to the left.
+block_index default_allocator::impl_t::grow_left(extent_cursor& pos, extent_t& extent, u64 additional) {
+    EXTPP_ASSERT(pos, "Invalid cursor.");
+    EXTPP_ASSERT(additional > 0, "Zero sized allocation.");
+
+    extent_cursor left_pos = pos;
+    left_pos.move_prev();
+    if (!left_pos) {
+        // No left neighbor.
+        return block_index();
+    }
+
+    extent_t left_extent = left_pos.get();
+    if (!extents_touch(left_extent, extent)) {
+        // Gap between the two extents that we don't control.
+        return block_index();
+    }
+
+    if (!left_extent.free || left_extent.size < additional) {
+        // Not free or not enough space.
+        return block_index();
+    }
+
+    // Move all data to the beginning of the left extent.
+    // The remainder (if any) will be at the end of the current extent.
+    const u64 remainder = left_extent.size - additional;
+    if (remainder > 0) {
+        register_free(extent_t(extent.block + extent.size - remainder, remainder, true), merge_right);
+    }
+
+    remove_free(left_extent);
+    set_data_free(data_free() - additional);
+
+    left_extent.size = extent.size + additional;
+    left_extent.free = false;
+    left_pos.set(left_extent);
+    pos.erase();
+
+    copy_blocks(m_engine, left_extent.block, extent.block, extent.size);
+    return left_extent.block;
+}
+
 /// Allocate at least `additional` blocks at the end of the file.
 /// Returns the number of blocks that have been allocated.
 std::pair<block_index, u64> default_allocator::impl_t::allocate_blocks(u64 additional, u32 chunk) {
@@ -574,6 +636,7 @@ std::pair<block_index, u64> default_allocator::impl_t::allocate_metadata_blocks(
     return range;
 }
 
+// TODO: Exception safe (remove extent again if register_free at the bottom fails).
 void default_allocator::impl_t::register_free(extent_t extent, int merge_direction) {
     extent_cursor pos;
     bool inserted;
@@ -584,6 +647,7 @@ void default_allocator::impl_t::register_free(extent_t extent, int merge_directi
     register_free(extent, pos, merge_direction);
 }
 
+// TODO: Exception safety (since add_free at the bottom might allocate).
 void default_allocator::impl_t::register_free(extent_t& extent, extent_cursor& pos, int merge_direction) {
     EXTPP_ASSERT(extent.free, "Extent must be free.");
 
@@ -630,7 +694,7 @@ void default_allocator::impl_t::register_free(extent_t& extent, extent_cursor& p
 void default_allocator::impl_t::allocate_metadata_chunk() {
     const auto [begin, allocated] = allocate_metadata_blocks(2);
 
-    for (u64 i = 0; i < allocated; ++i) {
+    for (u64 i = allocated; i-- > 0; ) {
         m_meta_freelist.push(begin + i);
     }
     set_metadata_free(metadata_free() + allocated);

@@ -195,6 +195,41 @@ TEST_CASE("default allocator", "[default-allocator]") {
 
         alloc.validate();
     }
+
+    SECTION("reallocate reuses space from the right") {
+        alloc.min_chunk(32);
+
+        auto a1 = alloc.allocate(10);
+        auto a2 = alloc.allocate(10);
+        alloc.free(a2);
+        REQUIRE(alloc.stats().data_free == 22);
+
+        auto a3 = alloc.reallocate(a1, 32);
+        REQUIRE(a1 == a3);
+        REQUIRE(alloc.allocated_size(a3) == 32);
+        REQUIRE(alloc.stats().data_free == 0);
+    }
+
+    SECTION("reallocate reuses space from the left") {
+        alloc.min_chunk(32);
+
+        auto a1 = alloc.allocate(30);
+        auto a2 = alloc.allocate(2);
+        REQUIRE(alloc.stats().data_free == 0);
+
+        alloc.free(a1);
+        auto a3 = alloc.reallocate(a2, 3);
+        REQUIRE(a3 == a1); // All the way to the left.
+        REQUIRE(alloc.allocated_size(a3) == 3);
+        REQUIRE(alloc.stats().data_free == 29);
+
+        auto a4 = alloc.reallocate(a3, 32);
+        REQUIRE(a4 == a3);
+        REQUIRE(alloc.allocated_size(a4) == 32);
+        REQUIRE(alloc.stats().data_free == 0);
+
+        alloc.validate();
+    }
 }
 
 namespace {

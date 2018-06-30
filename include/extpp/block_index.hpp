@@ -10,6 +10,8 @@
 
 namespace extpp {
 
+class engine;
+
 /// References a block in secondary storage by index.
 class block_index :
         public detail::make_addable<block_index, u64>,
@@ -76,6 +78,12 @@ public:
 private:
     u64 m_value = invalid_value;
 };
+
+/// Zeroes `size` blocks, starting from `index`.
+void zero_blocks(engine& e, block_index index, u64 size);
+
+/// Copies `size` blocks from `src` to `dest`. The block ranges can overlap.
+void copy_blocks(engine& e, block_index dest, block_index src, u64 size);
 
 } // namespace extpp
 

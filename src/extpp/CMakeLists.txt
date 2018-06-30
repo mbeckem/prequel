@@ -47,6 +47,7 @@ set(PRIVATE_HEADERS
 set(SOURCES
      address.cpp
      assert.cpp
+     block_index.cpp
      default_allocator.cpp
      exception.cpp
      extent.cpp

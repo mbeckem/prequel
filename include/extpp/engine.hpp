@@ -284,6 +284,11 @@ public:
         return u32(addr.value()) & m_offset_mask;
     }
 
+    /// Converts the block count to a number of bytes.
+    u64 to_byte_size(u64 block_count) const noexcept {
+        return block_count << m_block_size_log;
+    }
+
     /// Returns the size of the underlying storage, in blocks.
     /// All block indices in `[0, size())` are valid for
     /// I/O operations.
