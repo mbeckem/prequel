@@ -737,24 +737,19 @@ bool raw_btree_impl::insert(const byte* value, raw_btree_cursor_impl& cursor) {
 void raw_btree_impl::seek_insert_location(const byte* key, raw_btree_cursor_impl& cursor) {
     EXTPP_ASSERT(height() > 0, "Tree must not be empty at this point.");
 
-    // Current parent entry (node + index), as a reference. Careful with manipulations of the stack.
-    auto last_entry = [&]() -> auto& {
-        return cursor.parents.back();
-    };
-
-    // Find the appropriate child node and push it as a stack entry.
-    auto push_entry = [&](const internal_node& parent) {
-        raw_btree_cursor_impl::internal_entry entry;
-        entry.node = parent;
-        entry.index = lower_bound(entry.node, key);
-        cursor.parents.push_back(std::move(entry));
-    };
-
     // For every level of internal nodes.
     block_index current = root();
     for (u32 level = height() - 1; level > 0; --level) {
         internal_node internal = read_internal(current);
-        push_entry(internal);
+
+        // Find the appropriate child node and push it as a stack entry. The entry might change
+        // as the result of a node split in the code below.
+        {
+            raw_btree_cursor_impl::internal_entry entry;
+            entry.node = internal;
+            entry.index = lower_bound(entry.node, key);
+            cursor.parents.push_back(std::move(entry));
+        }
 
         // Split if full, then insert new internal node into the parent.
         if (internal.get_child_count() == internal.max_children()) {
@@ -781,7 +776,8 @@ void raw_btree_impl::seek_insert_location(const byte* key, raw_btree_cursor_impl
         }
 
         // Update with (possibly changed) node info.
-        current = last_entry().node.get_child(last_entry().index);
+        const auto& last_entry = cursor.parents.back();
+        current = last_entry.node.get_child(last_entry.index);
     }
 
     // Reached the leaf level. Note that the leaf node can be full at this point.
@@ -2290,6 +2286,7 @@ u32 raw_btree_cursor::key_size() const { return impl().key_size(); }
 bool raw_btree_cursor::at_end() const { return !m_impl || impl().at_end(); }
 bool raw_btree_cursor::erased() const { return m_impl && impl().erased(); }
 
+void raw_btree_cursor::reset() { return impl().reset_to_invalid(); }
 bool raw_btree_cursor::move_min() { return impl().move_min(); }
 bool raw_btree_cursor::move_max() { return impl().move_max(); }
 bool raw_btree_cursor::move_next() { return impl().move_next(); }

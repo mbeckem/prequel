@@ -28,6 +28,8 @@ using std::size_t;
 static_assert(CHAR_BIT == 8,
               "Bytes with a size other than 8 bits are not supported.");
 
+// Marks the passed arguments as "used" to shut up warnings.
+// The function will do nothing with its argument.
 template<typename... Args>
 void unused(Args&&...) {}
 

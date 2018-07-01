@@ -77,7 +77,7 @@ add_library(extpp ${SOURCES} ${PUBLIC_HEADERS} ${PRIVATE_HEADERS})
 target_link_libraries(extpp PUBLIC fmt::fmt)
 target_include_directories(extpp PUBLIC "${PROJECT_SOURCE_DIR}/include")
 target_include_directories(extpp PRIVATE "${PROJECT_SOURCE_DIR}/src")
-target_include_directories(extpp PUBLIC SYSTEM ${Boost_INCLUDE_DIRS})
+target_include_directories(extpp SYSTEM PUBLIC ${Boost_INCLUDE_DIRS})
 
 if (UNIX)
     # TODO: glibc specific

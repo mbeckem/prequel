@@ -290,6 +290,9 @@ public:
     bool erased() const;
     explicit operator bool() const { return !at_end(); }
 
+    /// Reset the iterator. `at_end()` will return true.
+    void reset();
+
     /// Move this cursor to the smallest value in the tree (leftmost value).
     bool move_min();
 

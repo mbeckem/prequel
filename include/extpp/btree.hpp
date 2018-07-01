@@ -57,6 +57,7 @@ public:
         bool erased() const { return inner.erased(); }
         explicit operator bool() const { return static_cast<bool>(inner); }
 
+        void reset() { inner.reset(); }
         void move_min() { inner.move_min(); }
         void move_max() { inner.move_max(); }
         void move_next() { inner.move_next(); }

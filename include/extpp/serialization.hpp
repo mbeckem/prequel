@@ -208,7 +208,7 @@ struct default_serializer<std::array<T, N>> {
 
 template<typename T1, typename T2>
 struct default_serializer<std::pair<T1, T2>> {
-    static constexpr size_t serialize_size = extpp::serialized_size<T1>() + extpp::serialized_size<T2>();
+    static constexpr size_t serialized_size = extpp::serialized_size<T1>() + extpp::serialized_size<T2>();
 
     static void serialize(const std::pair<T1, T2>& v, byte* b) {
         b = extpp::serialize(v.first, b);
@@ -349,6 +349,14 @@ struct default_serializer<std::variant<T...>> {
         #undef EXTPP_VARIANT_CASE
         }
     }
+};
+
+template<>
+struct default_serializer<std::monostate> {
+    static constexpr size_t serialized_size = 0;
+
+    static void serialize(const std::monostate&, byte*) {}
+    static void deserialize(std::monostate&, const byte*) {}
 };
 
 template<typename T, typename U, typename V>

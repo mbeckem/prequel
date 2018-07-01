@@ -19,12 +19,13 @@ namespace extpp {
 template<typename UserData>
 class default_file_format {
 private:
-    struct main_anchor {
+    struct anchor {
         UserData user;
+        u32 block_size = 0;
         default_allocator::anchor alloc;
 
         static constexpr auto get_binary_format() {
-            return make_binary_format(&main_anchor::user, &main_anchor::alloc);
+            return make_binary_format(&anchor::user, &anchor::block_size, &anchor::alloc);
         }
     };
 
@@ -46,24 +47,24 @@ public:
 
     file_engine& get_engine() const { return *m_engine; }
     default_allocator& get_allocator() const { return *m_allocator; }
-    handle<UserData> get_user_data() const { return m_handle.template member<&main_anchor::user>(); }
+    anchor_handle<UserData> get_user_data() const { return m_anchor_handle.template member<&anchor::user>(); }
 
     void flush() {
-        if (m_allocator_anchor_changed) {
-            m_handle.template set<&main_anchor::alloc>(m_allocator_anchor);
-            m_allocator_anchor_changed.reset();
+        if (m_anchor_changed) {
+            m_handle.set(m_anchor_data);
+            m_anchor_changed.reset();
         }
-
         m_engine->flush(); // TODO: Sync?
     }
 
 private:
     file* m_file = nullptr;
     std::unique_ptr<file_engine> m_engine;
-    handle<main_anchor> m_handle;
-    default_allocator::anchor m_allocator_anchor;
-    anchor_flag m_allocator_anchor_changed;
-    std::unique_ptr<default_allocator> m_allocator;
+    handle<anchor> m_handle;                        ///< Keeps the main block in memory.
+    anchor m_anchor_data;                           ///< In-Memory representation of the anchor.
+    anchor_flag m_anchor_changed;                   ///< Changed flag (for flush).
+    anchor_handle<anchor> m_anchor_handle;          ///< Anchor handle to pass around, points to m_anchor_data.
+    std::unique_ptr<default_allocator> m_allocator; ///< Main allocator used by the file.
 };
 
 template<typename Anchor>
@@ -84,16 +85,27 @@ inline default_file_format<Anchor>::default_file_format(file& f, u32 block_size,
         m_engine->grow(1);
         m_handle.reset(m_engine->zeroed(block_index(0)), 0);
         m_handle.construct();
+        m_handle.template set<&anchor::block_size>(m_engine->block_size());
         m_engine->flush();
     } else {
         m_handle.reset(m_engine->read(block_index(0)), 0);
-        // TODO: Verify first block (checksum etc ?)
     }
 
-    m_allocator_anchor = m_handle.template get<&main_anchor::alloc>();
+    m_anchor_data = m_handle.get();
+
+    // Verify meta information.
+    // TODO: More (e.g. version, checksum).
+    if (m_anchor_data.block_size != m_engine->block_size()) {
+        std::string message = fmt::format(
+                    "File was opened with invalid block size ({}), "
+                    "its original block size is {}.",
+                    m_engine->block_size(), m_anchor_data.block_size);
+        EXTPP_THROW(corruption_error(std::move(message)));
+    }
+
+    m_anchor_handle = make_anchor_handle(m_anchor_data, m_anchor_changed);
     m_allocator = std::make_unique<default_allocator>(
-                anchor_handle(m_allocator_anchor, m_allocator_anchor_changed),
-                *m_engine);
+                m_anchor_handle.template member<&anchor::alloc>(), *m_engine);
 }
 
 } // namespace extpp

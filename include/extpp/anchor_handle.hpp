@@ -23,6 +23,7 @@ public:
     explicit operator bool() const { return m_changed; }
     bool changed() const { return m_changed; }
 
+    void operator()() { set(true); }
     void set(bool changed = true) { m_changed = changed; }
     void reset() { set(false); }
 
@@ -90,6 +91,15 @@ public:
         check_valid();
         member_type_t<decltype(MemberPtr)>* member = std::addressof(m_anchor->*MemberPtr);
         return anchor_handle<member_type_t<decltype(MemberPtr)>>(*member, m_flag);
+    }
+
+    /// Returns a handle to some child object of the current anchor object.
+    /// The caller *must* ensure that child really is a child (direct or indirect)
+    /// of the current object.
+    template<typename Child>
+    anchor_handle<Child> child(Child& child) const {
+        check_valid();
+        return anchor_handle<Child>(child, m_flag);
     }
 
     bool valid() const { return m_anchor != nullptr; }
