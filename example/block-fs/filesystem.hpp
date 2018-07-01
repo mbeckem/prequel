@@ -11,7 +11,14 @@
 #include <optional>
 #include <string_view>
 
-using namespace extpp;
+namespace blockfs {
+
+using extpp::byte;
+
+using extpp::u8;
+using extpp::u16;
+using extpp::u32;
+using extpp::u64;
 
 static constexpr u32 block_size = 4096;
 
@@ -73,7 +80,7 @@ struct file_metadata {
     u64 size = 0;           // In bytes
 
     static constexpr auto get_binary_format() {
-        return make_binary_format(
+        return extpp::make_binary_format(
                     &file_metadata::name, &file_metadata::permissions,
                     &file_metadata::mtime, &file_metadata::ctime,
                     &file_metadata::size);
@@ -83,7 +90,7 @@ struct file_metadata {
 // Contains the meta information associated with a file.
 struct file_entry {
     file_metadata metadata;
-    extent::anchor content; // File storage
+    extpp::extent::anchor content; // File storage
 
     static constexpr auto get_binary_format() {
         return make_binary_format(
@@ -100,17 +107,17 @@ struct file_entry {
 };
 
 // A directory is an indexed collection of file entries.
-using directory = btree<file_entry, file_entry::extract_key>;
+using directory = extpp::btree<file_entry, file_entry::extract_key>;
 
 // The format of the first block of the filesystem.
 struct master_block {
-    fixed_string magic{};               // Magic string that identifies this FS
-    u64 partition_size = 0;             // Size of the partition, in bytes
-    region_allocator::anchor alloc;     // Allocates from the rest of the file
-    directory::anchor root;             // Root directory tree
+    fixed_string magic{};                   // Magic string that identifies this FS
+    u64 partition_size = 0;                 // Size of the partition, in bytes
+    extpp::region_allocator::anchor alloc;  // Allocates from the rest of the file
+    directory::anchor root;                 // Root directory tree
 
     static constexpr auto get_binary_format() {
-        return make_binary_format(
+        return extpp::make_binary_format(
                 &master_block::magic, &master_block::partition_size,
                 &master_block::alloc, &master_block::root);
     }
@@ -148,7 +155,7 @@ struct invalid_file_offset : path_exception {
 
 class filesystem {
 public:
-    filesystem(file_engine& engine);
+    filesystem(extpp::file_engine& engine);
     ~filesystem();
 
     std::vector<file_metadata> list_files();
@@ -197,16 +204,18 @@ private:
     void writeback_master();
 
 private:
-    file_engine& m_engine;
+    extpp::file_engine& m_engine;
 
     // Master block management.
-    block_handle m_master_handle;
+    extpp::block_handle m_master_handle;
     master_block m_master;
-    anchor_flag m_master_changed;
+    extpp::anchor_flag m_master_changed;
 
     // Persistent datastructures.
-    region_allocator m_alloc;
+    extpp::region_allocator m_alloc;
     directory m_root;
 };
+
+} // namespace blockfs
 
 #endif // EXTPP_TYPES_HPP

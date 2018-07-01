@@ -3,7 +3,7 @@
 #include <extpp/node_allocator.hpp>
 #include <extpp/raw_btree.hpp>
 #include <extpp/btree.hpp>
-#include <extpp/detail/hex.hpp>
+#include <extpp/formatting.hpp>
 
 #include "./test_file.hpp"
 

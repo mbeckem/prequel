@@ -1,10 +1,10 @@
 #include <catch.hpp>
 
 #include <extpp/exception.hpp>
+#include <extpp/formatting.hpp>
 #include <extpp/list.hpp>
 #include <extpp/node_allocator.hpp>
 #include <extpp/raw_list.hpp>
-#include <extpp/detail/hex.hpp>
 
 #include <fmt/format.h>
 #include <fmt/ostream.h>
@@ -14,7 +14,6 @@
 #include "./test_file.hpp"
 
 using namespace extpp;
-using extpp::detail::hex_str;
 
 namespace {
 
@@ -98,8 +97,8 @@ TEST_CASE("raw list", "[list]") {
                     const byte* data_expected = values[index].data();
                     if (std::memcmp(data_list, data_expected, value_size) != 0) {
                         FAIL("Unexpected data at index " << index
-                             << ", expected " << hex_str(data_expected, value_size)
-                             << ", but saw " << hex_str(data_list, value_size));
+                             << ", expected " << format_hex(data_expected, value_size)
+                             << ", but saw " << format_hex(data_list, value_size));
                     }
                 }
                 REQUIRE(index == values.size());

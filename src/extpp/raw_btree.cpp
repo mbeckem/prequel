@@ -1,11 +1,11 @@
 #include <extpp/raw_btree.hpp>
 
 #include <extpp/exception.hpp>
+#include <extpp/formatting.hpp>
 #include <extpp/raw_btree_leaf_node.hpp>
 #include <extpp/raw_btree_internal_node.hpp>
 #include <extpp/detail/fix.hpp>
 #include <extpp/detail/iter_tools.hpp>
-#include <extpp/detail/hex.hpp>
 
 #include <boost/intrusive/list.hpp>
 #include <boost/intrusive/list_hook.hpp>
@@ -1501,7 +1501,7 @@ void raw_btree_impl::dump(std::ostream& os) const {
             for (u32 i = 0; i < child_count - 1; ++i) {
                 fmt::print(os, "  {}: @{} (<= {})\n",
                            i, node.get_child(i),
-                           detail::hex_str(node.get_key(i), node.key_size()));
+                           format_hex(node.get_key(i), node.key_size()));
             }
             fmt::print(os, "  {}: @{}\n", child_count - 1, node.get_child(child_count - 1));
             return true;
@@ -1517,7 +1517,7 @@ void raw_btree_impl::dump(std::ostream& os) const {
                        "  Values: {}\n",
                        leaf.index(), parent, size);
             for (u32 i = 0; i < size; ++i) {
-                fmt::print(os, "  {}: {}\n", i, detail::hex_str(leaf.get(i), leaf.value_size()));
+                fmt::print(os, "  {}: {}\n", i, format_hex(leaf.get(i), leaf.value_size()));
             }
             return true;
         }

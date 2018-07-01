@@ -5,7 +5,6 @@ set(PUBLIC_HEADERS
     ${HEADER_ROOT}/detail/deferred.hpp
     ${HEADER_ROOT}/detail/fix.hpp
     ${HEADER_ROOT}/detail/free_list.hpp
-    ${HEADER_ROOT}/detail/hex.hpp
     ${HEADER_ROOT}/detail/inlined_any.hpp
     ${HEADER_ROOT}/detail/iter_tools.hpp
     ${HEADER_ROOT}/detail/operators.hpp
@@ -24,6 +23,7 @@ set(PUBLIC_HEADERS
     ${HEADER_ROOT}/exception.hpp
     ${HEADER_ROOT}/extent.hpp
     ${HEADER_ROOT}/file_engine.hpp
+    ${HEADER_ROOT}/formatting.hpp
     ${HEADER_ROOT}/handle.hpp
     ${HEADER_ROOT}/id_generator.hpp
     ${HEADER_ROOT}/io.hpp
@@ -52,6 +52,7 @@ set(SOURCES
      exception.cpp
      extent.cpp
      file_engine.cpp
+     formatting.cpp
      id_generator.cpp
      io.cpp
      node_allocator.cpp

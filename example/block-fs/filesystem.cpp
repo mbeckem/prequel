@@ -2,6 +2,8 @@
 
 #include <iostream>
 
+namespace blockfs {
+
 static std::optional<fixed_string> to_filename(std::string_view path) {
     if (path.size() <= 1 || path.front() != '/')
         return {};
@@ -11,16 +13,16 @@ static std::optional<fixed_string> to_filename(std::string_view path) {
     return fixed_string(path);
 }
 
-static block_handle read_master_block(file_engine& engine) {
+static extpp::block_handle read_master_block(extpp::file_engine& engine) {
     if (engine.size() < 1) {
         throw filesystem_exception("File system is too small, cannot access master block");
     }
 
-    return engine.read(block_index(0));
+    return engine.read(extpp::block_index(0));
 }
 
-static master_block read_master_block_content(const block_handle& handle) {
-    if (handle.block_size() < serialized_size<master_block>()) {
+static master_block read_master_block_content(const extpp::block_handle& handle) {
+    if (handle.block_size() < extpp::serialized_size<master_block>()) {
         throw filesystem_exception("Invalid block size (too small for master block)");
     }
 
@@ -31,7 +33,7 @@ static master_block read_master_block_content(const block_handle& handle) {
     return content;
 }
 
-filesystem::filesystem(file_engine& eng)
+filesystem::filesystem(extpp::file_engine& eng)
     : m_engine(eng)
     // Load and validate master block from disk.
     , m_master_handle(read_master_block(m_engine))
@@ -178,7 +180,7 @@ void filesystem::resize(const char* path, u64 new_size) {
     }
 
     // Access and resize file content.
-    extent content(make_anchor_handle(entry.content), m_alloc);
+    extpp::extent content(make_anchor_handle(entry.content), m_alloc);
     adapt_capacity(content, new_size);
 
     // Write the changed file entry back into the directory tree.
@@ -198,8 +200,8 @@ size_t filesystem::read(const char* path, u64 offset, byte* buffer, size_t size)
 
     // Access content of the file and read n bytes.
     const size_t n = std::min(entry.metadata.size - offset, u64(size));
-    anchor_flag file_changed;
-    extent content(make_anchor_handle(entry.content, file_changed), m_alloc);
+    extpp::anchor_flag file_changed;
+    extpp::extent content(make_anchor_handle(entry.content, file_changed), m_alloc);
     extpp::read(m_engine, m_engine.to_address(content.data()) + offset, buffer, n);
 
     if (file_changed) {
@@ -223,7 +225,7 @@ size_t filesystem::write(const char* path, u64 offset, const byte* buffer, size_
     }
 
     // Access file content and write to disk.
-    extent content(make_anchor_handle(entry.content), m_alloc);
+    extpp::extent content(make_anchor_handle(entry.content), m_alloc);
     if (offset + size > entry.metadata.size) {
         // File needs to grow.
         adapt_capacity(content, offset + size);
@@ -253,13 +255,13 @@ directory::cursor filesystem::find_file(const char* path) {
 }
 
 // Only grow or shrink the file when needed.
-void filesystem::adapt_capacity(extent& content, u64 required_bytes) {
+void filesystem::adapt_capacity(extpp::extent& content, u64 required_bytes) {
     const u64 old_blocks = content.size();
-    const u64 required_blocks = ceil_div(required_bytes, u64(block_size));
+    const u64 required_blocks = extpp::ceil_div(required_bytes, u64(block_size));
 
     if (required_blocks > old_blocks) {
         // Grow the extent in powers of two.
-        const u64 new_blocks = round_towards_pow2(required_blocks);
+        const u64 new_blocks = extpp::round_towards_pow2(required_blocks);
         content.resize(new_blocks);
 
         // Zero newly allocated storage.
@@ -272,7 +274,7 @@ void filesystem::adapt_capacity(extent& content, u64 required_bytes) {
 
     if (required_blocks <= old_blocks / 4) {
         // Less than 25% full, shrink.
-        const u64 new_blocks = round_towards_pow2(required_blocks);
+        const u64 new_blocks = extpp::round_towards_pow2(required_blocks);
         content.resize(new_blocks);
         return;
     }
@@ -280,7 +282,7 @@ void filesystem::adapt_capacity(extent& content, u64 required_bytes) {
 
 void filesystem::destroy_file(file_entry& entry) {
     // Free the file content.
-    extent content(make_anchor_handle(entry.content), m_alloc);
+    extpp::extent content(make_anchor_handle(entry.content), m_alloc);
     content.reset();
     entry.metadata.size = 0;
 }
@@ -291,3 +293,5 @@ void filesystem::writeback_master() {
         m_master_changed.reset();
     }
 }
+
+} // namespace blockfs

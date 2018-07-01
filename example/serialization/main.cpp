@@ -1,5 +1,7 @@
+#include <extpp/formatting.hpp>
 #include <extpp/serialization.hpp>
 
+#include <iostream>
 #include <memory>
 
 using extpp::u8;
@@ -7,6 +9,12 @@ using extpp::u16;
 using extpp::u32;
 using extpp::u64;
 
+// A serialized type that has the same layout (when serialized) as the
+// standard Sqlite3 header.
+// The `get_binary_format()` function tells the library how to serialize (and
+// deserialize) the struct.
+//
+// Fixed-size integers are used so that the format is the same across all possible machines.
 struct sqlite_header_t {
     static std::array<u8, 16> sqlite_magic() {
         std::array<u8, 16> buffer{};
@@ -80,16 +88,28 @@ struct sqlite_header_t {
     }
 };
 
-// To inspect the generated assembly.
-// g++ generates a large sequence of moves + byteswaps.
-extern "C" void serialize(const sqlite_header_t* hdr, unsigned char* buffer, size_t buffer_size) {
-    EXTPP_ASSERT(sizeof(buffer) >= extpp::serialized_size(*hdr),
+// Serializes the given sqlite header instance into the provided buffer.
+// To inspect the generated assembly, compile with optimizations.
+extern "C" void serialize(const sqlite_header_t* hdr, void* buffer, size_t buffer_size) {
+    EXTPP_ASSERT(buffer_size >= extpp::serialized_size<sqlite_header_t>(),
                  "Buffer not large enough.");
-    extpp::unused(buffer_size);
-    extpp::serialize(*hdr, buffer);
+    extpp::serialize(*hdr, static_cast<extpp::byte*>(buffer), buffer_size);
 }
 
+// Deserializes the provided buffer into an instance of `sqlite_header_t`.
+extern "C" void deserialize(sqlite_header_t* hdr, const void* buffer, size_t buffer_size) {
+    EXTPP_ASSERT(buffer_size >= extpp::serialized_size<sqlite_header_t>(),
+                 "Buffer not large enough.");
+    extpp::deserialize(*hdr, static_cast<const extpp::byte*>(buffer), buffer_size);
+}
 
 int main() {
+    sqlite_header_t hdr;
+    extpp::serialized_buffer<sqlite_header_t> buffer;
+    serialize(&hdr, &buffer, sizeof(buffer));
+
+    std::cout << "The default sqlite header is:\n"
+              << extpp::format_hex(buffer.data(), sizeof(buffer), 16)
+              << std::endl;
     return 0;
 }

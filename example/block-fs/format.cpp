@@ -8,8 +8,10 @@
 
 #include "filesystem.hpp"
 
+using namespace blockfs;
+
 // Formatting a block device: Just create the master block at index 0.
-void format_device(file& device) {
+void format_device(extpp::file& device) {
     extpp::file_engine engine(device, block_size, 1);
 
     const u64 size_in_bytes = device.file_size();
@@ -24,12 +26,12 @@ void format_device(file& device) {
 
     // Initialize the region allocator with the rest of the file.
     {
-        region_allocator alloc(make_anchor_handle(master.alloc), engine);
-        alloc.initialize(block_index(1), size_in_blocks - 1);
+        extpp::region_allocator alloc(make_anchor_handle(master.alloc), engine);
+        alloc.initialize(extpp::block_index(1), size_in_blocks - 1);
     }
 
     // Write the master block.
-    block_handle handle = engine.zeroed(block_index(0));
+    extpp::block_handle handle = engine.zeroed(extpp::block_index(0));
     handle.set(0, master);
     engine.flush();
     device.sync();
@@ -42,7 +44,8 @@ int main(int argc, char** argv) {
     }
 
     try {
-        std::unique_ptr<file> device = system_vfs().open(argv[1], vfs::read_write);
+        std::unique_ptr<extpp::file> device = extpp::system_vfs().open(
+                    argv[1], extpp::vfs::read_write);
         format_device(*device);
         std::cout << "OK." << std::endl;
         return 0;

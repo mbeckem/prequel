@@ -683,6 +683,7 @@ void block_dirty_set::add(block& blk) noexcept
         auto pair = m_set.insert(blk);
         EXTPP_ASSERT(pair.second, "Insertion must have succeeded "
                                   "because the block was not dirty.");
+        unused(pair);
     }
 }
 

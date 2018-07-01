@@ -9,6 +9,8 @@
 
 #include "filesystem.hpp"
 
+using namespace blockfs;
+
 /*
  * This example program contains a very simple implementation
  * of a FUSE based file system.
@@ -51,7 +53,7 @@ static struct stat to_stat(const file_metadata& metadata) {
 static int fs_readdir(const char* path, void* buf, fuse_fill_dir_t filler,
                       off_t offset, struct fuse_file_info* fi)
 {
-    unused(offset, fi);
+    extpp::unused(offset, fi);
 
     if (std::strcmp(path, "/") != 0)
         return -ENOENT;
@@ -117,7 +119,7 @@ static int fs_rename(const char* from, const char* to) {
 
 // Create a file if it does not already exist.
 static int fs_create(const char* path, mode_t mode, struct fuse_file_info* fi) {
-    unused(fi, mode);
+    extpp::unused(fi, mode);
 
     if (!S_ISREG(mode)) {
         return -EINVAL; // Only regular files are supported.
@@ -133,7 +135,7 @@ static int fs_create(const char* path, mode_t mode, struct fuse_file_info* fi) {
 
 // "Open" a file. This currently just checks for the file's existence.
 static int fs_open(const char* path, struct fuse_file_info* fi) {
-    unused(fi);
+    extpp::unused(fi);
 
     filesystem& fs = filesystem_context();
     if (fs.exists(path)) {
@@ -146,7 +148,7 @@ static int fs_open(const char* path, struct fuse_file_info* fi) {
 static int fs_read(const char* path, char* buf, size_t size, off_t offset,
                    struct fuse_file_info* fi)
 {
-    unused(fi);
+    extpp::unused(fi);
 
     if (offset < 0) {
         return -EINVAL;
@@ -160,7 +162,7 @@ static int fs_read(const char* path, char* buf, size_t size, off_t offset,
 static int fs_write(const char* path, const char* buf, size_t size, off_t offset,
                     struct fuse_file_info* fi)
 {
-    unused(fi);
+    extpp::unused(fi);
 
     if (offset < 0) {
         return -EINVAL;
@@ -327,10 +329,10 @@ int main(int argc, char* argv[]) {
 
     auto file = extpp::system_vfs().open(options.filename,
                                          extpp::vfs::read_write,
-                                         extpp::vfs::open_create);
+                                         extpp::vfs::open_normal);
 
     // Limits the cache to 128 MB.
-    file_engine engine(*file, block_size, (128 * (1 << 20)) / block_size);
+    extpp::file_engine engine(*file, block_size, (128 * (1 << 20)) / block_size);
     filesystem fs(engine);
 
     int ret = fuse_main(args.argc, args.argv, &operations, &fs);

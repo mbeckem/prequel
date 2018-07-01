@@ -2,9 +2,9 @@
 
 #include <extpp/default_allocator.hpp>
 #include <extpp/exception.hpp>
+#include <extpp/formatting.hpp>
 #include <extpp/raw_stream.hpp>
 #include <extpp/stream.hpp>
-#include <extpp/detail/hex.hpp>
 
 #include "./test_file.hpp"
 

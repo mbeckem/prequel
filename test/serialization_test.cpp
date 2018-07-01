@@ -1,8 +1,8 @@
 #include <catch.hpp>
 
 #include <extpp/address.hpp>
+#include <extpp/formatting.hpp>
 #include <extpp/serialization.hpp>
-#include <extpp/detail/hex.hpp>
 
 #include <array>
 

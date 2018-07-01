@@ -1,7 +1,7 @@
 #include <extpp/raw_list.hpp>
 
 #include <extpp/exception.hpp>
-#include <extpp/detail/hex.hpp>
+#include <extpp/formatting.hpp>
 
 #include <boost/intrusive/list.hpp>
 #include <boost/intrusive/list_hook.hpp>
@@ -696,7 +696,7 @@ void raw_list_impl::dump(std::ostream& os) const {
         u32 size = node.get_size();
         for (u32 i = 0; i < size; ++i) {
             const byte* data = static_cast<const byte*>(node.get(i));
-            fmt::print("    {:>4}: {}\n", i, detail::hex_str(data, value_size()));
+            fmt::print("    {:>4}: {}\n", i, format_hex(data, value_size()));
         }
         fmt::print("\n");
         return true;
