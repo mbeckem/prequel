@@ -64,7 +64,7 @@ public:
 private:
     void check_index(u64 index) const {
         if (index >= size())
-            EXTPP_THROW(bad_access("index out of bounds."));
+            EXTPP_THROW(bad_argument("index out of bounds."));
     }
 
 private:

@@ -15,6 +15,8 @@ class raw_btree;
 class raw_btree_impl;
 class raw_btree_cursor;
 class raw_btree_cursor_impl;
+class raw_btree_loader;
+class raw_btree_loader_impl;
 
 /// A group of properties required to configure a btree instance.
 /// The parameters must be semantically equivalent whenever the
@@ -85,6 +87,7 @@ class raw_btree {
 public:
     using anchor = raw_btree_anchor;
     using cursor = raw_btree_cursor;
+    using loader = raw_btree_loader;
 
 public:
     enum cursor_seek_t {
@@ -205,6 +208,13 @@ public:
     /// Erases the content of this tree.
     /// \post `empty()`.
     void clear();
+
+    /// Creates a bulk loading object for this tree.
+    /// The object should be used to insert values in ascending order (occording to the
+    /// tree's comparison function) into the tree.
+    ///
+    /// \note This only works on empty trees.
+    loader bulk_load();
 
     // TODO: Efficient min/max push_back/puhs_front with a private internal cursor.
 
@@ -355,6 +365,49 @@ private:
 
 private:
     std::unique_ptr<raw_btree_cursor_impl> m_impl;
+};
+
+class raw_btree_loader {
+public:
+    raw_btree_loader() = delete;
+    ~raw_btree_loader();
+
+    // Not copyable.
+    raw_btree_loader(const raw_btree_loader&) = delete;
+    raw_btree_loader& operator=(const raw_btree_loader&) = delete;
+
+    raw_btree_loader(raw_btree_loader&&) noexcept;
+    raw_btree_loader& operator=(raw_btree_loader&&) noexcept;
+
+    /// Insert a single new value into the tree.
+    /// The value must be greater than the previous value(s).
+    void insert(const byte* value);
+
+    /// Insert a number of values into the new tree.
+    /// The values must be ordered and unique and must be greater
+    /// than the previous value(s).
+    ///
+    /// \warning count is the number of values, *NOT* the number of bytes.
+    void insert(const byte* values, size_t count);
+
+    /// Finalizes the loading procedure. All changes will be applied
+    /// to the tree and no more values can be inserted using this loader.
+    void finish();
+
+    /// Discard all values inserted into this loader (finish() must not have been called).
+    /// Frees all allocated blocks and leaves the tree unmodified.
+    void discard();
+
+private:
+    friend class raw_btree;
+
+    raw_btree_loader(std::unique_ptr<raw_btree_loader_impl> impl);
+
+private:
+    raw_btree_loader_impl& impl() const;
+
+private:
+    std::unique_ptr<raw_btree_loader_impl> m_impl;
 };
 
 } // namespace extpp

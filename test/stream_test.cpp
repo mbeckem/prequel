@@ -35,8 +35,8 @@ TEST_CASE("stream basics", "[stream]") {
         REQUIRE(stream.size() == 0);
         REQUIRE(stream.capacity() == 0);
         REQUIRE(stream.empty());
-        REQUIRE_THROWS_AS(stream.get(0), bad_access);
-        REQUIRE_THROWS_AS(stream.set(0, 1), bad_access);
+        REQUIRE_THROWS_AS(stream.get(0), bad_argument);
+        REQUIRE_THROWS_AS(stream.set(0, 1), bad_argument);
     }
 
     SECTION("stream grows when inserting") {

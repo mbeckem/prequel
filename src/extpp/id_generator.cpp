@@ -52,7 +52,7 @@ void id_generator::free(value_type id) {
         left_interval = left.get();
     }
     if (left_interval && left_interval->end >= id) {
-        EXTPP_THROW(invalid_argument("ID has already been freed."));
+        EXTPP_THROW(bad_argument("ID has already been freed."));
     }
 
     std::optional<interval> right_interval;
@@ -60,7 +60,7 @@ void id_generator::free(value_type id) {
         right_interval = right.get();
     }
     if (right_interval && right_interval->begin <= id) {
-        EXTPP_THROW(invalid_argument("ID has already been freed."));
+        EXTPP_THROW(bad_argument("ID has already been freed."));
     }
 
     EXTPP_ASSERT(!left_interval || !right_interval || left_interval->end < right_interval->begin,

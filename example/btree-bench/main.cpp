@@ -17,6 +17,7 @@ enum class mode {
     dump,
     validate,
     insert,
+    bulk_load,
     query,
 };
 
@@ -42,6 +43,10 @@ struct options {
         which_t which = linear;
         u64 count = 0;
     } insert;
+
+    struct bulk_load_t {
+        u64 count = 0;
+    } bulk_load;
 
     struct query_t {
         u64 count = 0;
@@ -151,6 +156,11 @@ options parse_options(int argc, char** argv) {
                     required("random").set(opts.insert.which, options::insert_t::random)),
                 value("N").set(opts.insert.count)
             ) % "Insert N elements into the tree, either random or in linear (ascending) order" |
+
+            (
+                command("bulk_load").set(opts.action, mode::bulk_load).set(opts.write_mode, true),
+                value("N").set(opts.bulk_load.count)
+            ) % "Insert N elements into an empty tree, in ascending linear order" |
 
             (
                 command("query").set(opts.action, mode::query),
@@ -378,6 +388,29 @@ void tree_insert(file_engine& engine, Tree& tree, options::insert_t::which_t mod
 }
 
 template<typename Tree>
+void tree_bulk_load(file_engine& engine, Tree& tree, u64 count) {
+    measure(engine, [&]() {
+        const u64 reporting_interval = std::max(count / 100, u64(1));
+
+        auto gen = linear_values(tree);
+
+        std::cout << "Beginning to insert " << count << " elements." << std::endl;
+
+        auto loader = tree.bulk_load();
+        for (u64 i = 0; i < count; ++i) {
+            auto item = gen();
+            loader.insert(item);
+
+            if ((i + 1) % reporting_interval == 0) {
+                std::cout << "Inserted " << (i + 1) << " elements." << std::endl;
+            }
+        }
+        loader.finish();
+        return count;
+    });
+}
+
+template<typename Tree>
 void tree_query(file_engine& engine, Tree& tree, u64 count) {
     measure(engine, [&]() {
         if (tree.empty()) {
@@ -447,6 +480,11 @@ void run(file_engine& engine, anchor_handle<anchor> tree_anchor, allocator& allo
     case mode::insert:
         tree_operation(tree_anchor, alloc, [&](auto& tree) {
             tree_insert(engine, tree, opts.insert.which, opts.insert.count);
+        });
+        break;
+    case mode::bulk_load:
+        tree_operation(tree_anchor, alloc, [&](auto& tree) {
+            tree_bulk_load(engine, tree, opts.bulk_load.count);
         });
         break;
     case mode::query:

@@ -118,7 +118,7 @@ void simple_tree_test(TestFunction&& test) {
 
         typename tree_type::anchor tree_anchor;
         tree_type tree(make_anchor_handle(tree_anchor), alloc);
-        test(tree);
+        test(tree, block_size);
     }
 }
 
@@ -338,7 +338,9 @@ TEST_CASE("raw btree", "[btree]") {
 }
 
 TEST_CASE("btree insertion and querying", "[btree]") {
-    simple_tree_test<i32>([](auto&& tree) {
+    simple_tree_test<i32>([](auto&& tree, u32 block_size) {
+        unused(block_size);
+
         REQUIRE(tree.size() == 0);
         REQUIRE(tree.empty());
         REQUIRE(tree.height() == 0);
@@ -385,7 +387,9 @@ TEST_CASE("btree insertion and querying", "[btree]") {
 }
 
 TEST_CASE("btree detects duplicate keys", "[btree]") {
-    simple_tree_test<raw_value, derive_key>([](auto&& tree) {
+    simple_tree_test<raw_value, derive_key>([](auto&& tree, u32 block_size) {
+        unused(block_size);
+
         std::vector<i32> numbers = generate_numbers(10000, 12345);
         for (i32 n : numbers)
             tree.insert(raw_value(n, 1));
@@ -416,7 +420,9 @@ TEST_CASE("btree detects duplicate keys", "[btree]") {
 }
 
 TEST_CASE("btrees are always sorted", "[btree]") {
-    simple_tree_test<i64>([](auto&& tree) {
+    simple_tree_test<i64>([](auto&& tree, u32 block_size) {
+        unused(block_size);
+
         std::vector<i64> numbers = generate_numbers<i64>(8000, 0);
 
         auto cursor = tree.create_cursor();
@@ -445,7 +451,7 @@ TEST_CASE("btrees are always sorted", "[btree]") {
 }
 
 TEST_CASE("btree deletion", "[btree]") {
-    simple_tree_test<i32>([](auto&& tree) {
+    simple_tree_test<i32>([](auto&& tree, u32 block_size) {
         const i32 max = 100000;
 
         {
@@ -455,7 +461,7 @@ TEST_CASE("btree deletion", "[btree]") {
         }
         tree.validate();
 
-        SECTION("remove ascending") {
+        SECTION("remove ascending/" + std::to_string(block_size)) {
             auto cursor = tree.create_cursor(tree.seek_min);
 
             i32 expected = 1;
@@ -492,7 +498,7 @@ TEST_CASE("btree deletion", "[btree]") {
             REQUIRE(tree.nodes() == 0);
         }
 
-        SECTION("remove descending") {
+        SECTION("remove descending/" + std::to_string(block_size)) {
             i32 expected = max;
             auto cursor = tree.create_cursor(tree.seek_max);
             while (expected > 0) {
@@ -523,7 +529,7 @@ TEST_CASE("btree deletion", "[btree]") {
             REQUIRE(tree.nodes() == 0);
         }
 
-        SECTION("remove middle") {
+        SECTION("remove middle/" + std::to_string(block_size)) {
             i32 mid = max / 2;
             for (auto pos = tree.find(mid); pos; pos.move_next()) {
                 pos.erase();
@@ -534,7 +540,7 @@ TEST_CASE("btree deletion", "[btree]") {
             tree.validate();
         }
 
-        SECTION("remove random") {
+        SECTION("remove random/" + std::to_string(block_size)) {
             std::mt19937_64 rng;
 
             std::vector<i32> values;
@@ -567,7 +573,9 @@ TEST_CASE("btree deletion", "[btree]") {
 }
 
 TEST_CASE("btree cursor stability", "[btree]") {
-    simple_tree_test<i32>([](auto&& tree) {
+    simple_tree_test<i32>([](auto&& tree, u32 block_size) {
+        unused(block_size);
+
         using cursor_t = typename std::decay_t<decltype(tree)>::cursor;
 
         struct stable_cursor {
@@ -638,7 +646,7 @@ TEST_CASE("btree cursor stability", "[btree]") {
     });
 }
 
-TEST_CASE("btree fuzzy  tests", "[btree][.slow]") {
+TEST_CASE("btree fuzzy tests", "[btree][.slow]") {
     using tree_t = btree<u64>;
 
     test_file file(4096);
@@ -696,4 +704,60 @@ TEST_CASE("btree fuzzy  tests", "[btree][.slow]") {
         REQUIRE(tree.height() == 0);
         REQUIRE(tree.nodes() == 0);
     }
+}
+
+TEST_CASE("btree bulk loading", "[btree][bulk-loading]") {
+    simple_tree_test<i64>([](auto&& tree, u32 block_size) {
+        SECTION("fails for non-empty trees/" + std::to_string(block_size)) {
+            tree.insert(12345);
+
+            REQUIRE_THROWS_AS(tree.bulk_load(), bad_operation);
+
+            tree.clear();
+
+            auto loader = tree.bulk_load();
+
+            tree.insert(12345);
+            REQUIRE_THROWS_AS(loader.finish(), bad_operation);
+        }
+
+        SECTION("tree construction/" + std::to_string(block_size)) {
+            const i64 max = 25000;
+
+            auto loader = tree.bulk_load();
+
+            for (i64 i = 0; i < max; ++i)
+                loader.insert(i);
+
+            loader.finish();
+
+            REQUIRE(tree.size() == max);
+
+            i64 expected = 0;
+            for (auto c = tree.create_cursor(tree.seek_min); c; c.move_next()) {
+                if (c.get() != expected)
+                    FAIL("Unexpected value " << c.get() << " expected " << expected);
+                ++expected;
+            }
+            if (expected != max)
+                FAIL("Did not see all values.");
+
+            REQUIRE_NOTHROW(tree.validate());
+        }
+
+        SECTION("discard partial load/" + std::to_string(block_size)) {
+            node_allocator& alloc = dynamic_cast<node_allocator&>(tree.get_allocator());
+
+            const i64 max = 25000;
+            auto loader = tree.bulk_load();
+            for (i64 i = 0; i < max; ++i)
+                loader.insert(i);
+
+            loader.discard();
+
+            REQUIRE(alloc.data_used() == 0);
+            REQUIRE(tree.empty());
+            REQUIRE_NOTHROW(tree.validate());
+        }
+    });
 }

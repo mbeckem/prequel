@@ -220,7 +220,7 @@ public:
         , m_node_capacity(raw_list_node::capacity(get_engine().block_size(), m_value_size))
     {
         if (m_node_capacity == 0)
-            EXTPP_THROW(invalid_argument("block size too small to fit a single value"));
+            EXTPP_THROW(bad_argument("block size too small to fit a single value"));
     }
 
     ~raw_list_impl();
@@ -243,7 +243,7 @@ public:
             c->move_last();
             break;
         default:
-            EXTPP_THROW(invalid_argument("Invalid seek value"));
+            EXTPP_THROW(bad_argument("Invalid seek value"));
         }
 
         return c;
@@ -639,7 +639,7 @@ void raw_list_impl::visit(bool (*visit_fn)(const raw_list::node_view& node, void
                           void* user_data) const
 {
     if (!visit_fn)
-        EXTPP_THROW(invalid_argument("Invalid visitation function."));
+        EXTPP_THROW(bad_argument("Invalid visitation function."));
 
     struct node_view_impl : raw_list::node_view {
         raw_list_node node;
@@ -652,7 +652,7 @@ void raw_list_impl::visit(bool (*visit_fn)(const raw_list::node_view& node, void
 
         const byte* value(u32 index) const override {
             if (index >= value_count())
-                EXTPP_THROW(invalid_argument("Value index out of bounds."));
+                EXTPP_THROW(bad_argument("Value index out of bounds."));
             return node.get(index);
         }
     };
@@ -711,15 +711,15 @@ void raw_list_impl::dump(std::ostream& os) const {
 
 static void check_cursor_valid(const raw_list_cursor_impl& c) {
     if (!c.list)
-        EXTPP_THROW(bad_access("the cursor's list instance has been destroyed"));
+        EXTPP_THROW(bad_cursor("the cursor's list instance has been destroyed"));
 }
 
 static void check_cursor_valid_element(const raw_list_cursor_impl& c) {
     check_cursor_valid(c);
     if (c.flags & raw_list_cursor_impl::DELETED)
-        EXTPP_THROW(bad_access("cursor points to deleted element"));
+        EXTPP_THROW(bad_cursor("cursor points to deleted element"));
     if (c.flags & raw_list_cursor_impl::INVALID)
-        EXTPP_THROW(bad_access("bad cursor"));
+        EXTPP_THROW(bad_cursor("invalid cursor"));
 
     EXTPP_ASSERT(c.node.valid(), "Invalid node.");
     EXTPP_ASSERT(c.index < c.node.get_size(), "Invalid index.");
@@ -802,7 +802,7 @@ void raw_list_cursor_impl::move_next() {
             return;
         }
     } else if (flags & INVALID) {
-        EXTPP_THROW(bad_access("bad cursor"));
+        EXTPP_THROW(bad_cursor("bad cursor"));
     } else {
         ++index;
     }
@@ -833,7 +833,7 @@ void raw_list_cursor_impl::move_prev() {
             return;
         }
     } else if (flags & INVALID) {
-        EXTPP_THROW(bad_access("bad cursor"));
+        EXTPP_THROW(bad_cursor("bad cursor"));
     }
 
     EXTPP_ASSERT(node.valid(), "Invalid node.");
@@ -996,7 +996,7 @@ raw_list_cursor& raw_list_cursor::operator=(raw_list_cursor&& other) noexcept {
 
 raw_list_cursor_impl& raw_list_cursor::impl() const {
     if (!m_impl)
-        EXTPP_THROW(bad_access("bad cursor"));
+        EXTPP_THROW(bad_cursor("bad cursor"));
     return *m_impl;
 }
 

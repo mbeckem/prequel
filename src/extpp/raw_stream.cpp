@@ -28,7 +28,7 @@ public:
         , m_block_capacity(calc_block_capacity(m_extent.block_size(), m_value_size))
     {
         if (m_block_capacity == 0)
-            EXTPP_THROW(invalid_argument("block size too small to fit a single value"));
+            EXTPP_THROW(bad_argument("block size too small to fit a single value"));
     }
 
     ~raw_stream_impl() = default;
@@ -104,7 +104,7 @@ public:
     void pop_back() {
         const u64 sz = size();
         if (sz == 0)
-            EXTPP_THROW(invalid_argument("stream is empty"));
+            EXTPP_THROW(bad_operation("stream is empty"));
 
         m_anchor.set<&anchor::size>(sz - 1);
     }
@@ -198,7 +198,7 @@ private:
 
     void check_index(u64 index) const {
         if (index >= size())
-            EXTPP_THROW(bad_access("index out of bounds."));
+            EXTPP_THROW(bad_argument("index out of bounds."));
     }
 
 private:

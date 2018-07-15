@@ -82,14 +82,14 @@ public:
     u32 min_chunk() const { return m_min_chunk; }
     void min_chunk(u32 chunk_size) {
         if (chunk_size == 0)
-            EXTPP_THROW(invalid_argument("Invalid chunk size"));
+            EXTPP_THROW(bad_argument("Invalid chunk size"));
         m_min_chunk = chunk_size;
     }
 
     u32 min_meta_chunk() const { return m_min_meta_chunk; }
     void min_meta_chunk(u32 chunk_size) {
         if (chunk_size == 0)
-            EXTPP_THROW(invalid_argument("Invalid meta chunk size"));
+            EXTPP_THROW(bad_argument("Invalid meta chunk size"));
         m_min_meta_chunk = chunk_size;
     }
 
@@ -217,12 +217,12 @@ private:
     protected:
         block_index do_allocate(u64 n) override {
             if (n != 1)
-                EXTPP_THROW(invalid_argument("Cannot allocate sizes other than 1."));
+                EXTPP_THROW(bad_argument("Cannot allocate sizes other than 1."));
             return parent->allocate_metadata_block();
         }
 
         block_index do_reallocate(block_index, u64) override {
-            EXTPP_THROW(invalid_argument("Cannot reallocate meta data blocks."));
+            EXTPP_THROW(bad_argument("Cannot reallocate meta data blocks."));
         }
 
         void do_free(block_index addr) override {
@@ -312,13 +312,13 @@ block_index default_allocator::impl_t::allocate(u64 request) {
 block_index default_allocator::impl_t::reallocate(block_index block, u64 request) {
     extent_cursor pos = m_extents.find(block);
     if (!pos) {
-        EXTPP_THROW(invalid_argument("The block index passed to reallocate() does not point "
-                                     "to a previous allocation."));
+        EXTPP_THROW(bad_argument("The block index passed to reallocate() does not point "
+                                 "to a previous allocation."));
     }
 
     extent_t extent = pos.get();
     if (extent.free) {
-        EXTPP_THROW(invalid_argument("Calling reallocate() on a previously freed address."));
+        EXTPP_THROW(bad_argument("Calling reallocate() on a previously freed address."));
     }
 
     // Size unchanged:
@@ -367,13 +367,13 @@ block_index default_allocator::impl_t::reallocate(block_index block, u64 request
 void default_allocator::impl_t::free(block_index block) {
     extent_cursor pos = m_extents.find(block);
     if (!pos) {
-        EXTPP_THROW(invalid_argument("The block index passed to free() does not point "
-                                     "to a previous allocation."));
+        EXTPP_THROW(bad_argument("The block index passed to free() does not point "
+                                 "to a previous allocation."));
     }
 
     extent_t extent = pos.get();
     if (extent.free) {
-        EXTPP_THROW(invalid_argument("Double free detected."));
+        EXTPP_THROW(bad_argument("Double free detected."));
     }
     // TODO: Can improve error reporting by detecting if a was
     // freed and the free range was merged with its predecessor/successor.
@@ -394,8 +394,8 @@ u64 default_allocator::impl_t::allocated_size(block_index index) const {
             return extent.size;
         }
     }
-    EXTPP_THROW(invalid_argument("The block index passed to allocated_size() does not point "
-                                 "to a previous allocation"));
+    EXTPP_THROW(bad_argument("The block index passed to allocated_size() does not point "
+                             "to a previous allocation"));
 }
 
 /// Try to serve a request by reusing an existing free extent.
@@ -773,31 +773,31 @@ void default_allocator::impl_t::validate() const {
                 ef.find(free_extent_t(e.size, e.block));
                 if (!ef) {
                     EXTPP_THROW(corruption_error(
-                        fmt::format("Failed to find freelist entry for free block at {}", e.block)));
+                                    fmt::format("Failed to find freelist entry for free block at {}", e.block)));
                 }
                 free_extent_t f = ef.get();
                 if (f.size != e.size) {
                     EXTPP_THROW(corruption_error(
-                        fmt::format("Free entry's size differs from extent's size at {}", e.block)));
+                                    fmt::format("Free entry's size differs from extent's size at {}", e.block)));
                 }
                 data_free += e.size;
             } else {
                 if (ef.find(free_extent_t(e.size, e.block))) {
                     EXTPP_THROW(corruption_error(
-                        fmt::format("There is a freelist entry for the nonfree block at {}", e.block)));
+                                    fmt::format("There is a freelist entry for the nonfree block at {}", e.block)));
                 }
             }
         }
 
         if (data_total != m_data_total) {
             EXTPP_THROW(corruption_error(
-                fmt::format("Wrong number of total data blocks (expected {} but observed {})",
-                            m_data_total, data_total)));
+                            fmt::format("Wrong number of total data blocks (expected {} but observed {})",
+                                        m_data_total, data_total)));
         }
         if (data_free != m_data_free) {
             EXTPP_THROW(corruption_error(
-                fmt::format("Wrong number of free data blocks (expected {} but observed {})",
-                            m_data_free, data_free)));
+                            fmt::format("Wrong number of free data blocks (expected {} but observed {})",
+                                        m_data_free, data_free)));
         }
 
 
@@ -807,13 +807,13 @@ void default_allocator::impl_t::validate() const {
 
             if (!ec) {
                 EXTPP_THROW(corruption_error(
-                    fmt::format("Failed to find extent for free entry at {}", f.block)));
+                                fmt::format("Failed to find extent for free entry at {}", f.block)));
             }
 
             extent_t e = ec.get();
             if (!e.free) {
                 EXTPP_THROW(corruption_error(
-                    fmt::format("Extent in freelist is not marked as free at {}", e.block)));
+                                fmt::format("Extent in freelist is not marked as free at {}", e.block)));
             }
         }
     }

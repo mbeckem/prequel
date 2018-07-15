@@ -28,10 +28,10 @@ private:
 public:
     raw_btree_leaf_node() = default;
 
-    raw_btree_leaf_node(block_handle block, u32 value_size, u32 capacity)
+    raw_btree_leaf_node(block_handle block, u32 value_size, u32 max_children)
         : m_handle(std::move(block), 0)
         , m_value_size(value_size)
-        , m_capacity(capacity)
+        , m_max_children(max_children)
     {}
 
     bool valid() const { return m_handle.valid(); }
@@ -42,27 +42,27 @@ public:
 
     u32 get_size() const { return m_handle.get<&header::size>(); }
     void set_size(u32 new_size) const {
-        EXTPP_ASSERT(new_size <= m_capacity, "Invalid size");
+        EXTPP_ASSERT(new_size <= m_max_children, "Invalid size");
         m_handle.set<&header::size>(new_size);
     }
 
-    u32 min_size() const { return m_capacity / 2; }
-    u32 max_size() const { return m_capacity; }
+    u32 min_size() const { return m_max_children / 2; }
+    u32 max_size() const { return m_max_children; }
     u32 value_size() const { return m_value_size; }
 
     void set(u32 index, const byte* value) const {
-        EXTPP_ASSERT(index < m_capacity, "Index out of bounds.");
+        EXTPP_ASSERT(index < m_max_children, "Index out of bounds.");
         m_handle.block().write(offset_of_value(index), value, m_value_size);
     }
 
     const byte* get(u32 index) const {
-        EXTPP_ASSERT(index < m_capacity, "Index out of bounds.");
+        EXTPP_ASSERT(index < m_max_children, "Index out of bounds.");
         return m_handle.block().data() + offset_of_value(index);
     }
 
     // Insert the new value at the given index and shift values to the right.
     void insert_nonfull(u32 index, const byte* value) const {
-        EXTPP_ASSERT(index < m_capacity, "Index out of bounds.");
+        EXTPP_ASSERT(index < m_max_children, "Index out of bounds.");
         EXTPP_ASSERT(index <= get_size(), "Unexpected index (not in range).");
 
         u32 size = get_size();
@@ -74,27 +74,39 @@ public:
         set_size(size + 1);
     }
 
+    // Insert a range of values at the end. For bulk loading.
+    void append_nonfull(const byte* values, u32 count) const {
+        EXTPP_ASSERT(count > 0, "Useless call.");
+        EXTPP_ASSERT(count <= m_max_children, "Count out of bounds.");
+        EXTPP_ASSERT(get_size() <= m_max_children - count, "Insert range out of bounds.");
+
+        const u32 old_size = get_size();
+        byte* data = m_handle.block().writable_data();
+        std::memmove(data + offset_of_value(old_size), values, m_value_size * count);
+        set_size(old_size + count);
+    }
+
     // Perform a node split and insert the new value at the appropriate position.
     // `mid` is the size of *this, after the split (other values end up in new_leaf).
     // If index < mid, then the new value is in the left node, at the given index.
     // Otherwise the new value is in new_leaf, at `index - mid`.
     void insert_full(u32 index, const byte* value, u32 mid, const raw_btree_leaf_node& new_leaf) const {
-        EXTPP_ASSERT(mid <= m_capacity, "Mid out of bounds.");
+        EXTPP_ASSERT(mid <= m_max_children, "Mid out of bounds.");
         EXTPP_ASSERT(m_value_size == new_leaf.m_value_size, "Value size missmatch.");
-        EXTPP_ASSERT(m_capacity == new_leaf.m_capacity, "Capacity missmatch.");
+        EXTPP_ASSERT(m_max_children == new_leaf.m_max_children, "Capacity missmatch.");
         EXTPP_ASSERT(new_leaf.get_size() == 0, "New leaf must be empty.");
-        EXTPP_ASSERT(get_size() == m_capacity, "Old leaf must be full.");
+        EXTPP_ASSERT(get_size() == m_max_children, "Old leaf must be full.");
 
         byte* left = m_handle.block().writable_data() + offset_of_value(0);
         byte* right = new_leaf.block().writable_data() + offset_of_value(0);
-        sequence_insert(m_value_size, left, right, m_capacity, mid, index, value);
+        sequence_insert(m_value_size, left, right, m_max_children, mid, index, value);
         set_size(mid);
-        new_leaf.set_size(m_capacity + 1 - mid);
+        new_leaf.set_size(m_max_children + 1 - mid);
     }
 
     // Removes the value at the given index and shifts all values after it to the left.
     void remove(u32 index) const {
-        EXTPP_ASSERT(index < m_capacity, "Index out of bounds.");
+        EXTPP_ASSERT(index < m_max_children, "Index out of bounds.");
         EXTPP_ASSERT(index < get_size(), "Unexpected index (not in range).");
 
         u32 size = get_size();
@@ -107,7 +119,7 @@ public:
 
     // Append all values from the right neighbor.
     void append_from_right(const raw_btree_leaf_node& neighbor) const {
-        EXTPP_ASSERT(get_size() + neighbor.get_size() <= m_capacity,  "Too many values.");
+        EXTPP_ASSERT(get_size() + neighbor.get_size() <= m_max_children,  "Too many values.");
         EXTPP_ASSERT(value_size() == neighbor.value_size(), "Value size missmatch.");
 
         u32 size = get_size();
@@ -124,7 +136,7 @@ public:
 
     // Prepend all values from the left neighbor.
     void prepend_from_left(const raw_btree_leaf_node& neighbor) const {
-        EXTPP_ASSERT(get_size() + neighbor.get_size() <= m_capacity,  "Too many values.");
+        EXTPP_ASSERT(get_size() + neighbor.get_size() <= m_max_children,  "Too many values.");
         EXTPP_ASSERT(value_size() == neighbor.value_size(), "Value size missmatch.");
 
         u32 size = get_size();
@@ -201,7 +213,7 @@ private:
 private:
     handle<header> m_handle;
     u32 m_value_size = 0;       // Size of a single value
-    u32 m_capacity = 0;         // Max number of values per node
+    u32 m_max_children = 0;         // Max number of values per node
 };
 
 

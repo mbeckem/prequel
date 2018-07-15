@@ -77,7 +77,7 @@ inline default_file_format<Anchor>::default_file_format(file& f, u32 block_size,
     : m_file(&f)
 {
     if (m_file->file_size() % block_size != 0) {
-        EXTPP_THROW(invalid_argument("File size is not a multiple of the block size."));
+        EXTPP_THROW(bad_argument("File size is not a multiple of the block size."));
     }
     m_engine = std::make_unique<file_engine>(*m_file, block_size, cache_size);
 

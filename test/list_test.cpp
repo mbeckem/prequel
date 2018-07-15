@@ -292,13 +292,13 @@ TEST_CASE("invalid cursor behaviour", "[list]") {
         REQUIRE(c.invalid());
         REQUIRE(!c.erased());
 
-        REQUIRE_THROWS_AS(c.get(), bad_access);
-        REQUIRE_THROWS_AS(c.set(0), bad_access);
-        REQUIRE_THROWS_AS(c.erase(), bad_access);
-        REQUIRE_THROWS_AS(c.insert_after(0), bad_access);
-        REQUIRE_THROWS_AS(c.insert_before(0), bad_access);
-        REQUIRE_THROWS_AS(c.move_next(), bad_access);
-        REQUIRE_THROWS_AS(c.move_prev(), bad_access);
+        REQUIRE_THROWS_AS(c.get(), bad_cursor);
+        REQUIRE_THROWS_AS(c.set(0), bad_cursor);
+        REQUIRE_THROWS_AS(c.erase(), bad_cursor);
+        REQUIRE_THROWS_AS(c.insert_after(0), bad_cursor);
+        REQUIRE_THROWS_AS(c.insert_before(0), bad_cursor);
+        REQUIRE_THROWS_AS(c.move_next(), bad_cursor);
+        REQUIRE_THROWS_AS(c.move_prev(), bad_cursor);
     };
 
     {
@@ -311,7 +311,7 @@ TEST_CASE("invalid cursor behaviour", "[list]") {
     {
         INFO("Default constructed");
         list<value_t>::cursor c;
-        REQUIRE_THROWS_AS(c.raw().value_size(), bad_access); // No impl
+        REQUIRE_THROWS_AS(c.raw().value_size(), bad_cursor); // No impl
         checks(c);
     }
 }
@@ -368,11 +368,11 @@ TEST_CASE("Iterating and deleting using list cursors", "[list]") {
 
         REQUIRE(c);
         REQUIRE(c.erased());
-        REQUIRE_THROWS_AS(c.erase(), bad_access);
-        REQUIRE_THROWS_AS(c.get(), bad_access);
-        REQUIRE_THROWS_AS(c.set({1, 2}), bad_access);
-        REQUIRE_THROWS_AS(c.insert_after({1, 2}), bad_access);
-        REQUIRE_THROWS_AS(c.insert_before({1, 2}), bad_access);
+        REQUIRE_THROWS_AS(c.erase(), bad_cursor);
+        REQUIRE_THROWS_AS(c.get(), bad_cursor);
+        REQUIRE_THROWS_AS(c.set({1, 2}), bad_cursor);
+        REQUIRE_THROWS_AS(c.insert_after({1, 2}), bad_cursor);
+        REQUIRE_THROWS_AS(c.insert_before({1, 2}), bad_cursor);
 
         SECTION("back again produces invalid cursor") {
             c.move_prev();
@@ -462,7 +462,7 @@ TEST_CASE("List destruction -> Cursor invalidation", "[list]") {
     }
 
     REQUIRE(!pos);
-    REQUIRE_THROWS_AS(pos.get(), bad_access);
+    REQUIRE_THROWS_AS(pos.get(), bad_cursor);
 }
 
 TEST_CASE("List cursors to deleted elements change state", "[list]") {
@@ -484,7 +484,7 @@ TEST_CASE("List cursors to deleted elements change state", "[list]") {
     REQUIRE(d.erased());
 
     REQUIRE(c.erased());
-    REQUIRE_THROWS_AS(c.get(), bad_access);
+    REQUIRE_THROWS_AS(c.get(), bad_cursor);
 }
 
 TEST_CASE("List cursors are stable", "[list]") {

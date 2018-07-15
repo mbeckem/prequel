@@ -41,7 +41,7 @@ TEST_CASE("region allocator usage", "[region-allocator]") {
     REQUIRE(alloc.size() == 256);
     REQUIRE(alloc.used() == 0);
 
-    REQUIRE_THROWS_AS(alloc.initialize(block_index(0), engine.size()), invalid_argument); // Already initialized.
+    REQUIRE_THROWS_AS(alloc.initialize(block_index(0), engine.size()), bad_argument); // Already initialized.
 
     block_index i1 = alloc.allocate(40);
     REQUIRE(alloc.used() == 64 + 16); // 1 Metadata and rounded up to pow2.

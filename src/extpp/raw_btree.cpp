@@ -4,6 +4,7 @@
 #include <extpp/formatting.hpp>
 #include <extpp/raw_btree_leaf_node.hpp>
 #include <extpp/raw_btree_internal_node.hpp>
+#include <extpp/detail/deferred.hpp>
 #include <extpp/detail/fix.hpp>
 #include <extpp/detail/iter_tools.hpp>
 
@@ -142,8 +143,9 @@ public:
     u32 value_size() const { return m_options.value_size; }
     u32 key_size() const { return m_options.key_size; }
 
-    u32 leaf_node_capacity() const { return m_leaf_capacity; }
-    u32 internal_node_capacity() const { return m_internal_capacity; }
+    u32 leaf_node_max_values() const { return m_leaf_capacity; }
+    u32 internal_node_max_children() const { return m_internal_max_children; }
+    u32 internal_node_min_chlidren() const { return m_internal_min_children; }
 
     // Returns left < right
     bool key_less(const byte* left_key, const byte* right_key) const {
@@ -190,6 +192,10 @@ public:
     void erase(raw_btree_cursor_impl& cursor);
 
     void clear();
+
+    void clear_subtree(block_index root, u32 level);
+
+    std::unique_ptr<raw_btree_loader_impl> bulk_load();
 
     std::unique_ptr<raw_btree_cursor_impl> create_cursor(raw_btree::cursor_seek_t seek);
 
@@ -276,13 +282,13 @@ public:
     internal_node read_internal(block_index) const;
 
 private:
-    block_index allocate_leaf();
-    block_index allocate_internal();
-    void free_leaf(block_index leaf);
-    void free_internal(block_index internal);
+    friend class raw_btree_loader_impl;
 
     raw_btree_leaf_node create_leaf();
     internal_node create_internal();
+
+    void free_leaf(block_index leaf);
+    void free_internal(block_index internal);
 
 private:
     // Cursor management
@@ -309,64 +315,48 @@ private:
 public:
     // Persistent tree state accessors
 
-    u32 height() const { return m_height; }
-    u64 size() const { return m_size; }
-    block_index root() const { return m_root; }
-    block_index leftmost() const { return m_leftmost; }
-    block_index rightmost() const { return m_rightmost; }
-    u64 leaf_nodes() const { return m_leaf_nodes; }
-    u64 internal_nodes() const { return m_internal_nodes; }
+    u32 height() const { return m_anchor.get<&anchor::height>(); }
+    u64 size() const { return m_anchor.get<&anchor::size>(); }
+    block_index root() const { return m_anchor.get<&anchor::root>(); }
+    block_index leftmost() const { return m_anchor.get<&anchor::leftmost>(); }
+    block_index rightmost() const { return m_anchor.get<&anchor::rightmost>(); }
+    u64 leaf_nodes() const { return m_anchor.get<&anchor::leaf_nodes>(); }
+    u64 internal_nodes() const { return m_anchor.get<&anchor::internal_nodes>(); }
 
     void set_height(u32 height) {
-        m_height = height;
         m_anchor.set<&anchor::height>(height);
     }
 
     void set_size(u64 size) {
-        m_size = size;
         m_anchor.set<&anchor::size>(size);
     }
 
     void set_root(block_index root) {
-        m_root = root;
         m_anchor.set<&anchor::root>(root);
     }
 
     void set_leftmost(block_index leftmost) {
-        m_leftmost = leftmost;
         m_anchor.set<&anchor::leftmost>(leftmost);
     }
 
     void set_rightmost(block_index rightmost) {
-        m_rightmost = rightmost;
         m_anchor.set<&anchor::rightmost>(rightmost);
     }
 
     void set_internal_nodes(u32 internal_nodes) {
-        m_internal_nodes = internal_nodes;
         m_anchor.set<&anchor::internal_nodes>(internal_nodes);
     }
 
     void set_leaf_nodes(u64 leaf_nodes) {
-        m_leaf_nodes = leaf_nodes;
         m_anchor.set<&anchor::leaf_nodes>(leaf_nodes);
     }
 
 private:
     anchor_handle<anchor> m_anchor;
     raw_btree_options m_options;
-    u32 m_internal_capacity;
+    u32 m_internal_max_children;
+    u32 m_internal_min_children;
     u32 m_leaf_capacity;
-
-    // Persistent tree state.
-    u32 m_height;
-    u64 m_size;
-    block_index m_root;
-    block_index m_leftmost;
-    block_index m_rightmost;
-    u32 m_internal_nodes;
-    u64 m_leaf_nodes;
-
     // List of all active cursors.
     mutable cursor_list_type m_cursors;
 };
@@ -384,31 +374,24 @@ raw_btree_impl::raw_btree_impl(anchor_handle<anchor> _anchor, const raw_btree_op
     , m_options(opts)
 {
     if (m_options.value_size == 0)
-        EXTPP_THROW(invalid_argument("invalid value size"));
+        EXTPP_THROW(bad_argument("invalid value size"));
     if (m_options.key_size == 0)
-        EXTPP_THROW(invalid_argument("invalid key size"));
+        EXTPP_THROW(bad_argument("invalid key size"));
     if (m_options.key_size > max_key_size)
-        EXTPP_THROW(invalid_argument(fmt::format("key sizes larger than {} are not supported", max_key_size)));
+        EXTPP_THROW(bad_argument(fmt::format("key sizes larger than {} are not supported", max_key_size)));
     if (!m_options.derive_key)
-        EXTPP_THROW(invalid_argument("no derive_key function provided"));
+        EXTPP_THROW(bad_argument("no derive_key function provided"));
     if (!m_options.key_less)
-        EXTPP_THROW(invalid_argument("no key_less function provided"));
+        EXTPP_THROW(bad_argument("no key_less function provided"));
 
     m_leaf_capacity = raw_btree_leaf_node::capacity(get_engine().block_size(), value_size());
-    m_internal_capacity = internal_node::capacity(get_engine().block_size(), key_size());
-    if (m_leaf_capacity < 2)
-        EXTPP_THROW(invalid_argument("block size too small (cannot fit 2 values into one leaf)"));
-    if (m_internal_capacity < 4)
-        EXTPP_THROW(invalid_argument("block size too small (cannot fit 4 children into one internal node)"));
+    m_internal_max_children = internal_node::compute_max_children(get_engine().block_size(), key_size());
+    m_internal_min_children = internal_node::compute_min_children(m_internal_max_children);
 
-    anchor a = m_anchor.get();
-    m_height = a.height;
-    m_size = a.size;
-    m_root = a.root;
-    m_leftmost = a.leftmost;
-    m_rightmost = a.rightmost;
-    m_internal_nodes = a.internal_nodes;
-    m_leaf_nodes = a.leaf_nodes;
+    if (m_leaf_capacity < 2)
+        EXTPP_THROW(bad_argument("block size too small (cannot fit 2 values into one leaf)"));
+    if (m_internal_max_children < 4)
+        EXTPP_THROW(bad_argument("block size too small (cannot fit 4 children into one internal node)"));
 }
 
 raw_btree_impl::~raw_btree_impl()
@@ -1387,7 +1370,6 @@ void raw_btree_impl::clear() {
         c.reset_to_invalid(c.DELETED);
     }
 
-    allocator& alloc = get_allocator();
     const block_index old_root = root();
     const u32 old_height = height();
 
@@ -1409,7 +1391,7 @@ void raw_btree_impl::clear() {
                 self(node.get_child(i), level);
         }
 
-        alloc.free(index);
+        get_allocator().free(index);
     };
 
     if (old_height >= 1) {
@@ -1417,6 +1399,28 @@ void raw_btree_impl::clear() {
     } else {
         EXTPP_UNREACHABLE("Invalid height for nonempty tree.");
     }
+}
+
+void raw_btree_impl::clear_subtree(block_index index, u32 level) {
+    if (level > 0) {
+        internal_node node = read_internal(index);
+
+        level -= 1;
+        const u32 child_count = node.get_child_count();
+        for (u32 i = 0; i < child_count; ++i)
+            clear_subtree(node.get_child(i), level);
+        free_internal(index);
+    } else {
+        free_leaf(index);
+    }
+}
+
+std::unique_ptr<raw_btree_loader_impl> raw_btree_impl::bulk_load()
+{
+    if (!empty())
+        EXTPP_THROW(bad_operation("Tree must be empty."));
+
+    return std::make_unique<raw_btree_loader_impl>(*this);
 }
 
 std::unique_ptr<raw_btree_cursor_impl> raw_btree_impl::create_cursor(raw_btree::cursor_seek_t seek) {
@@ -1432,7 +1436,7 @@ std::unique_ptr<raw_btree_cursor_impl> raw_btree_impl::create_cursor(raw_btree::
         c->move_max();
         break;
     default:
-        EXTPP_THROW(invalid_argument("Invalid seek value"));
+        EXTPP_THROW(bad_argument("Invalid seek value"));
     }
 
     return c;
@@ -1473,7 +1477,7 @@ void raw_btree_impl::dump(std::ostream& os) const {
        "  Internal nodes: {}\n"
        "  Leaf nodes: {}\n",
        value_size(), key_size(),
-       internal_node_capacity(), leaf_node_capacity(),
+       internal_node_max_children(), leaf_node_max_values(),
        height(), size(), internal_nodes(), leaf_nodes());
 
     if (!empty())
@@ -1525,7 +1529,7 @@ void raw_btree_impl::visit(bool (*visit_fn)(const raw_btree::node_view& node, vo
                            void* user_data) const
 {
     if (!visit_fn)
-        EXTPP_THROW(invalid_argument("Invalid visitation function."));
+        EXTPP_THROW(bad_argument("Invalid visitation function."));
 
     struct node_view_impl : raw_btree::node_view {
         virtual bool is_leaf() const { return m_level == 0; }
@@ -1541,14 +1545,14 @@ void raw_btree_impl::visit(bool (*visit_fn)(const raw_btree::node_view& node, vo
         virtual const byte* key(u32 index) const {
             const internal_node& node = check_internal();
             if (index >= node.get_child_count() - 1)
-                EXTPP_THROW(invalid_argument("Key index out of bounds."));
+                EXTPP_THROW(bad_argument("Key index out of bounds."));
             return node.get_key(index);
         }
 
         virtual block_index child(u32 index) const {
             const internal_node& node = check_internal();
             if (index >= node.get_child_count())
-                EXTPP_THROW(invalid_argument("Child index out of bounds."));
+                EXTPP_THROW(bad_argument("Child index out of bounds."));
             return node.get_child(index);
         }
 
@@ -1558,21 +1562,21 @@ void raw_btree_impl::visit(bool (*visit_fn)(const raw_btree::node_view& node, vo
         virtual const byte* value(u32 index) const {
             const leaf_node& node = check_leaf();
             if (index >= node.get_size())
-                EXTPP_THROW(invalid_argument("Value index out of bounds."));
+                EXTPP_THROW(bad_argument("Value index out of bounds."));
             return node.get(index);
         }
 
         const internal_node& check_internal() const {
             auto ptr = std::get_if<internal_node>(&m_node);
             if (!ptr)
-                EXTPP_THROW(invalid_argument("Not an internal node."));
+                EXTPP_THROW(bad_argument("Not an internal node."));
             return *ptr;
         }
 
         const leaf_node& check_leaf() const {
             auto ptr = std::get_if<leaf_node>(&m_node);
             if (!ptr)
-                EXTPP_THROW(invalid_argument("Not a leaf node."));
+                EXTPP_THROW(bad_argument("Not a leaf node."));
             return *ptr;
         }
 
@@ -1625,8 +1629,8 @@ void raw_btree_impl::validate() const {
 
         const u32 min_values = tree->m_leaf_capacity / 2;
         const u32 max_values = tree->m_leaf_capacity;
-        const u32 min_children = tree->m_internal_capacity / 2;
-        const u32 max_children = tree->m_internal_capacity;
+        const u32 min_children = tree->m_internal_max_children / 2;
+        const u32 max_children = tree->m_internal_max_children;
 
         u64 seen_values = 0;
         u64 seen_leaf_nodes = 0;
@@ -1760,18 +1764,6 @@ void raw_btree_impl::validate() const {
 #undef ERROR
 }
 
-block_index raw_btree_impl::allocate_leaf() {
-    block_index index = get_allocator().allocate(1);
-    set_leaf_nodes(leaf_nodes() + 1);
-    return index;
-}
-
-block_index raw_btree_impl::allocate_internal() {
-    block_index index = get_allocator().allocate(1);
-    set_internal_nodes(internal_nodes() + 1);
-    return index;
-}
-
 void raw_btree_impl::free_leaf(block_index leaf) {
     EXTPP_ASSERT(leaf_nodes() > 0, "Invalid state");
     get_allocator().free(leaf);
@@ -1785,7 +1777,9 @@ void raw_btree_impl::free_internal(block_index internal) {
 }
 
 leaf_node raw_btree_impl::create_leaf() {
-    auto index = allocate_leaf();
+    auto index = get_allocator().allocate(1);
+    set_leaf_nodes(leaf_nodes() + 1);
+
     auto block = get_engine().zeroed(index);
     auto node = leaf_node(std::move(block), value_size(), m_leaf_capacity);
     node.init();
@@ -1793,9 +1787,11 @@ leaf_node raw_btree_impl::create_leaf() {
 }
 
 internal_node raw_btree_impl::create_internal() {
-    auto index = allocate_internal();
+    auto index = get_allocator().allocate(1);
+    set_internal_nodes(internal_nodes() + 1);
+
     auto block = get_engine().zeroed(index);
-    auto node = internal_node(std::move(block), key_size(), m_internal_capacity);
+    auto node = internal_node(std::move(block), key_size(), m_internal_max_children);
     node.init();
     return node;
 }
@@ -1805,7 +1801,7 @@ leaf_node raw_btree_impl::as_leaf(block_handle handle) const {
 }
 
 internal_node raw_btree_impl::as_internal(block_handle handle) const {
-    return internal_node(std::move(handle), key_size(), m_internal_capacity);
+    return internal_node(std::move(handle), key_size(), m_internal_max_children);
 }
 
 leaf_node raw_btree_impl::read_leaf(block_index index) const {
@@ -1848,17 +1844,17 @@ void raw_btree_cursor_impl::copy(const raw_btree_cursor_impl& other) {
 
 void raw_btree_cursor_impl::check_tree_valid() const {
     if (!tree)
-        EXTPP_THROW(bad_access("the cursor's tree instance has been destroyed"));
+        EXTPP_THROW(bad_cursor("the cursor's tree instance has been destroyed"));
 }
 
 void raw_btree_cursor_impl::check_element_valid() const {
     check_tree_valid();
     if (flags & raw_btree_cursor_impl::INPROGRESS)
-        EXTPP_THROW(bad_access("leak of in-progress cursor."));
+        EXTPP_THROW(bad_cursor("leak of in-progress cursor."));
     if (flags & raw_btree_cursor_impl::DELETED)
-        EXTPP_THROW(bad_access("cursor points to deleted element"));
+        EXTPP_THROW(bad_cursor("cursor points to deleted element"));
     if (flags & raw_btree_cursor_impl::INVALID)
-        EXTPP_THROW(bad_access("bad cursor"));
+        EXTPP_THROW(bad_cursor("bad cursor"));
 
 #ifdef EXTPP_DEBUG
     {
@@ -1980,7 +1976,7 @@ bool raw_btree_cursor_impl::move_prev() {
         if (flags & INVALID)
             return false;
     } else if (flags & INVALID) {
-        EXTPP_THROW(bad_access("bad cursor"));
+        EXTPP_THROW(bad_cursor("bad cursor"));
     }
 
 
@@ -2023,7 +2019,7 @@ bool raw_btree_cursor_impl::move_next() {
         if (flags & INVALID)
             return false;
     } else if (flags & INVALID) {
-        EXTPP_THROW(bad_access("bad cursor"));
+        EXTPP_THROW(bad_cursor("bad cursor"));
     } else {
         ++index;
     }
@@ -2104,7 +2100,7 @@ void raw_btree_cursor_impl::set(const byte* value) {
     tree->derive_key(get(), k1.data());
     tree->derive_key(value, k2.data());
     if (std::memcmp(k1.data(), k2.data(), tree->key_size()) != 0) {
-        EXTPP_THROW(invalid_argument("The key derived from the new value differs from the old key."));
+        EXTPP_THROW(bad_argument("The key derived from the new value differs from the old key."));
     }
 
     leaf.set(index, value);
@@ -2129,6 +2125,266 @@ bool raw_btree_cursor_impl::operator==(const raw_btree_cursor_impl& other) const
     if (at_end())
         return true;
     return leaf.index() == other.leaf.index() && index == other.index;
+}
+
+
+// --------------------------------
+//
+//   BTree Loader
+//
+// --------------------------------
+
+// Future: Implement bulk loading for non-emtpy trees (i.e. all keys must be > max).
+// TODO: Exception safety, discard()
+class raw_btree_loader_impl {
+public:
+    raw_btree_loader_impl(raw_btree_impl& tree);
+
+    raw_btree_loader_impl(const raw_btree_loader_impl&) = delete;
+    raw_btree_loader_impl& operator=(const raw_btree_loader_impl&) = delete;
+
+    void insert(const byte* values, size_t count);
+
+    void finish();
+
+    void discard();
+
+private:
+    // Every node is represented by its max key and its pointer.
+    // Enough memory for keys and indices for (children + min_children) children.
+    // This scheme ensures that we never emit internal nodes that are too empty.
+    // Note that we can emit *leaf*-nodes that are too empty because the tree
+    // already has a special case for them.
+    struct proto_internal_node {
+        std::vector<byte> keys;
+        std::vector<block_index> children;
+        u32 size = 0;
+        u32 capacity = 0;
+    };
+
+    proto_internal_node make_internal_node() {
+        proto_internal_node node;
+        node.capacity = m_internal_max_children + m_internal_min_children;
+        node.keys.resize(node.capacity * m_key_size);
+        node.children.resize(node.capacity);
+        return node;
+    }
+
+    void insert_child(size_t index, const byte* key, block_index child);
+    void flush_internal(size_t index, proto_internal_node& node, u32 count);
+
+    void insert_child_nonfull(proto_internal_node& node, const byte* key, block_index child);
+    void flush_leaf();
+
+    enum state_t {
+        STATE_OK,
+        STATE_ERROR,
+        STATE_FINALIZED
+    };
+
+private:
+    // Constants
+    raw_btree_impl& m_tree;
+    const u32 m_internal_min_children;
+    const u32 m_internal_max_children;
+    const u32 m_leaf_max_values;
+    const u32 m_value_size;
+    const u32 m_key_size;
+    state_t m_state = STATE_OK;
+
+    // Track these values while we build the tree.
+    block_index m_leftmost_leaf;    // First leaf created.
+    block_index m_rightmost_leaf;   // Last leaf created.
+    u64 m_size = 0;                 // Total number of values inserted.
+
+    // One proto node for every level of internal nodes.
+    // The last entry is the root. Unique pointer for stable addresses.
+    std::vector<std::unique_ptr<proto_internal_node>> m_parents;
+    raw_btree_leaf_node m_leaf;
+};
+
+raw_btree_loader_impl::raw_btree_loader_impl(raw_btree_impl& tree)
+    : m_tree(tree)
+    , m_internal_min_children(m_tree.internal_node_min_chlidren())
+    , m_internal_max_children(m_tree.internal_node_max_children())
+    , m_leaf_max_values(m_tree.leaf_node_max_values())
+    , m_value_size(m_tree.value_size())
+    , m_key_size(m_tree.key_size())
+{}
+
+void raw_btree_loader_impl::insert(const byte* values, size_t count) {
+    if (count == 0)
+        return;
+    if (!values)
+        EXTPP_THROW(bad_argument("Values are null."));
+    if (m_state == STATE_ERROR)
+        EXTPP_THROW(bad_operation("A previous operation on this loader failed."));
+    if (m_state == STATE_FINALIZED)
+        EXTPP_THROW(bad_operation("This loader was already finalized."));
+
+    detail::deferred guard = [&]{
+        m_state = STATE_ERROR;
+    };
+
+    while (count > 0) {
+        if (!m_leaf.valid()) {
+            m_leaf = m_tree.create_leaf();
+        }
+
+        u32 leaf_size = m_leaf.get_size();
+        if (leaf_size == m_leaf_max_values) {
+            flush_leaf();
+            m_leaf = m_tree.create_leaf();
+            leaf_size = 0;
+        }
+
+        u32 take = m_leaf_max_values - leaf_size;
+        if (take > count)
+            take = count;
+        EXTPP_ASSERT(take > 0, "Leaf must not be full.");
+
+        m_leaf.append_nonfull(values, take);
+        m_size += take;
+        count -= take;
+    }
+
+    guard.disable();
+}
+
+// TODO: Exception safety.
+void raw_btree_loader_impl::finish() {
+    if (!m_tree.empty())
+        EXTPP_THROW(bad_operation("The tree must be empty."));
+
+    if (m_size == 0)
+        return; // Nothing to do, the tree remains empty.
+
+    if (m_leaf.valid()) {
+        EXTPP_ASSERT(m_leaf.get_size() > 0, "Leaves must not be empty.");
+        flush_leaf();
+        m_leaf = raw_btree_leaf_node();
+    }
+
+    // Loop over all internal nodes and flush them to the next level.
+    // The parents vector will grow as needed because of the insert_child(index + 1) calls.
+    // After this loop terminates, the highest level of the tree contains exactly one child, the root.
+    for (size_t index = 0; index < m_parents.size(); ++index) {
+        proto_internal_node& node = *m_parents[index];
+
+        if (index == m_parents.size() - 1) {
+            if (node.size == 1) {
+                break; // Done, this child is our root.
+            }
+            // Continue with flush, make the tree grow in height.
+        } else {
+            // Not the last entry, this means that there must be enough entries for one node.
+            EXTPP_ASSERT(node.size >= m_internal_min_children, "Not enough entries for one internal node.");
+        }
+
+        if (node.size > m_internal_max_children) {
+            flush_internal(index, node, (node.size + 1) / 2);
+        }
+        flush_internal(index, node, node.size);
+    }
+
+    EXTPP_ASSERT(m_parents.size() > 0 && m_parents.back()->size == 1,
+                 "The highest level must contain one child.");
+
+    m_tree.set_height(m_parents.size());
+    m_tree.set_root(m_parents.back()->children[0]);
+    m_tree.set_size(m_size);
+    m_tree.set_leftmost(m_leftmost_leaf);
+    m_tree.set_rightmost(m_rightmost_leaf);
+    m_state = STATE_FINALIZED;
+}
+
+void raw_btree_loader_impl::discard() {
+    if (m_state == STATE_OK)
+        m_state = STATE_FINALIZED;
+
+    if (m_leaf.valid()) {
+        m_tree.clear_subtree(m_leaf.index(), 0);
+        m_leaf = raw_btree_leaf_node();
+    }
+
+    // The level of the child entries in the following nodes.
+    u32 level = 0;
+    for (auto& nodeptr : m_parents) {
+        proto_internal_node& node = *nodeptr;
+        for (size_t child = 0; child < node.size; ++child) {
+            m_tree.clear_subtree(node.children[child], level);
+        }
+        node.size = 0;
+        ++level;
+    }
+}
+
+// Note: Invalidates references to nodes on the parent stack.
+void raw_btree_loader_impl::flush_leaf() {
+    EXTPP_ASSERT(m_leaf.valid(), "Leaf must be valid.");
+    EXTPP_ASSERT(m_leaf.get_size() > 0, "Leaf must not be empty.");
+
+    // Insert the leaf into its (proto-) parent. If that parent becomes full,
+    // emit a new node and register that one it's parent etc.
+    key_buffer child_key;
+    m_tree.derive_key(m_leaf.get(m_leaf.get_size() - 1), child_key.data());
+    insert_child(0, child_key.data(), m_leaf.index());
+
+    if (!m_leftmost_leaf) {
+        m_leftmost_leaf = m_leaf.index();
+    }
+    m_rightmost_leaf = m_leaf.index();
+    m_leaf = raw_btree_leaf_node();
+}
+
+// Note: Invalidates references to nodes on the parent stack.
+void raw_btree_loader_impl::insert_child(size_t index, const byte* key, block_index child)
+{
+    EXTPP_ASSERT(index <= m_parents.size(), "Invalid parent index.");
+
+    if (index == m_parents.size()) {
+        m_parents.push_back(std::make_unique<proto_internal_node>(make_internal_node()));
+    }
+
+    proto_internal_node& node = *m_parents[index];
+    if (node.size == node.capacity) {
+        flush_internal(index, node, m_internal_max_children);
+    }
+    insert_child_nonfull(node, key, child);
+}
+
+// Flush count entries from the node to the next level.
+// Note: Invalidates references to nodes on the parent stack.
+void raw_btree_loader_impl::flush_internal(size_t index, proto_internal_node& node, u32 count) {
+    EXTPP_ASSERT(index < m_parents.size(), "Invalid node index.");
+    EXTPP_ASSERT(m_parents[index].get() == &node, "Node address mismatch.");
+    EXTPP_ASSERT(count <= node.size, "Cannot flush that many elements.");
+    EXTPP_ASSERT(count <= m_internal_max_children, "Too many elements for a tree node.");
+
+    internal_node tree_node = m_tree.create_internal();
+    detail::deferred cleanup = [&]{
+        m_tree.free_internal(tree_node.index());
+    };
+
+    // Copy first `count` entries into the real node, then forward max key and node index
+    // to the next level.
+    tree_node.set_entries(node.keys.data(), node.children.data(), count);
+    insert_child(index + 1, node.keys.data() + m_key_size * (count - 1), tree_node.index());
+    cleanup.disable();
+
+    // Shift `count` values to the left.
+    std::copy_n(node.children.begin() + count, node.size - count, node.children.begin());
+    std::memmove(node.keys.data(), node.keys.data() + count * m_key_size, (node.size - count) * m_key_size);
+    node.size = node.size - count;
+}
+
+void raw_btree_loader_impl::insert_child_nonfull(proto_internal_node& node, const byte* key, block_index child)
+{
+    EXTPP_ASSERT(node.size < node.capacity, "Node is full.");
+
+    std::memcpy(node.keys.data() + node.size * m_key_size, key, m_key_size);
+    node.children[node.size] = child;
+    node.size += 1;
 }
 
 // --------------------------------
@@ -2159,8 +2415,8 @@ allocator& raw_btree::get_allocator() const { return impl().get_allocator(); }
 
 u32 raw_btree::value_size() const { return impl().value_size(); }
 u32 raw_btree::key_size() const { return impl().key_size(); }
-u32 raw_btree::internal_node_capacity() const { return impl().internal_node_capacity(); }
-u32 raw_btree::leaf_node_capacity() const { return impl().leaf_node_capacity(); }
+u32 raw_btree::internal_node_capacity() const { return impl().internal_node_max_children(); }
+u32 raw_btree::leaf_node_capacity() const { return impl().leaf_node_max_values(); }
 bool raw_btree::empty() const { return impl().empty(); }
 u64 raw_btree::size() const { return impl().size(); }
 u64 raw_btree::height() const { return impl().height(); }
@@ -2209,6 +2465,10 @@ std::pair<raw_btree_cursor, bool> raw_btree::insert(const byte* value, raw_btree
 void raw_btree::reset() { impl().clear(); }
 void raw_btree::clear() { impl().clear(); }
 
+raw_btree_loader raw_btree::bulk_load() {
+    return raw_btree_loader(impl().bulk_load());
+}
+
 void raw_btree::dump(std::ostream& os) const { return impl().dump(os); }
 
 raw_btree::node_view::~node_view() {}
@@ -2220,7 +2480,8 @@ void raw_btree::visit(bool (*visit_fn)(const node_view& node, void* user_data), 
 void raw_btree::validate() const { return impl().validate(); }
 
 raw_btree_impl& raw_btree::impl() const {
-    EXTPP_ASSERT(m_impl, "Invalid tree.");
+    if (!m_impl)
+        EXTPP_THROW(bad_operation("invalid tree instance"));
     return *m_impl;
 }
 
@@ -2276,7 +2537,7 @@ raw_btree_cursor& raw_btree_cursor::operator=(raw_btree_cursor&& other) noexcept
 
 raw_btree_cursor_impl& raw_btree_cursor::impl() const {
     if (!m_impl)
-        EXTPP_THROW(bad_access("bad cursor"));
+        EXTPP_THROW(bad_cursor("invalid cursor"));
     return *m_impl;
 }
 
@@ -2311,6 +2572,54 @@ bool raw_btree_cursor::operator==(const raw_btree_cursor& other) const {
         return impl().at_end();
     }
     return impl() == other.impl();
+}
+
+
+// --------------------------------
+//
+//   Loader public interface
+//
+// --------------------------------
+
+raw_btree_loader::raw_btree_loader(std::unique_ptr<raw_btree_loader_impl> impl)
+    : m_impl(std::move(impl))
+{
+    EXTPP_ASSERT(m_impl, "Invalid impl pointer.");
+}
+
+raw_btree_loader::~raw_btree_loader() {}
+
+raw_btree_loader::raw_btree_loader(raw_btree_loader&& other) noexcept
+    : m_impl(std::move(other.m_impl))
+{}
+
+raw_btree_loader& raw_btree_loader::operator=(raw_btree_loader&& other) noexcept {
+    if (this != &other) {
+        m_impl = std::move(other.m_impl);
+    }
+    return *this;
+}
+
+raw_btree_loader_impl& raw_btree_loader::impl() const {
+    if (!m_impl)
+        EXTPP_THROW(bad_operation("bad loader"));
+    return *m_impl;
+}
+
+void raw_btree_loader::insert(const byte* value) {
+    insert(value, 1);
+}
+
+void raw_btree_loader::insert(const byte* values, size_t count) {
+    return impl().insert(values, count);
+}
+
+void raw_btree_loader::finish() {
+    impl().finish();
+}
+
+void raw_btree_loader::discard() {
+    impl().discard();
 }
 
 } // namespace extpp

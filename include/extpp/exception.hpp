@@ -72,33 +72,70 @@ private:
     source_location m_where;
 };
 
+/**
+ * Thrown when an allocation using extpp::allocator failed.
+ */
 class bad_alloc : public exception {
     using exception::exception;
 };
 
+/**
+ * Thrown when the content of a datastructure is known to be corrupted.
+ */
 class corruption_error : public exception {
 public:
     using exception::exception;
 };
 
-class invalid_argument : public exception {
-public:
-    using exception::exception;
-};
-
+/**
+ * Thrown when a specific operation is not implemented by an object.
+ * For example, mmap() may not supported on all platforms.
+ */
 class unsupported : public exception {
 public:
     using exception::exception;
 };
 
+/**
+ * Thrown when data could not be read or written to secondary storage.
+ */
 class io_error : public exception {
 public:
     using exception::exception;
 };
 
-class bad_access : public exception {
+/**
+ * Exceptions of this class or its subclasses are thrown when an object
+ * is being misused, i.e. it is being passed the wrong arguments
+ * or it is in the wrong state.
+ */
+class usage_error : public exception {
 public:
-    bad_access(const char* what);
+    using exception::exception;
+};
+
+/**
+ * Thrown when an object cannot perform an operation in its current state.
+ */
+class bad_operation : public usage_error {
+public:
+    using usage_error::usage_error;
+};
+
+/**
+ * Thrown when an invalid cursor is being accessed.
+ */
+class bad_cursor : public bad_operation {
+public:
+    using bad_operation::bad_operation;
+};
+
+/**
+ * Thrown when an invalid argument is being passed to some operation.
+ */
+class bad_argument : public usage_error {
+public:
+    using usage_error::usage_error;
 };
 
 } // namespace extpp

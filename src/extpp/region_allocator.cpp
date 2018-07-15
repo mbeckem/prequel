@@ -13,10 +13,10 @@ region_allocator::region_allocator(anchor_handle<anchor> _anchor, engine& _engin
 
 void region_allocator::initialize(block_index begin, u64 capacity) {
     if (this->begin()) {
-        EXTPP_THROW(invalid_argument("Region allocator was already initialized."));
+        EXTPP_THROW(bad_argument("Region allocator was already initialized."));
     }
     if (!begin || capacity == 0) {
-        EXTPP_THROW(invalid_argument("Region must not be empty."));
+        EXTPP_THROW(bad_argument("Region must not be empty."));
     }
 
     m_anchor.set<&anchor::begin>(begin);

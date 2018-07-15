@@ -98,6 +98,36 @@ public:
         bool operator!=(const cursor& other) const { return inner != other.inner; }
     };
 
+    class loader {
+        raw_btree::loader inner;
+
+    private:
+        friend class btree;
+
+        loader(raw_btree::loader&& inner): inner(std::move(inner)) {}
+
+    public:
+        loader() = delete;
+        loader(loader&&) noexcept = default;
+        loader& operator=(loader&&) noexcept = default;
+
+        void insert(const value_type& value) {
+            auto buffer = serialized_value(value);
+            inner.insert(buffer.data());
+        }
+
+        template<typename InputIter>
+        void insert(const InputIter& begin, const InputIter& end) {
+            // TODO: Test whether batching here is worth it.
+            for (auto i = begin; i != end; ++i) {
+                insert(*i);
+            }
+        }
+
+        void finish() { inner.finish(); }
+        void discard() { inner.discard(); }
+    };
+
 public:
     using cursor_seek_t = raw_btree::cursor_seek_t;
 
@@ -176,6 +206,10 @@ public:
         auto buffer = serialized_value(value);
         auto [inner, inserted] = m_inner.insert(buffer.data(), mode);
         return std::make_pair(cursor(std::move(inner)), inserted);
+    }
+
+    loader bulk_load() {
+        return loader(m_inner.bulk_load());
     }
 
     void reset() { m_inner.reset(); }

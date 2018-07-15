@@ -238,7 +238,7 @@ public:
         : m_block_size(block_size)
     {
         if (!is_pow2(block_size)) {
-            EXTPP_THROW(invalid_argument(fmt::format("Block size is not a power of two: {}.", block_size)));
+            EXTPP_THROW(bad_argument(fmt::format("Block size is not a power of two: {}.", block_size)));
         }
         m_block_size_log = log2(block_size);
         m_offset_mask = m_block_size - 1;

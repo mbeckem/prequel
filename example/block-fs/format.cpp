@@ -37,6 +37,7 @@ void format_device(extpp::file& device) {
     device.sync();
 }
 
+// TODO: Support for variable size files.
 int main(int argc, char** argv) {
     if (argc < 2) {
         std::cerr << "Expected a file system path as first argument." << std::endl;

@@ -122,6 +122,26 @@ public:
         set_child_count(child_count + 1);
     }
 
+    // Sets the content (child_count - 1 keys and child_count children) of this node.
+    // Used during bulk loading.
+    void set_entries(const byte* keys, const block_index* children, u32 child_count) {
+        EXTPP_ASSERT(get_child_count() == 0, "Can only be used on empty nodes.");
+        EXTPP_ASSERT(child_count <= max_children(), "Too many children.");
+        EXTPP_ASSERT(child_count >= 2, "Invalid number of children.");
+
+        byte* data = m_handle.block().writable_data();
+
+        // Insert the keys and the child pointers.
+        std::memmove(data + offset_of_key(0), keys, m_key_size * (child_count - 1));
+        {
+            byte* child_cursor = data + offset_of_child(0);
+            for (u32 i = 0; i < child_count; ++i) {
+                child_cursor = extpp::serialize(children[i], child_cursor);
+            }
+        }
+        set_child_count(child_count);
+    }
+
     // Removes the child at the given index (and its key, if there is one).
     // All children and keys with a higher index move one to the left.
     void remove_child(u32 index) const {
@@ -227,20 +247,24 @@ public:
         right.set_child_count(right_count);
     }
 
-    u32 min_children() const { return max_children() / 2; }
+    u32 min_children() const { return compute_min_children(max_children()); }
     u32 max_children() const { return m_capacity; }
 
     u32 max_keys() const { return m_capacity - 1; }
     u32 key_size() const { return m_key_size; }
 
 public:
-    static u32 capacity(u32 block_size, u32 key_size) {
+    static u32 compute_max_children(u32 block_size, u32 key_size) {
         u32 hdr_size = serialized_size<header>();
         u32 ptr_size = block_index_size;
         if (block_size < hdr_size)
             return 0;
 
         return (block_size - hdr_size + key_size) / (key_size + ptr_size);
+    }
+
+    static u32 compute_min_children(u32 max_children) {
+        return max_children / 2;
     }
 
 private:

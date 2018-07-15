@@ -263,7 +263,7 @@ struct default_serializer<std::variant<T...>> {
 
     static void serialize(const std::variant<T...>& v, byte* b) {
         if (v.valueless_by_exception())
-            EXTPP_THROW(invalid_argument("Cannot serialize a valueless_by_exception variant."));
+            EXTPP_THROW(bad_argument("Cannot serialize a valueless_by_exception variant."));
 
         // Remember for the zeroing at the end.
         byte* const end = b + serialized_size;

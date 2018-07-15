@@ -34,12 +34,11 @@ public:
 
     ~deferred() noexcept(noexcept(fn())) {
         if (invoke) {
-            if (std::uncaught_exceptions()) {
-                try {
-                    fn();
-                } catch (...) {}
-            } else {
+            try {
                 fn();
+            } catch (...) {
+                if (!std::uncaught_exceptions())
+                    throw;
             }
         }
     }
