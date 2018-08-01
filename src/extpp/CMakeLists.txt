@@ -41,7 +41,8 @@ set(PUBLIC_HEADERS
 )
 
 set(PRIVATE_HEADERS
-    heap_base.hpp
+    heap/base.hpp
+    heap/object_table.hpp
     raw_btree_internal_node.hpp
     raw_btree_leaf_node.hpp
 )
