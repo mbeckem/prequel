@@ -6,7 +6,7 @@
 
 namespace extpp::heap_detail {
 
-static constexpr u64 cell_size = 8;
+static constexpr u64 cell_size = 16;
 static constexpr u64 cell_size_log = log2(cell_size);
 
 } // namespace extpp::heap_detail

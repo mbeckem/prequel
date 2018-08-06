@@ -13,104 +13,122 @@
 namespace extpp::heap_detail {
 
 struct object_entry {
-public:
-    static constexpr u64 invalid_index = (u64(1) << 63) - 1;
-
 private:
-    /*
-     * This value contains a union of (reference_entry, free_entry).
-     * Bit layout (from most to least significant):
-     *  - 1 Bit (0 = reference, 1 = free)
-     *
-     *  - if reference:
-     *      2 bit:  tag value 0..3
-     *      61 bit: cell address (raw byte address divided by cell size)
-     *
-     *  - if free:
-     *      63 bit: next free object table entry, or invalid_index if this is the last entry.
-     *              TODO: use a sorted tree for compact object table?
-     */
-    u64 m_value;
+    struct common_t {
+        u64 free: 1;
+    };
 
-private:
-    static constexpr u64 free_mask = (u64(1) << 63);
-    static constexpr u64 tag_mask = ((u64(1) << 62) | (u64(1) << 61));
-    static constexpr u64 cell_mask = (u64(1) << 61) - 1;
-    static constexpr u64 next_mask = (u64(1) << 63) - 1;
+    struct array_reference_t {
+        u64 free: 1;        // 0 for references
+        u64 tag: 3;
+        u64 address: 60;
+        u64 size;           // 64 bits is overkill but 32 would not be enough.
+    };
 
-    object_entry() = default;
+    struct free_t {
+        u64 free: 1;        // 1 for free entries
+        u64 next: 63;
+        u64 unused;
+    };
 
-    void _set_free(u64 next) {
-        EXTPP_ASSERT(next <= invalid_index, "Next out of range.");
-        m_value = (u64(1) << 63) | next;
-    }
-
-    void _set_reference(int tag, u64 cell) {
-        EXTPP_ASSERT(tag >= 0 && tag <= 3, "Tag out of range.");
-        EXTPP_ASSERT(cell < (u64(1) << 61), "Cell out of range.");
-        m_value = (u64(tag) << 61) | cell;
-    }
-
-    bool _get_free() const {
-        return (m_value & free_mask) != 0;
-    }
-
-    int _get_tag() const {
-        return (m_value & tag_mask) >> 61;
-    }
-
-    u64 _get_cell() const {
-        return m_value & cell_mask;
-    }
-
-    u64 _get_next() const {
-        return m_value & next_mask;
-    }
+    union {
+        common_t common;
+        free_t free;
+        array_reference_t reference;
+    };
 
 public:
-    static object_entry make_reference(int tag, raw_address address) {
+    static object_entry make_reference(int tag, raw_address address, u64 size) {
         EXTPP_ASSERT(address.valid(), "Address must be valid.");
         EXTPP_ASSERT(address.value() % cell_size == 0, "Address must be aligned on a cell boundary.");
+        EXTPP_ASSERT(tag >= 0 && tag < 8, "Invalid tag.");
 
         object_entry ent;
-        ent._set_reference(tag, address.value() / cell_size);
+        ent.reference.free = 0;
+        ent.reference.tag = tag;
+        ent.reference.address = address.value() / cell_size;
+        ent.reference.size = size;
         return ent;
     }
 
     static object_entry make_free(u64 next) {
         object_entry ent;
-        ent._set_free(next);
+        ent.free.free = 1;
+        ent.free.next = next;
+        ent.free.unused = 0;
         return ent;
     }
 
-    bool is_free() const { return _get_free(); }
+    bool is_free() const { return common.free; }
     bool is_reference() const { return !is_free(); }
 
     u64 next() const {
         EXTPP_ASSERT(is_free(), "Must be free.");
-        return _get_next();
+        return free.next;
     }
 
     int tag() const {
         EXTPP_ASSERT(is_reference(), "Must be a reference.");
-        return _get_tag();
+        return reference.tag;
     }
 
     raw_address address() const {
         EXTPP_ASSERT(is_reference(), "Must be a reference.");
-        return raw_address(_get_cell() * cell_size);
+        return raw_address(reference.address * cell_size);
     }
 
-private:
-    friend class binary_format_access;
-
-    static constexpr auto get_binary_format() {
-        return make_binary_format(&object_entry::m_value);
+    u64 size() const {
+        EXTPP_ASSERT(is_reference(), "Must be a reference.");
+        return reference.size;
     }
+
+public:
+    struct binary_serializer {
+    private:
+        static constexpr u64 free_bit = u64(1) << 63;
+
+        static constexpr u64 tag_shift = 60;
+        static constexpr u64 tag_mask = u64(7) << tag_shift;
+
+    public:
+        static constexpr size_t serialized_size() { return 16; }
+
+        static void serialize(const object_entry& entry, byte* b) {
+            u64 repr[2];
+
+            if (entry.common.free) {
+                const free_t& free = entry.free;
+                repr[0] = free_bit | free.next;
+                repr[1] = 0;
+            } else {
+                const array_reference_t& ref = entry.reference;
+                repr[0] = (u64(ref.tag) << tag_shift) | ref.address;
+                repr[1] = ref.size;
+            }
+            extpp::serialize(repr, b);
+        }
+
+        static void deserialize(object_entry& entry, const byte* b) {
+            u64 repr[2];
+            extpp::deserialize(repr, b);
+
+            if (repr[0] & free_bit) {
+                free_t& free = entry.free;
+                free.free = 1;
+                free.next = repr[0] & ~free_bit;
+                free.unused = 0;
+            } else {
+                array_reference_t& ref = entry.reference;
+                ref.free = 0;
+                ref.tag = repr[0] >> tag_shift;
+                ref.address = repr[0] & ~tag_mask;
+                ref.size = repr[1];
+            }
+        }
+    };
 };
 
-static_assert(sizeof(object_entry) == sizeof(u64), "Compact representation.");
-static_assert(serialized_size<object_entry>() == serialized_size<u64>(), "Compact serialized representation.");
+static_assert(serialized_size<object_entry>() == 2 * serialized_size<u64>(), "Compact serialized representation.");
 
 class object_table {
 private:
