@@ -139,8 +139,8 @@ private:
         EXTPP_ASSERT(e.size > 0, "Cannot register zero-sized extents.");
 
         auto result = m_extents.insert(e);
-        EXTPP_ASSERT(result.second, "Block address was not unique.");
-        return std::move(result.first);
+        EXTPP_ASSERT(result.inserted, "Block address was not unique.");
+        return std::move(result.position);
     }
 
     /// Add a new extent to the free list. It is an error if an entry for `e`
@@ -152,8 +152,8 @@ private:
         free.size = e.size;
 
         auto result = m_free_extents.insert(free);
-        EXTPP_ASSERT(result.second, "Free extent entry was not unique.");
-        return std::move(result.first);
+        EXTPP_ASSERT(result.inserted, "Free extent entry was not unique.");
+        return std::move(result.position);
     }
 
     /// Removes an extent from the free list. It is an error if the
@@ -638,13 +638,11 @@ std::pair<block_index, u64> default_allocator::impl_t::allocate_metadata_blocks(
 
 // TODO: Exception safe (remove extent again if register_free at the bottom fails).
 void default_allocator::impl_t::register_free(extent_t extent, int merge_direction) {
-    extent_cursor pos;
-    bool inserted;
-    std::tie(pos, inserted) = m_extents.insert(extent);
-    EXTPP_ASSERT(inserted, "The extent already existed.");
-    unused(inserted);
+    auto result = m_extents.insert(extent);
+    EXTPP_ASSERT(result.inserted, "The extent already existed.");
+    unused(result.inserted);
 
-    register_free(extent, pos, merge_direction);
+    register_free(extent, result.position, merge_direction);
 }
 
 // TODO: Exception safety (since add_free at the bottom might allocate).

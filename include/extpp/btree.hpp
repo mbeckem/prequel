@@ -45,12 +45,6 @@ public:
         cursor(raw_btree::cursor&& inner): inner(std::move(inner)) {}
 
     public:
-        using cursor_insert_t = raw_btree::cursor_insert_t;
-
-        static constexpr auto keep_existing = raw_btree::keep_existing;
-        static constexpr auto overwrite_existing = raw_btree::overwrite_existing;
-
-    public:
         cursor() = default;
 
         bool at_end() const { return inner.at_end(); }
@@ -78,9 +72,14 @@ public:
             return inner.find(buffer.data());
         }
 
-        bool insert(const value_type& value, cursor_insert_t mode = keep_existing) {
+        bool insert(const value_type& value) {
             auto buffer = serialized_value(value);
-            return inner.insert(buffer.data(), mode);
+            return inner.insert(buffer.data());
+        }
+
+        bool insert_or_update(const value_type& value) {
+            auto buffer = serialized_value(value);
+            return inner.insert_or_update(buffer.data());
         }
 
         void erase() { inner.erase(); }
@@ -135,10 +134,17 @@ public:
     static constexpr cursor_seek_t seek_min = raw_btree::seek_min;
     static constexpr cursor_seek_t seek_max = raw_btree::seek_max;
 
-    using cursor_insert_t = raw_btree::cursor_insert_t;
+    struct insert_result {
+        cursor position;
+        bool inserted = false;
 
-    static constexpr auto keep_existing = raw_btree::keep_existing;
-    static constexpr auto overwrite_existing = raw_btree::overwrite_existing;
+        insert_result() = default;
+
+        insert_result(cursor position, bool inserted)
+            : position(std::move(position))
+            , inserted(inserted)
+        {}
+    };
 
 public:
     explicit btree(anchor_handle<anchor> anchor_, allocator& alloc_, DeriveKey derive_key = DeriveKey(), KeyLess less = KeyLess())
@@ -202,10 +208,16 @@ public:
         return cursor(m_inner.upper_bound(buffer.data()));
     }
 
-    std::pair<cursor, bool> insert(const value_type& value, cursor_insert_t mode = keep_existing) {
+    insert_result insert(const value_type& value) {
         auto buffer = serialized_value(value);
-        auto [inner, inserted] = m_inner.insert(buffer.data(), mode);
-        return std::make_pair(cursor(std::move(inner)), inserted);
+        auto result = m_inner.insert(buffer.data());
+        return insert_result(cursor(std::move(result.position)), result.inserted);
+    }
+
+    insert_result insert_or_update(const value_type& value) {
+        auto buffer = serialized_value(value);
+        auto result = m_inner.insert_or_update(buffer.data());
+        return insert_result(cursor(std::move(result.position)), result.inserted);
     }
 
     loader bulk_load() {

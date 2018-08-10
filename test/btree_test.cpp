@@ -351,10 +351,10 @@ TEST_CASE("btree insertion and querying", "[btree]") {
             i32 v = i * 2 + 1;
             INFO("Insertion of " << v);
 
-            auto pair = tree.insert(v);
+            auto result = tree.insert(v);
 
-            REQUIRE(pair.second);
-            REQUIRE(pair.first.get() == v);
+            REQUIRE(result.inserted);
+            REQUIRE(result.position.get() == v);
         }
 
         tree.validate();
@@ -407,11 +407,11 @@ TEST_CASE("btree detects duplicate keys", "[btree]") {
         }
 
         for (i32 n : numbers) {
-            auto [cursor, inserted] = tree.insert(raw_value(n, 3), tree.overwrite_existing);
-            if (cursor.get() != raw_value(n, 3)) {
-                FAIL("Unexpected value " << cursor.get() << ", expected " << raw_value(n, 3));
+            auto result = tree.insert_or_update(raw_value(n, 3));
+            if (result.position.get() != raw_value(n, 3)) {
+                FAIL("Unexpected value " << result.position.get() << ", expected " << raw_value(n, 3));
             }
-            if (!inserted) {
+            if (result.inserted) {
                 FAIL("Value " << n << " should have been overwritten.");
             }
         }
@@ -588,7 +588,7 @@ TEST_CASE("btree cursor stability", "[btree]") {
         std::vector<stable_cursor> cursors;
         for (i32 value : numbers) {
             stable_cursor c;
-            c.cursor = tree.insert(value).first;
+            c.cursor = tree.insert(value).position;
             c.value = value;
 
             cursors.push_back(std::move(c));
@@ -664,17 +664,15 @@ TEST_CASE("btree fuzzy tests", "[btree][.slow]") {
         for (u64 n : numbers) {
             INFO("Inserting number " << n << " << at index " << count);
 
-            tree_t::cursor pos;
-            bool inserted;
-            std::tie(pos, inserted) = tree.insert(n);
-            if (!inserted) {
+            auto result = tree.insert(n);
+            if (!result.inserted) {
                 FAIL("Failed to insert");
             }
-            if (!pos) {
+            if (!result.position) {
                 FAIL("Got the invalid cursor");
             }
-            if (pos.get() != n) {
-                FAIL("Cursor points to wrong value " << pos.get());
+            if (result.position.get() != n) {
+                FAIL("Cursor points to wrong value " << result.position.get());
             }
 
             ++count;

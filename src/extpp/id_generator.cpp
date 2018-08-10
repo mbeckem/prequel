@@ -82,8 +82,7 @@ void id_generator::free(value_type id) {
     if (range.end == max()) {
         m_anchor.set<&anchor::max>(range.begin - 1);
     } else {
-        bool inserted;
-        std::tie(std::ignore, inserted) = m_tree.insert(range);
+        bool inserted = m_tree.insert(range).inserted;
         unused(inserted);
         EXTPP_ASSERT(inserted, "Interval must have been inserted.");
     }

@@ -107,7 +107,7 @@ public:
     bool lower_bound(const byte* key);
     bool upper_bound(const byte* key);
     bool find(const byte* key);
-    bool insert(const byte* value, raw_btree::cursor_insert_t mode);
+    bool insert(const byte* value, bool overwrite);
     void erase();
 
     const byte* get() const;
@@ -2072,12 +2072,11 @@ bool raw_btree_cursor_impl::find(const byte* key) {
     return !at_end();
 }
 
-bool raw_btree_cursor_impl::insert(const byte* value, raw_btree::cursor_insert_t mode) {
+bool raw_btree_cursor_impl::insert(const byte* value, bool overwrite) {
     check_tree_valid();
     bool inserted = tree->insert(value, *this);
-    if (!inserted && mode == raw_btree::overwrite_existing) {
+    if (!inserted && overwrite) {
         leaf.set(index, value);
-        return true;
     }
     return inserted;
 }
@@ -2456,10 +2455,16 @@ raw_btree_cursor raw_btree::upper_bound(const byte* key) const {
     return c;
 }
 
-std::pair<raw_btree_cursor, bool> raw_btree::insert(const byte* value, raw_btree::cursor_insert_t mode) {
+raw_btree::insert_result raw_btree::insert(const byte* value) {
     auto c = create_cursor(raw_btree::seek_none);
-    bool inserted = c.insert(value, mode);
-    return std::make_pair(std::move(c), inserted);
+    bool inserted = c.insert(value);
+    return insert_result(std::move(c), inserted);
+}
+
+raw_btree::insert_result raw_btree::insert_or_update(const byte* value) {
+    auto c = create_cursor(raw_btree::seek_none);
+    bool inserted = c.insert_or_update(value);
+    return insert_result(std::move(c), inserted);
 }
 
 void raw_btree::reset() { impl().clear(); }
@@ -2556,7 +2561,8 @@ bool raw_btree_cursor::move_prev() { return impl().move_prev(); }
 bool raw_btree_cursor::lower_bound(const byte* key) { return impl().lower_bound(key); }
 bool raw_btree_cursor::upper_bound(const byte* key) { return impl().upper_bound(key); }
 bool raw_btree_cursor::find(const byte* key) { return impl().find(key); }
-bool raw_btree_cursor::insert(const byte* value, raw_btree::cursor_insert_t mode) { return impl().insert(value, mode); }
+bool raw_btree_cursor::insert(const byte* value) { return impl().insert(value, false); }
+bool raw_btree_cursor::insert_or_update(const byte* value) { return impl().insert(value, true); }
 void raw_btree_cursor::erase() { impl().erase(); }
 
 void raw_btree_cursor::set(const byte* data) { return impl().set(data); }

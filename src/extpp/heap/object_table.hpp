@@ -1,7 +1,7 @@
 #ifndef EXTPP_HEAP_OBJECT_TABLE_HPP
 #define EXTPP_HEAP_OBJECT_TABLE_HPP
 
-#include "base.hpp"
+#include <extpp/heap/base.hpp>
 
 #include <extpp/address.hpp>
 #include <extpp/heap.hpp>
@@ -13,6 +13,9 @@
 namespace extpp::heap_detail {
 
 struct object_entry {
+public:
+    static constexpr u64 max_free_index = u64(1) << 63;
+
 private:
     struct common_t {
         u64 free: 1;
@@ -52,6 +55,8 @@ public:
     }
 
     static object_entry make_free(u64 next) {
+        EXTPP_ASSERT(next <= max_free_index, "Next index out of range.");
+
         object_entry ent;
         ent.free.free = 1;
         ent.free.next = next;
@@ -131,14 +136,11 @@ public:
 static_assert(serialized_size<object_entry>() == 2 * serialized_size<u64>(), "Compact serialized representation.");
 
 class object_table {
-private:
-    static constexpr u64 invalid_index = object_entry::invalid_index;
-
 public:
     class anchor {
         /// Index of the first table entry that can be used for new reference.
         /// Invalid index if there is none.
-        u64 first_free_index = invalid_index;
+        u64 first_free_index = object_entry::max_free_index;
 
         /// Storage of the object table itself.
         stream<object_entry>::anchor table;
@@ -151,6 +153,7 @@ public:
             return make_binary_format(&anchor::first_free_index, &anchor::table);
         }
     };
+
 public:
     object_table(anchor_handle<anchor> _anchor, allocator& alloc)
         : m_anchor(std::move(_anchor))
@@ -176,7 +179,7 @@ public:
         EXTPP_ASSERT(entry.is_reference(), "Must be a reference entry.");
 
         u64 index = m_anchor.get<&anchor::first_free_index>();
-        if (index != invalid_index) {
+        if (index != object_entry::max_free_index) {
             // There is at least one free entry available for reuse.
             object_entry free_entry = m_table[index];
             EXTPP_ASSERT(free_entry.is_free(), "Entry must be free.");
@@ -187,6 +190,9 @@ public:
         }
 
         // Create a new entry at the end.
+        if (m_table.size() == object_entry::max_free_index)
+            EXTPP_THROW(bad_alloc("Object table is exhausted."));
+
         m_table.push_back(entry);
         return m_table.size() - 1;
     }

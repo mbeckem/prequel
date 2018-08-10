@@ -82,6 +82,139 @@ class raw_btree_anchor {
     friend class binary_format_access;
 };
 
+class raw_btree_cursor {
+public:
+    raw_btree_cursor();
+    raw_btree_cursor(const raw_btree_cursor&);
+    raw_btree_cursor(raw_btree_cursor&&) noexcept;
+    ~raw_btree_cursor();
+
+    raw_btree_cursor& operator=(const raw_btree_cursor&);
+    raw_btree_cursor& operator=(raw_btree_cursor&&) noexcept;
+
+public:
+    u32 value_size() const;
+    u32 key_size() const;
+
+    bool at_end() const;
+    bool erased() const;
+    explicit operator bool() const { return !at_end(); }
+
+    /// Reset the iterator. `at_end()` will return true.
+    void reset();
+
+    /// Move this cursor to the smallest value in the tree (leftmost value).
+    bool move_min();
+
+    /// Move this cursor to the largest value in the tree (rightmost value).
+    bool move_max();
+
+    /// Move this cursor to the next value.
+    bool move_next();
+
+    /// Move this cursor to the previous value.
+    bool move_prev();
+
+    /// Seeks to the first value for which `derive_key(value) >= key` is true.
+    /// Returns true if such a value was found. Returns false and becomes invalid otherwise.
+    bool lower_bound(const byte* key);
+
+    /// Like \ref lower_bound, but seeks to the first value for which
+    /// `derive_key(value) > key` returns true.
+    bool upper_bound(const byte* key);
+
+    /// Seeks to to value with the given key.
+    /// Returns true if such a value was found. Returns false and becomes invalid otherwise.
+    bool find(const byte* key);
+
+    /// Attempts to insert the given value into the tree. The tree will not be modified
+    /// if a value with the same key already exists.
+    ///
+    /// Returns true if the value was inserted, false otherwise.
+    /// The cursor will point to the value in question in any case.
+    bool insert(const byte* value);
+
+    /// Inserts the value into the tree. If a value with the same key already exists,
+    /// it will be overwritten.
+    ///
+    /// Returns true if the key did not exist.
+    bool insert_or_update(const byte* value);
+
+    /// Erases the element that this cursors points at.
+    /// In order for this to work, the cursor must not be at the end and must not
+    /// already point at an erased element.
+    void erase();
+
+    /// Returns a pointer to the current value. The returned pointer has exactly `value_size` readable bytes.
+    /// Throws an exception if the cursor does not currently point to a valid value.
+    const byte* get() const;
+
+    /// Replaces the current value with the given one. The old and the new value must have the same key.
+    /// Throws an exception if the cursor does not currently point to a valid value.
+    void set(const byte* value);
+
+    /// Check cursor invariants. Used when testing.
+    /// TODO
+    void validate() const;
+
+    bool operator==(const raw_btree_cursor& other) const;
+    bool operator!=(const raw_btree_cursor& other) const { return !(*this == other); }
+
+private:
+    friend class raw_btree;
+
+    raw_btree_cursor(std::unique_ptr<raw_btree_cursor_impl> impl);
+
+private:
+    raw_btree_cursor_impl& impl() const;
+
+private:
+    std::unique_ptr<raw_btree_cursor_impl> m_impl;
+};
+
+class raw_btree_loader {
+public:
+    raw_btree_loader() = delete;
+    ~raw_btree_loader();
+
+    // Not copyable.
+    raw_btree_loader(const raw_btree_loader&) = delete;
+    raw_btree_loader& operator=(const raw_btree_loader&) = delete;
+
+    raw_btree_loader(raw_btree_loader&&) noexcept;
+    raw_btree_loader& operator=(raw_btree_loader&&) noexcept;
+
+    /// Insert a single new value into the tree.
+    /// The value must be greater than the previous value(s).
+    void insert(const byte* value);
+
+    /// Insert a number of values into the new tree.
+    /// The values must be ordered and unique and must be greater
+    /// than the previous value(s).
+    ///
+    /// \warning count is the number of values, *NOT* the number of bytes.
+    void insert(const byte* values, size_t count);
+
+    /// Finalizes the loading procedure. All changes will be applied
+    /// to the tree and no more values can be inserted using this loader.
+    void finish();
+
+    /// Discard all values inserted into this loader (finish() must not have been called).
+    /// Frees all allocated blocks and leaves the tree unmodified.
+    void discard();
+
+private:
+    friend class raw_btree;
+
+    raw_btree_loader(std::unique_ptr<raw_btree_loader_impl> impl);
+
+private:
+    raw_btree_loader_impl& impl() const;
+
+private:
+    std::unique_ptr<raw_btree_loader_impl> m_impl;
+};
+
 /// An efficient index for fixed-size values.
 class raw_btree {
 public:
@@ -99,11 +232,16 @@ public:
         seek_max = 2
     };
 
-    enum cursor_insert_t {
-        /// Don't alter the tree if an element already exists.
-        keep_existing = 0,
-        /// Overwrite the existing element with the same key (if any).
-        overwrite_existing = 1
+    struct insert_result {
+        cursor position;
+        bool inserted = false;
+
+        insert_result() = default;
+
+        insert_result(cursor position, bool inserted)
+            : position(std::move(position))
+            , inserted(inserted)
+        {}
     };
 
 public:
@@ -193,10 +331,13 @@ public:
     /// if no such key exists within this tree.
     cursor upper_bound(const byte* key) const;
 
-    /// Inserts the value into the tree. Does not alter the tree if `mode` is `keep_existing`
-    /// and a value with the same key already exists. Overwrites if `mode` is `overwrite_existing`.
-    /// The boolean return value is true if the new value was inserted into the tree.
-    std::pair<cursor, bool> insert(const byte* value, cursor_insert_t mode = keep_existing);
+    /// Attempts to insert the given value into the tree. The tree will not be modified
+    /// if a value with the same key already exists.
+    insert_result insert(const byte* value);
+
+    /// Inserts the value into the tree. If a value with the same key already exists,
+    /// it will be overwritten.
+    insert_result insert_or_update(const byte* value);
 
     /// }
 
@@ -274,140 +415,6 @@ private:
 
 private:
     std::unique_ptr<raw_btree_impl> m_impl;
-};
-
-class raw_btree_cursor {
-public:
-    using cursor_insert_t = raw_btree::cursor_insert_t;
-
-    static constexpr auto keep_existing = raw_btree::keep_existing;
-    static constexpr auto overwrite_existing = raw_btree::overwrite_existing;
-
-public:
-    raw_btree_cursor();
-    raw_btree_cursor(const raw_btree_cursor&);
-    raw_btree_cursor(raw_btree_cursor&&) noexcept;
-    ~raw_btree_cursor();
-
-    raw_btree_cursor& operator=(const raw_btree_cursor&);
-    raw_btree_cursor& operator=(raw_btree_cursor&&) noexcept;
-
-public:
-    u32 value_size() const;
-    u32 key_size() const;
-
-    bool at_end() const;
-    bool erased() const;
-    explicit operator bool() const { return !at_end(); }
-
-    /// Reset the iterator. `at_end()` will return true.
-    void reset();
-
-    /// Move this cursor to the smallest value in the tree (leftmost value).
-    bool move_min();
-
-    /// Move this cursor to the largest value in the tree (rightmost value).
-    bool move_max();
-
-    /// Move this cursor to the next value.
-    bool move_next();
-
-    /// Move this cursor to the previous value.
-    bool move_prev();
-
-    /// Seeks to the first value for which `derive_key(value) >= key` is true.
-    /// Returns true if such a value was found. Returns false and becomes invalid otherwise.
-    bool lower_bound(const byte* key);
-
-    /// Like \ref lower_bound, but seeks to the first value for which
-    /// `derive_key(value) > key` returns true.
-    bool upper_bound(const byte* key);
-
-    /// Seeks to to value with the given key.
-    /// Returns true if such a value was found. Returns false and becomes invalid otherwise.
-    bool find(const byte* key);
-
-    /// Inserts the given value into the tree. The tree will not be modified
-    /// if a value with the same key already exists and mode equals `keep_existing`.
-    /// If mode is `overwrite_existing`, the old value will be overwritten instead.
-    ///
-    /// Returns true if the value was inserted, false otherwise.
-    /// The cursor will point to the value in question in any case.
-    bool insert(const byte* value, cursor_insert_t mode = keep_existing);
-
-    /// Erases the element that this cursors points at.
-    /// In order for this to work, the cursor must not be at the end and must not
-    /// already point at an erased element.
-    void erase();
-
-    /// Returns a pointer to the current value. The returned pointer has exactly `value_size` readable bytes.
-    /// Throws an exception if the cursor does not currently point to a valid value.
-    const byte* get() const;
-
-    /// Replaces the current value with the given one. The old and the new value must have the same key.
-    /// Throws an exception if the cursor does not currently point to a valid value.
-    void set(const byte* value);
-
-    /// Check cursor invariants. Used when testing.
-    /// TODO
-    void validate() const;
-
-    bool operator==(const raw_btree_cursor& other) const;
-    bool operator!=(const raw_btree_cursor& other) const { return !(*this == other); }
-
-private:
-    friend class raw_btree;
-
-    raw_btree_cursor(std::unique_ptr<raw_btree_cursor_impl> impl);
-
-private:
-    raw_btree_cursor_impl& impl() const;
-
-private:
-    std::unique_ptr<raw_btree_cursor_impl> m_impl;
-};
-
-class raw_btree_loader {
-public:
-    raw_btree_loader() = delete;
-    ~raw_btree_loader();
-
-    // Not copyable.
-    raw_btree_loader(const raw_btree_loader&) = delete;
-    raw_btree_loader& operator=(const raw_btree_loader&) = delete;
-
-    raw_btree_loader(raw_btree_loader&&) noexcept;
-    raw_btree_loader& operator=(raw_btree_loader&&) noexcept;
-
-    /// Insert a single new value into the tree.
-    /// The value must be greater than the previous value(s).
-    void insert(const byte* value);
-
-    /// Insert a number of values into the new tree.
-    /// The values must be ordered and unique and must be greater
-    /// than the previous value(s).
-    ///
-    /// \warning count is the number of values, *NOT* the number of bytes.
-    void insert(const byte* values, size_t count);
-
-    /// Finalizes the loading procedure. All changes will be applied
-    /// to the tree and no more values can be inserted using this loader.
-    void finish();
-
-    /// Discard all values inserted into this loader (finish() must not have been called).
-    /// Frees all allocated blocks and leaves the tree unmodified.
-    void discard();
-
-private:
-    friend class raw_btree;
-
-    raw_btree_loader(std::unique_ptr<raw_btree_loader_impl> impl);
-
-private:
-    raw_btree_loader_impl& impl() const;
-
-private:
-    std::unique_ptr<raw_btree_loader_impl> m_impl;
 };
 
 } // namespace extpp

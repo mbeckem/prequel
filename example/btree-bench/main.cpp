@@ -365,7 +365,7 @@ void run_tree_insert(file_engine& engine, Tree& tree, ItemGenerator&& gen, u64 c
         auto cursor = tree.create_cursor();
         for (u64 i = 0; i < count; ++i) {
             auto item = gen();
-            cursor.insert(item, cursor.overwrite_existing);
+            cursor.insert_or_update(item);
 
             if ((i + 1) % reporting_interval == 0) {
                 std::cout << "Inserted " << (i + 1) << " elements." << std::endl;

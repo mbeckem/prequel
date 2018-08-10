@@ -109,9 +109,9 @@ bool filesystem::create(const char* path, u32 permissions) {
     new_entry.metadata.ctime = new_entry.metadata.mtime = time(0);
 
     // Try to insert it into the directory.
-    std::pair<directory::cursor, bool> result = m_root.insert(new_entry);
+    auto result = m_root.insert(new_entry);
     writeback_master();
-    return result.second;
+    return result.inserted;
 }
 
 void filesystem::rename(const char* from, const char* to) {
@@ -143,13 +143,13 @@ void filesystem::rename(const char* from, const char* to) {
 
     // Insert the new entry (possibly overwrite an existing file with that name)
     // and then delete the old entry.
-    std::pair<directory::cursor, bool> new_pos = m_root.insert(new_entry);
-    if (!new_pos.second) {
+    auto new_pos = m_root.insert(new_entry);
+    if (!new_pos.inserted) {
         // Not inserted because the file existed; new_pos.first points to that entry.
         // Free the content of the old file and then overwrite the entry.
-        file_entry overwrite_entry = new_pos.first.get();
+        file_entry overwrite_entry = new_pos.position.get();
         destroy_file(overwrite_entry);
-        new_pos.first.set(new_entry);
+        new_pos.position.set(new_entry);
     }
     writeback_master();
 }
