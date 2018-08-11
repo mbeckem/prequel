@@ -25,7 +25,6 @@ set(PUBLIC_HEADERS
     ${HEADER_ROOT}/file_engine.hpp
     ${HEADER_ROOT}/formatting.hpp
     ${HEADER_ROOT}/handle.hpp
-    ${HEADER_ROOT}/heap.hpp
     ${HEADER_ROOT}/id_generator.hpp
     ${HEADER_ROOT}/io.hpp
     ${HEADER_ROOT}/list.hpp
@@ -41,9 +40,6 @@ set(PUBLIC_HEADERS
 )
 
 set(PRIVATE_HEADERS
-    heap/base.hpp
-    heap/object_table.hpp
-    heap/storage.hpp
     raw_btree_internal_node.hpp
     raw_btree_leaf_node.hpp
 )
@@ -57,7 +53,6 @@ set(SOURCES
      extent.cpp
      file_engine.cpp
      formatting.cpp
-     heap.cpp
      id_generator.cpp
      io.cpp
      node_allocator.cpp
