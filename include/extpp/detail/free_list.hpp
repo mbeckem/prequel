@@ -21,7 +21,7 @@ public:
             return make_binary_format(&anchor::head);
         }
 
-        friend extpp::binary_format_access;
+        friend binary_format_access;
         friend free_list;
     };
 

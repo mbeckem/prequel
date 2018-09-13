@@ -17,10 +17,22 @@ struct identity_t {
     T operator()(const T& value) const { return value; }
 };
 
+/**
+ * An ordered index for fixed sized values.
+ *
+ * A btree indexes instances of `Value` by deriving a *key* for each value
+ * using the `DeriveKey` function. Keys must be comparable using `<` (which can be overwritten
+ * by specifying the `KeyLess` parameter).
+ * Two values are considered equal if their keys are equal.
+ */
 template<typename Value, typename DeriveKey = identity_t, typename KeyLess = std::less<>>
 class btree {
 public:
+    /// Typedef for the value type.
     using value_type = Value;
+
+    /// Type ef for the key type, which is the result of applying the `DeriveKey`
+    /// function on a value.
     using key_type = std::decay_t<std::result_of_t<DeriveKey(Value)>>;
 
 public:
@@ -36,6 +48,7 @@ public:
     };
 
 public:
+    // TODO Copydoc from raw tree cursor.
     class cursor {
         raw_btree::cursor inner;
 
@@ -97,6 +110,7 @@ public:
         bool operator!=(const cursor& other) const { return inner != other.inner; }
     };
 
+    // TODO copy doc from raw btree loader
     class loader {
         raw_btree::loader inner;
 

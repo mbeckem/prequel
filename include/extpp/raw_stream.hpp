@@ -70,75 +70,123 @@ public:
     engine& get_engine() const;
     allocator& get_allocator() const;
 
-    /// Returns the size of a single value.
+    /**
+     * Returns the size of a serialized value on disk.
+     */
     u32 value_size() const;
 
-    /// Returns the maximum number of values per block.
+    /**
+     * Returns the number of serialized values that fit into a single block on disk.
+     */
     u32 block_capacity() const;
 
-    /// Returns true iff this stream is empty.
+    /**
+     * Returns true iff the stream is empty, i.e. contains zero values.
+     */
     bool empty() const;
 
-    /// Returns the number of values in this stream.
+    /**
+     * Returns the number of values in this stream.
+     */
     u64 size() const;
 
-    /// Returns the current maximum number of values that would
-    /// fit the stream. The stream is resized in according to its growth
-    /// strategy when an element is inserted into a full stream.
+    /**
+     * Returns the capacity of this stream, i.e. the maximum number of values
+     * that can currently be stored without reallocating the storage on disk.
+     * The stream will allocate storage according to its growth strategy when
+     * an element is inserted into a full stream.
+     *
+     * @note `capacity() * value_size() == byte_size()` will always be true.
+     */
     u64 capacity() const;
 
-    /// Returns the number of blocks occupied by this stream.
+    /**
+     * Returns the number of disk blocks currently allocated by the stream.
+     */
     u64 blocks() const;
 
-    /// Returns the fill factor of this stream, i.e. the ratio of it's size to it's capacity.
+    /**
+     * Returns the relative fill factor, i.e. the size divided by the capacity.
+     */
     double fill_factor() const;
 
-    /// Returns the total number of bytes occupied on disk (not including the anchor).
+    /**
+     * Returns the total size of this datastructure on disk, in bytes.
+     */
     u64 byte_size() const;
 
-    /// Returns the relative overhead of this stream, compared to storing `size()`
-    /// values in a linear file.
+    /**
+     * Returns the relative overhead of this datastructure compared to a linear file, i.e.
+     * the allocated storage (see capacity()) dividied by the used storage (see size()).
+     */
     double overhead() const;
 
-    /// Retrieves the element at the given index and writes it into the `value` buffer,
-    /// which must be at least `value_size()` bytes large.
+    /**
+     * Retrieves the element at the given index and writes it into the `value` buffer,
+     * which must be at least `value_size()` bytes large.
+     */
     void get(u64 index, byte* value) const;
 
-    /// Sets the value at the given index to the content of `value`, which must
-    /// have at least `value_size()` readable bytes.
+    /**
+     * Sets the value at the given index to the content of `value`, which must
+     * have at least `value_size()` readable bytes.
+     */
     void set(u64 index, const byte* value);
 
-    /// Removes all data from this stream. After this operation, the stream will
-    /// not occupy any space on disk.
-    /// \post `empty() && byte_size() == 0`.
+    /**
+     * Frees all storage allocated by the stream.
+     *
+     * @post `size() == 0 && byte_size() == 0`.
+     */
     void reset();
 
-    /// Removes all values from this stream.
-    /// \post `empty()`.
+    /**
+     * Removes all objects from this stream, but does not
+     * necessarily free the underlying storage.
+     *
+     * @post `size() == 0`.
+     */
     void clear();
 
-    /// Resizes the stream to the size `n`. New elements are constructed by
-    /// initializing them with `value`, which must be at least `value_size()` bytes long.
-    /// \post `size() == n`.
+    /**
+     * Resizes the stream to the size `n`. New elements are constructed by
+     * initializing them with `value`, which must be at least `value_size()` bytes long.
+     * @post `size() == n`.
+     */
     void resize(u64 n, const byte* value);
 
-    /// Resize the underlying storage so that the stream can store at least `n` values
-    /// without further resize operations.
-    /// \post `capacity() >= n`.
+    /**
+     * Resize the underlying storage so that the stream can store at least `n` values
+     * without further resize operations. Uses the current growth strategy to computed the
+     * storage that needs to be allocated.
+     *
+     * @post `capacity() >= n`.
+     */
     void reserve(u64 n);
 
-    /// Inserts the new value at the end of the stream.
+    /**
+     * Inserts a new value at the end of the stream.
+     * Allocates new storage in accordance with the current growth strategy
+     * if there is no free capacity remaining.
+     */
     void push_back(const byte* value);
 
-    /// Removes the last value from the stream. The stream must not be empty.
+    /**
+     * Removes the last value from this stream.
+     *
+     * @throws bad_operation If the stream is empty.
+     */
     void pop_back();
 
-    /// Set the growth strategy for this stream. When the underlying storage
-    /// must be grown, it will be done according to this policy.
-    /// \{
+    /**
+     * Changes the current growth strategy. Streams support linear and exponential growth.
+     */
     void growth(const growth_strategy& g);
+
+    /**
+     * Returns the current growth strategy.
+     */
     growth_strategy growth() const;
-    /// \}
 
 private:
     raw_stream_impl& impl() const;

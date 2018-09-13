@@ -7,23 +7,39 @@
 
 #include <fmt/format.h>
 
-/// Expends to the current source location (file, line, function).
+/// @defgroup exception_support Exception support macros
+/// @{
+
+/**
+ * Expands to the current source location (file, line, function).
+ */
 #define EXTPP_SOURCE_LOCATION \
     (::extpp::source_location(__FILE__, __LINE__, __func__))
 
-/// Augments an \ref extpp::exception with the current source location.
+/**
+ * Augments an @ref extpp::exception with the current source location.
+ */
 #define EXTPP_AUGMENT_EXCEPTION(e) \
     (::extpp::detail::with_location((e), EXTPP_SOURCE_LOCATION))
 
-/// Throw the given \ref extpp::exception with added source location information.
+/**
+ * Throw the given @ref extpp::exception with added source location information.
+ */
 #define EXTPP_THROW(e) throw (EXTPP_AUGMENT_EXCEPTION(e))
 
-/// Throw a new \ref extpp::exception `e` with added source location information
-/// and the currently active exception (if any) as its cause.
+/**
+ * Throw a new @ref extpp::exception `e` with added source location information
+ * and the currently active exception (if any) as its cause.
+ */
 #define EXTPP_THROW_NESTED(e) (::std::throw_with_nested(EXTPP_AUGMENT_EXCEPTION(e)))
+
+/// @}
 
 namespace extpp {
 
+/**
+ * Represents the source code location at which an exception was thrown.
+ */
 class source_location {
 public:
     source_location() = default;
@@ -56,10 +72,20 @@ Exception with_location(Exception&& e, const source_location& where) {
 
 } // namespace detail
 
+/**
+ * Base class for all exceptions thrown by this library.
+ */
 class exception : public std::runtime_error {
 public:
     using runtime_error::runtime_error;
 
+    /**
+     * Returns the source code location that threw this exception.
+     *
+     * \note Requires that the exception was thrown using
+     * @ref EXTPP_THROW or @ref EXTPP_THROW_NESTED, otherwise `where()`
+     * will return an empty source location.
+     */
     const source_location& where() const { return m_where; }
 
 private:

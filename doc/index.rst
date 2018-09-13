@@ -14,6 +14,7 @@ Welcome to extpp's documentation!
    datastructures
    serialization
    file_io
+   exceptions
    utility
 
 
