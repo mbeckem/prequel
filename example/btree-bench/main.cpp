@@ -525,7 +525,6 @@ int main(int argc, char** argv) {
 
         default_file_format<anchor> file_format(*input, block_size, cache_blocks);
         file_format.get_allocator().min_chunk(4096);
-        file_format.get_allocator().min_meta_chunk(64);
 
         run(file_format.get_engine(),
             file_format.get_user_data(),

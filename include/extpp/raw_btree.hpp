@@ -285,7 +285,7 @@ public:
     /// - height == 0: The tree is empty.
     /// - height == 1: The tree has a single leaf.
     /// - height >= 2: The first (height - 1) are internal nodes, then a leaf is reached.
-    u64 height() const;
+    u32 height() const;
 
     /// Returns the number of internal nodes in this tree.
     u64 internal_nodes() const;

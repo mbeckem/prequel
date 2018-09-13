@@ -9,12 +9,7 @@
 
 using namespace extpp;
 
-
-namespace {
-
-constexpr u32 block_size = 4096;
-
-}
+static constexpr u32 block_size = 4096;
 
 TEST_CASE("extent", "[extent]") {
     test_file file(4096);

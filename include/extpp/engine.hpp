@@ -269,7 +269,7 @@ public:
 
     /// Takes the raw_address of a byte on disk and returns the block index of the containing block.
     /// If `addr` is invalid, an invalid block index will be returned.
-    block_index to_index(raw_address addr) const noexcept {
+    block_index to_block(raw_address addr) const noexcept {
         if (!addr) {
             return block_index();
         }

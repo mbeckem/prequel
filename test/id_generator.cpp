@@ -7,10 +7,7 @@
 
 using namespace extpp;
 
-namespace {
-constexpr u32 block_size = 512;
-}
-
+static constexpr u32 block_size = 512;
 
 TEST_CASE("ID generator", "[id_generator]") {
     test_file file(block_size);

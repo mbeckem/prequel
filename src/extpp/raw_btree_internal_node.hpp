@@ -269,14 +269,14 @@ public:
 
 private:
     u32 offset_of_child(u32 index) const {
-        EXTPP_ASSERT(index < max_children(), "Child index out of bounds");
+        EXTPP_ASSERT(index <= max_children(), "Child index out of bounds");
         return serialized_size<header>()
                 + (max_keys() * m_key_size)
                 + (index * block_index_size);
     }
 
     u32 offset_of_key(u32 index) const {
-        EXTPP_ASSERT(index < max_keys(), "Key index ouf bounds");
+        EXTPP_ASSERT(index <= max_keys(), "Key index ouf bounds");
         return serialized_size<header>() + m_key_size * index;
     }
 

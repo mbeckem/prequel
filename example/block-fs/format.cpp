@@ -26,8 +26,9 @@ void format_device(extpp::file& device) {
 
     // Initialize the region allocator with the rest of the file.
     {
-        extpp::region_allocator alloc(make_anchor_handle(master.alloc), engine);
-        alloc.initialize(extpp::block_index(1), size_in_blocks - 1);
+        extpp::default_allocator alloc(make_anchor_handle(master.alloc), engine);
+        alloc.can_grow(false);
+        alloc.add_region(extpp::block_index(1), size_in_blocks - 1);
     }
 
     // Write the master block.

@@ -10,13 +10,9 @@
 
 using namespace extpp;
 
-namespace {
-
 static constexpr u32 block_size = 512;
 
 using stream_t = stream<i32>;
-
-}
 
 TEST_CASE("stream basics", "[stream]") {
     test_file file(block_size);

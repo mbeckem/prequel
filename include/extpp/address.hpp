@@ -257,7 +257,25 @@ void zero(engine& e, raw_address address, u64 size);
 
 /// Copies `size` bytes from `src` to `dest`. The two ranges can overlap.
 /// \pre `src` and `dest` are valid addresses.
-void copy(engine& e, raw_address dest, raw_address src, u64 size);
+void copy(engine& e, raw_address src, raw_address dest, u64 size);
+
+/// Performs a linear write of the given value at the given disk address.
+/// The value must be serializable.
+template<typename T>
+void write(engine& e, address<T> address, const T& value) {
+    serialized_buffer<T> buffer;
+    serialize(value, buffer.data(), buffer.size());
+    write(e, address.raw(), buffer.data(), buffer.size());
+}
+
+/// Performs a linear read of the given value at the given disk address.
+/// The value must be serializable.
+template<typename T>
+void read(engine& e, address<T> address, T& value) {
+    serialized_buffer<T> buffer;
+    read(e, address.raw(), buffer.data(), buffer.size());
+    deserialize(value, buffer.data(), buffer.size());
+}
 
 /// @}
 

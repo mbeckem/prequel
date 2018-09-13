@@ -7,6 +7,7 @@ set(SOURCES
     default_allocator_test.cpp
     extent_test.cpp
     free_list_test.cpp
+    heap_test.cpp
     id_generator.cpp
     inlined_any_test.cpp
     io_test.cpp
@@ -14,7 +15,6 @@ set(SOURCES
     list_test.cpp
     math_test.cpp
     node_allocator_test.cpp
-    region_allocator.cpp
     serialization_test.cpp
     stream_test.cpp
     test_file.hpp

@@ -53,8 +53,8 @@ public:
 
 private:
     block_index do_allocate(u64 n) override;
-    block_index do_reallocate(block_index a, u64 n) override;
-    void do_free(block_index a) override;
+    block_index do_reallocate(block_index a, u64 s, u64 n) override;
+    void do_free(block_index a, u64 s) override;
 
 private:
     anchor_handle<anchor> m_anchor;

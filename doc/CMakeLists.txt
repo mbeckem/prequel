@@ -31,7 +31,7 @@ macro(add_sphinx_target TARGET_NAME ADD_DEPENDENCY)
     endif()
 endmacro(add_sphinx_target)
 
-add_sphinx_target(sphinx-only "FALSE")
+add_sphinx_target(doc-html "FALSE")
 add_sphinx_target(doc "TRUE")
 
 

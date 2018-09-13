@@ -14,9 +14,10 @@ constexpr u32 block_size = 256;
 
 }
 
+// TODO test partial free
+
 TEST_CASE("default allocator", "[default-allocator]") {
     constexpr u32 data_chunk = 32;
-    constexpr u32 metadata_chunk = 16;
 
     auto file = memory_vfs().open("testfile.bin", vfs::read_write, vfs::open_create);
     file_engine engine(*file, block_size, 16);
@@ -25,109 +26,108 @@ TEST_CASE("default allocator", "[default-allocator]") {
 
     default_allocator alloc(make_anchor_handle(anchor), engine);
     alloc.min_chunk(data_chunk);
-    alloc.min_meta_chunk(metadata_chunk);
     alloc.validate();
+    alloc.can_grow(true);
 
     REQUIRE(alloc.min_chunk() == data_chunk);
-    REQUIRE(alloc.min_meta_chunk() == metadata_chunk);
 
     SECTION("simple alloc free") {
         auto a1 = alloc.allocate(1);
-        REQUIRE(a1 == block_index(16)); // 16 metadata blocks, data block.
-        REQUIRE(alloc.allocated_size(a1) == 1);
+        REQUIRE(a1 == block_index(6)); // preallocates 6 blocks, then allocates data
         REQUIRE(alloc.stats().data_total == data_chunk);
-        REQUIRE(alloc.stats().metadata_total == metadata_chunk);
+        REQUIRE(alloc.stats().data_used == 1);
+        REQUIRE(alloc.stats().meta_data == 6);
 
         auto a2 = alloc.allocate(4);
-        REQUIRE(alloc.allocated_size(a2) == 4);
         REQUIRE(alloc.stats().data_total == data_chunk);
         REQUIRE(alloc.stats().data_used == 5);
         REQUIRE(a2 == a1 + 1);
 
         auto a3 = alloc.allocate(1);
-        REQUIRE(alloc.allocated_size(a3) == 1);
+        REQUIRE(alloc.stats().data_total == data_chunk);
         REQUIRE(alloc.stats().data_used == 6);
         REQUIRE(a3 == a2 + 4);
 
-        alloc.free(a2);
+        alloc.free(a2, 4);
         REQUIRE(alloc.stats().data_used == 2);
-        REQUIRE(alloc.stats().data_free == data_chunk - 2);
+        REQUIRE(alloc.stats().data_free == data_chunk - 2 - 6);
 
         auto a4 = alloc.allocate(1);
-        REQUIRE(alloc.allocated_size(a4) == 1);
         REQUIRE(a4 == a1 + 1);
-        alloc.free(a4);
+        alloc.free(a4, 1);
 
         auto a5  = alloc.allocate(5);
-        REQUIRE(alloc.allocated_size(a5) == 5);
         REQUIRE(a5 == a3 + 1);
         REQUIRE(alloc.stats().data_used == 7);
 
-        alloc.free(a1);
-        alloc.free(a3);
-        alloc.free(a5);
+        alloc.validate();
+
+        alloc.free(a1, 1);
+        alloc.free(a3, 1);
+        alloc.free(a5, 5);
 
         REQUIRE(alloc.stats().data_used == 0);
-        REQUIRE(alloc.stats().data_free == data_chunk);
+        REQUIRE(alloc.stats().data_free == data_chunk - 6);
+        REQUIRE(alloc.stats().data_total == data_chunk);
+        REQUIRE(alloc.stats().meta_data == 6);
+
+        alloc.validate();
     }
 
     SECTION("reallocate") {
-        auto b1 = alloc.reallocate({}, 500);
-        REQUIRE(alloc.allocated_size(b1) == 500);
-        REQUIRE(alloc.stats().data_total == 512); // Next pow2
-        REQUIRE(alloc.stats().data_free == 12);
+        auto b1 = alloc.reallocate({}, 0, 500);
+        REQUIRE(alloc.stats().data_total == 512 + 32); // Next pow2
+        REQUIRE(alloc.stats().data_free + alloc.stats().meta_data == 12 + 32);
 
-        auto b2 = alloc.reallocate(b1, 512);
+        auto b2 = alloc.reallocate(b1, 500, 501);
         REQUIRE(b2 == b1); // In place.
-        REQUIRE(alloc.allocated_size(b2) == 512);
-        REQUIRE(alloc.stats().data_total == 512);
-        REQUIRE(alloc.stats().data_free == 0);
+        REQUIRE(alloc.stats().data_total == 512 + 32);
+        REQUIRE(alloc.stats().data_free + alloc.stats().meta_data == 11 + 32);
 
-        auto b3 = alloc.reallocate(b2, 1000);
+        auto b3 = alloc.reallocate(b2, 501, 1000);
         REQUIRE(b3 == b2); // In place.
-        REQUIRE(alloc.allocated_size(b3) == 1000);
-        REQUIRE(alloc.stats().data_total == 1024);
-        REQUIRE(alloc.stats().data_free == 24);
+        REQUIRE(alloc.stats().data_total == 1024 + 32);
+        REQUIRE(alloc.stats().data_free + alloc.stats().meta_data == 24 + 32);
 
+        // Just there to fragment:
         auto g1 = alloc.allocate(24);
         unused(g1);
 
-        auto b4 = alloc.reallocate(b3, 1024);
+        auto b4 = alloc.reallocate(b3, 1000, 1024);
         REQUIRE(b4 != b3); // Not in place because of "g1".
-        REQUIRE(alloc.allocated_size(b4) == 1024);
-        REQUIRE(alloc.stats().data_total == 2048);
-        REQUIRE(alloc.stats().data_free == 1000);
+        REQUIRE(alloc.stats().data_total == 2048 + 32);
+        REQUIRE(alloc.stats().data_free + alloc.stats().meta_data == 1000 + 32);
 
         alloc.validate();
 
-        auto b5 = alloc.reallocate(b4, 3024);
-        REQUIRE(b5 == b4); // In place, we are the last extent.
-        REQUIRE(alloc.allocated_size(b5) == 3024);
-        REQUIRE(alloc.stats().data_total == 4096);
-        REQUIRE(alloc.stats().data_free == 1048); // 48 additional blocks b/c the +2k blocks are rounded to 2048.
+        auto b5 = alloc.reallocate(b4, 1024, 3024);
+        REQUIRE(b5 == b4); // In place b4 was the last extent.
+        REQUIRE(alloc.stats().data_total == 4096 + 32);
+        REQUIRE(alloc.stats().data_free + alloc.stats().meta_data == 1048 + 32); // 48 additional blocks b/c the +2k blocks are rounded to 2048.
 
-        auto b6 = alloc.reallocate(b5, 3072);
+        auto b6 = alloc.reallocate(b5, 3024, 3072);
         REQUIRE(b6 == b5);
-        REQUIRE(alloc.stats().data_total == 4096);
-        REQUIRE(alloc.stats().data_free == 1000);
+        REQUIRE(alloc.stats().data_total == 4096 + 32);
+        REQUIRE(alloc.stats().data_free + alloc.stats().meta_data == 1000 + 32);
 
+        // Just there to fragment:
         auto g2 = alloc.allocate(50);
-        REQUIRE(alloc.stats().data_total == 4096);
-        REQUIRE(alloc.stats().data_free == 950);
+        REQUIRE(alloc.stats().data_total == 4096 + 32);
+        REQUIRE(alloc.stats().data_free + alloc.stats().meta_data == 950 + 32);
 
-        auto b7 = alloc.reallocate(b6, 1000);
+        auto b7 = alloc.reallocate(b6, 3072, 1000);
         REQUIRE(b7 == b6);
-        REQUIRE(alloc.stats().data_free == 3022);
+        REQUIRE(alloc.stats().data_total == 4096 + 32);
+        REQUIRE(alloc.stats().data_free + alloc.stats().meta_data == 3022 + 32);
 
-        auto b8 = alloc.reallocate(b7, 3072);
+        auto b8 = alloc.reallocate(b7, 1000, 3072);
         REQUIRE(b8 == b7);
-        REQUIRE(alloc.stats().data_free == 950);
+        REQUIRE(alloc.stats().data_free + alloc.stats().meta_data == 950 + 32);
 
-        auto g3 = alloc.reallocate(g2, 100);
+        auto g3 = alloc.reallocate(g2, 50, 100);
         REQUIRE(g3 == g2);
-        REQUIRE(alloc.allocated_size(g3) == 100);
-        REQUIRE(alloc.stats().data_free == 900);
-        REQUIRE(alloc.stats().data_total == 4096);
+        REQUIRE(alloc.stats().data_total == 4096 + 32);
+        REQUIRE(alloc.stats().data_free + alloc.stats().meta_data == 900 + 32);
 
         alloc.validate();
     }
@@ -137,47 +137,48 @@ TEST_CASE("default allocator", "[default-allocator]") {
         REQUIRE(alloc.stats().data_free == 0);
         REQUIRE(alloc.stats().data_total == 0);
 
-        std::vector<block_index> allocs;
-        for (int i = 1; i <= 2000; ++i) {
-            allocs.push_back(alloc.allocate(i));
+        std::vector<std::pair<block_index, u64>> allocs;
+        for (int i = 1; i <= 512; ++i) {
+            allocs.push_back(std::make_pair(alloc.allocate(i), i));
         }
 
         alloc.validate();
 
-        REQUIRE(alloc.stats().data_used == 2001000);
-        REQUIRE(alloc.stats().data_total >= 2001000);
+        REQUIRE(alloc.stats().data_used == 131328);
+        REQUIRE(alloc.stats().data_total >= 131328);
         std::shuffle(allocs.begin(), allocs.end(), std::default_random_engine());
 
-        int index = 0;
-        for (auto& addr : allocs) {
-            addr = alloc.reallocate(addr, alloc.allocated_size(addr) * 2);
-            ++index;
+        for (auto& pair : allocs) {
+            pair.first = alloc.reallocate(pair.first, pair.second, pair.second * 3);
+            pair.second *= 3;
         }
 
         alloc.validate();
 
-        for (auto addr : allocs)
-            alloc.free(addr);
+        for (auto pair : allocs) {
+            alloc.free(pair.first, pair.second);
+        }
 
         alloc.validate();
 
         REQUIRE(alloc.stats().data_used == 0);
-        REQUIRE(alloc.stats().data_free >= 2001000 * 2);
-        REQUIRE(alloc.stats().data_total >= 2001000 * 2);
+        REQUIRE(alloc.stats().data_free >= 131328 * 3);
+        REQUIRE(alloc.stats().data_total >= 131328 * 3);
     }
 
     SECTION("allocating after free reuses memory") {
-        alloc.min_chunk(16);
-
         auto a1 = alloc.allocate(32);
-        REQUIRE(alloc.stats().data_total == 32);
-        alloc.free(a1);
+        REQUIRE(alloc.stats().data_used == 32);
+        REQUIRE(alloc.stats().data_total == 64);
+        REQUIRE(alloc.stats().data_free + alloc.stats().meta_data == 32);
+
+        alloc.free(a1, 32);
         REQUIRE(alloc.stats().data_used == 0);
 
         auto a2 = alloc.allocate(16);
         REQUIRE(a2 == a1);
         REQUIRE(alloc.stats().data_used == 16);
-        REQUIRE(alloc.stats().data_total == 32);
+        REQUIRE(alloc.stats().data_total == 64);
 
         auto a3 = alloc.allocate(14);
         REQUIRE(a3 == a2 + 16);
@@ -185,11 +186,11 @@ TEST_CASE("default allocator", "[default-allocator]") {
 
         auto a4 = alloc.allocate(3);
         REQUIRE(a4 == a3 + 14);
-        REQUIRE(alloc.stats().data_total == 48);
+        REQUIRE(alloc.stats().data_total == 64);
         REQUIRE(alloc.stats().data_used == 33);
 
-        alloc.free(a3);
-        auto a5 = alloc.reallocate(a2, 30);
+        alloc.free(a3, 14);
+        auto a5 = alloc.reallocate(a2, 16, 30);
         REQUIRE(a5 == a2);
         REQUIRE(alloc.stats().data_used == 33);
 
@@ -197,65 +198,42 @@ TEST_CASE("default allocator", "[default-allocator]") {
     }
 
     SECTION("reallocate reuses space from the right") {
-        alloc.min_chunk(32);
-
         auto a1 = alloc.allocate(10);
         auto a2 = alloc.allocate(10);
-        alloc.free(a2);
-        REQUIRE(alloc.stats().data_free == 22);
+        REQUIRE(a1 == a2 - 10);
 
-        auto a3 = alloc.reallocate(a1, 32);
+        alloc.free(a2, 10);
+        REQUIRE(alloc.stats().data_free == 16); // 6 metadata blocks used
+        REQUIRE(alloc.stats().meta_data == 6);
+
+        auto a3 = alloc.reallocate(a1, 10, 26);
         REQUIRE(a1 == a3);
-        REQUIRE(alloc.allocated_size(a3) == 32);
         REQUIRE(alloc.stats().data_free == 0);
+
+        alloc.validate();
     }
 
     SECTION("reallocate reuses space from the left") {
-        alloc.min_chunk(32);
-
-        auto a1 = alloc.allocate(30);
+        auto a1 = alloc.allocate(24);
         auto a2 = alloc.allocate(2);
-        REQUIRE(alloc.stats().data_free == 0);
+        REQUIRE(alloc.stats().data_free == 0); // 6 metadata blocks used
+        REQUIRE(alloc.stats().meta_data == 6);
 
-        alloc.free(a1);
-        auto a3 = alloc.reallocate(a2, 3);
+        alloc.free(a1, 24);
+
+        auto a3 = alloc.reallocate(a2, 2, 3);
         REQUIRE(a3 == a1); // All the way to the left.
-        REQUIRE(alloc.allocated_size(a3) == 3);
-        REQUIRE(alloc.stats().data_free == 29);
+        REQUIRE(alloc.stats().data_free == 23);
 
-        auto a4 = alloc.reallocate(a3, 32);
+        auto a4 = alloc.reallocate(a3, 3, 26);
         REQUIRE(a4 == a3);
-        REQUIRE(alloc.allocated_size(a4) == 32);
         REQUIRE(alloc.stats().data_free == 0);
 
         alloc.validate();
     }
 }
 
-namespace {
-
-struct test_block_source : block_source {
-    block_index m_begin;
-    u64 m_size = 0;
-    u64 m_capacity = 0;
-
-public:
-    block_index begin() override { return m_begin; }
-    u64 available() override { return m_capacity - m_size; }
-    u64 size() override { return m_size; }
-
-    void grow(u64 n) override {
-        if (n > available()) {
-            EXTPP_THROW(bad_alloc("Not enough space left in test_block_source."));
-        }
-
-        m_size += n;
-    }
-};
-
-} // namespace
-
-TEST_CASE("default allocator with custom block source", "[default-allocator]") {
+TEST_CASE("default allocator with custom region", "[default-allocator]") {
     constexpr u32 data_chunk = 32;
     constexpr u32 metadata_chunk = 16;
 
@@ -263,23 +241,31 @@ TEST_CASE("default allocator with custom block source", "[default-allocator]") {
     file_engine engine(*file, block_size, 16);
     engine.grow(1337);
 
-    test_block_source source;
-    source.m_begin = block_index(50);
-    source.m_capacity = 987;
-
     default_allocator::anchor anchor;
+    default_allocator alloc(make_anchor_handle(anchor), engine);
+    alloc.can_grow(false);
+    alloc.add_region(block_index(50), 1337 - 50);
 
-    default_allocator alloc(make_anchor_handle(anchor), engine, source);
-    alloc.min_chunk(data_chunk);
-    alloc.min_meta_chunk(metadata_chunk);
     {
         block_index i1 = alloc.allocate(1);
-        REQUIRE(i1 == block_index(66)); // after the first 16 metadata blocks
-        REQUIRE(source.size() == 48);   // 32 data, 16 metadata
+        REQUIRE(i1 == block_index(56)); // after the first 6 metadata blocks
+        REQUIRE(alloc.stats().data_free == 1337 - 50 - 1 - 6);
 
-        alloc.allocate(alloc.stats().data_free);
-        REQUIRE(source.size() == 48); // No change.
+        block_index i2 = alloc.allocate(alloc.stats().data_free);
+        REQUIRE(i2 == block_index(57));
 
-        REQUIRE_THROWS_AS(alloc.allocate(source.available() + 1), extpp::bad_alloc);
+        REQUIRE(alloc.stats().data_total == 1337 - 50);
+        REQUIRE(alloc.stats().data_free == 0);
+        REQUIRE(alloc.stats().meta_data == 6);
+
+        REQUIRE_THROWS_AS(alloc.allocate(1), extpp::bad_alloc);
+
+        // Partial free
+        alloc.free(block_index(1000), 1);
+        REQUIRE(alloc.stats().data_free == 1);
+
+        // Reuse freed block
+        block_index i3 = alloc.allocate(1);
+        REQUIRE(i3 == block_index(1000));
     }
 }

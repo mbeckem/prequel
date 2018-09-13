@@ -491,6 +491,8 @@ constexpr size_t serialized_size(T&&) {
 
 /// A stack allocated buffer large enough to hold the serialized representation
 /// of values of type T.
+///
+/// \ingroup serialization
 template<typename T>
 using serialized_buffer = std::array<byte, serialized_size<T>()>;
 
@@ -606,6 +608,24 @@ constexpr field_offset_t serialized_offset_impl(V T::*field) {
     return result;
 }
 
+// The member type of the pointer must be the same as the object type of the next pointer.
+template<typename ObjectType, auto MemberPointer, auto... MemberPointers>
+constexpr size_t serialized_offset_recursive() {
+    using object_type = object_type_t<decltype(MemberPointer)>;
+    using member_type = member_type_t<decltype(MemberPointer)>;
+    static_assert(std::is_same_v<ObjectType, object_type>,
+                  "Member pointers must point to members of their parent object.");
+
+    constexpr field_offset_t result = serialized_offset_impl(MemberPointer);
+    static_assert(result.found, "The member was not found in the object's binary format.");
+
+    if constexpr (sizeof...(MemberPointers) > 0) {
+        return result.offset + serialized_offset_recursive<member_type, MemberPointers...>();
+    } else {
+        return result.offset;
+    }
+}
+
 } // namespace detail
 
 /// Returns the byte-offset of the serialized representation of `field`
@@ -635,14 +655,16 @@ constexpr field_offset_t serialized_offset_impl(V T::*field) {
 ///     - `serialized_offset<&container::v2>() == 1`,
 ///     - `serialized_offset<&container::v3>() == 5`.
 ///
+/// \todo we need a similar function for arrays
+///
 /// \ingroup serialization
-template<auto MemberPtr>
+template<auto MemberPtr, auto... MemberPtrs>
 constexpr size_t serialized_offset() {
-    static_assert(std::is_member_object_pointer<decltype(MemberPtr)>::value,
-                  "Must pass a member pointer.");
-    constexpr auto result = detail::serialized_offset_impl(MemberPtr);
-    static_assert(result.found, "The member was not found in the binary format.");
-    return result.offset;
+    static_assert(std::is_member_object_pointer<decltype(MemberPtr)>::value
+                  && (std::is_member_object_pointer<decltype(MemberPtrs)>::value && ...),
+                  "Must pass members pointers.");
+    using object_type = object_type_t<decltype(MemberPtr)>;
+    return detail::serialized_offset_recursive<object_type, MemberPtr, MemberPtrs...>();
 }
 
 } // namespace extpp

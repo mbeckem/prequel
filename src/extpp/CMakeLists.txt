@@ -25,6 +25,7 @@ set(PUBLIC_HEADERS
     ${HEADER_ROOT}/file_engine.hpp
     ${HEADER_ROOT}/formatting.hpp
     ${HEADER_ROOT}/handle.hpp
+    ${HEADER_ROOT}/heap.hpp
     ${HEADER_ROOT}/id_generator.hpp
     ${HEADER_ROOT}/io.hpp
     ${HEADER_ROOT}/list.hpp
@@ -33,7 +34,6 @@ set(PUBLIC_HEADERS
     ${HEADER_ROOT}/raw_btree.hpp
     ${HEADER_ROOT}/raw_list.hpp
     ${HEADER_ROOT}/raw_stream.hpp
-    ${HEADER_ROOT}/region_allocator.hpp
     ${HEADER_ROOT}/serialization.hpp
     ${HEADER_ROOT}/stream.hpp
     ${HEADER_ROOT}/type_traits.hpp
@@ -53,13 +53,13 @@ set(SOURCES
      extent.cpp
      file_engine.cpp
      formatting.cpp
+     heap.cpp
      id_generator.cpp
      io.cpp
      node_allocator.cpp
      raw_btree.cpp
      raw_list.cpp
      raw_stream.cpp
-     region_allocator.cpp
      detail/free_list.cpp
 )
 

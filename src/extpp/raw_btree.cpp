@@ -235,6 +235,7 @@ private:
                               const internal_node& neighbor, u32 neighbor_index);
 
     // Merge two neighboring nodes.
+    // Note: values will end up in "leaf" and will be taken from "neighbor".
     void merge_leaf(const internal_node& parent,
                     const raw_btree_leaf_node& leaf, u32 leaf_index,
                     const raw_btree_leaf_node& neighbor, u32 neighbor_index);
@@ -894,65 +895,90 @@ void raw_btree_impl::erase(raw_btree_cursor_impl& cursor) {
             c.index -= 1;
     }
 
-    // Leftmost and rightmost leaves are only deleted when they become empty.
-    if (leftmost() == cursor.leaf.index() || rightmost() == cursor.leaf.index()) {
+    // Handle the root leaf.
+    if (cursor.parents.empty()) {
         if (leaf.get_size() == 0) {
-            if (cursor.parents.empty()) {
-                // This was the root, erase it and invalidate all cursors.
-                free_leaf(leaf.index());
-                set_leftmost({});
-                set_rightmost({});
-                set_root({});
-                set_height(0);
-                for (auto& c : m_cursors) {
-                    if (c.invalid())
-                        continue;
-                    c.reset_to_invalid(c.flags);
-                }
-            } else {
-                // Other nodes remain. Move cursors from this node (they are "deleted")
-                // to the left/right neighbor and propagate the node erasure to the parents.
-                const internal_node& parent = cursor.parents.back().node;
-                u32 index_in_parent = cursor.parents.back().index;
-
-                u32 neighbor_index;
-                leaf_node neighbor;
-                u32 index_in_neighbor;
-                if (leaf.index() == leftmost())  {
-                    neighbor_index = index_in_parent + 1;
-                    neighbor = read_leaf(parent.get_child(neighbor_index));
-                    index_in_neighbor = 0;
-                } else {
-                    neighbor_index = index_in_parent - 1;
-                    neighbor = read_leaf(parent.get_child(neighbor_index));
-                    index_in_neighbor = neighbor.get_size();
-                }
-
-                // I'm not a fan of loading the neighbor here because it means an additional I/O
-                // just to load the other leaf node in order to move the cursor there.
-                for (auto& c : m_cursors) {
-                    if (c.invalid() || c.leaf.index() != leaf.index())
-                        continue;
-                    c.leaf = neighbor;
-                    c.index = index_in_neighbor;
-                    c.parents.back().index = neighbor_index;
-                }
-
-                if (leaf.index() == leftmost())
-                    set_leftmost(neighbor.index());
-                else
-                    set_rightmost(neighbor.index());
-                free_leaf(leaf.index());
-                propagate_leaf_deletion(cursor, leaf.index(), index_in_parent);
+            EXTPP_ASSERT(height() == 1, "Inconsistent tree height.");
+            free_leaf(leaf.index());
+            set_leftmost({});
+            set_rightmost({});
+            set_root({});
+            set_height(0);
+            for (auto& c : m_cursors) {
+                if (c.invalid())
+                    continue;
+                c.reset_to_invalid(c.flags);
             }
         }
         return;
     }
 
+    // Handle leftmost/rightmost leaf nodes.
+    EXTPP_ASSERT(height() > 1, "We are not at the leaf level.");
+    if (leaf.index() == leftmost() || leaf.index() == rightmost()) {
+
+        // Usually empty leftmost/rightmost leaves are only deleted when they become
+        // completely empty. This is an optimization for the likely case that the user
+        // inserts and deletes at the end or the beginning (splitting is optimized similarily).
+        if (leaf.get_size() == 0) {
+            // Other nodes remain. Move cursors from this node (they are "deleted")
+            // to the left/right neighbor and propagate the node erasure to the parents.
+            const internal_node& parent = cursor.parents.back().node;
+            u32 index_in_parent = cursor.parents.back().index;
+
+            u32 neighbor_index;
+            leaf_node neighbor;
+            u32 index_in_neighbor;
+            if (leaf.index() == leftmost())  {
+                neighbor_index = index_in_parent + 1;
+                neighbor = read_leaf(parent.get_child(neighbor_index));
+                index_in_neighbor = 0;
+            } else {
+                neighbor_index = index_in_parent - 1;
+                neighbor = read_leaf(parent.get_child(neighbor_index));
+                index_in_neighbor = neighbor.get_size();
+            }
+
+            // I'm not a fan of loading the neighbor here because it means an additional I/O
+            // just to load the other leaf node in order to move the cursor there.
+            for (auto& c : m_cursors) {
+                if (c.invalid() || c.leaf.index() != leaf.index())
+                    continue;
+                c.leaf = neighbor;
+                c.index = index_in_neighbor;
+                c.parents.back().index = neighbor_index;
+            }
+
+            if (leaf.index() == leftmost())
+                set_leftmost(neighbor.index());
+            else
+                set_rightmost(neighbor.index());
+            free_leaf(leaf.index());
+            propagate_leaf_deletion(cursor, leaf.index(), index_in_parent);
+
+        // If there are only two leaves remaining we will merge them back together if both are
+        // somewhat empty. Two leaf nodes with a single element each just look too stupid.
+        } else if (leaf_nodes() == 2 && size() <= leaf.max_size()) {
+            const internal_node& parent = cursor.parents.back().node;
+            if (leaf.index() == leftmost()) {
+                leaf_node right = read_leaf(parent.get_child(1));
+                merge_leaf(parent, leaf, 0, right, 1);
+                free_leaf(right.index());
+                propagate_leaf_deletion(cursor, right.index(), 1);
+            } else {
+                leaf_node left = read_leaf(parent.get_child(0));
+                merge_leaf(parent, leaf, 1, left, 0);
+                free_leaf(left.index());
+                propagate_leaf_deletion(cursor, left.index(), 0);
+            }
+        }
+
+        return;
+    }
+
+    // Handle all other leaf nodes. Leaf is not the root and not leftmost/rightmost.
     if (leaf.get_size() >= leaf.min_size())
         return;
-
-    // The leaf root case is handled by the left-/rightmost nodes above.
     EXTPP_ASSERT(cursor.parents.size() > 0, "Must have parents.");
     const internal_node& parent = cursor.parents.back().node;
     const u32 index_in_parent = cursor.parents.back().index;
@@ -1391,7 +1417,7 @@ void raw_btree_impl::clear() {
                 self(node.get_child(i), level);
         }
 
-        get_allocator().free(index);
+        get_allocator().free(index, 1);
     };
 
     if (old_height >= 1) {
@@ -1766,13 +1792,13 @@ void raw_btree_impl::validate() const {
 
 void raw_btree_impl::free_leaf(block_index leaf) {
     EXTPP_ASSERT(leaf_nodes() > 0, "Invalid state");
-    get_allocator().free(leaf);
+    get_allocator().free(leaf, 1);
     set_leaf_nodes(leaf_nodes() - 1);
 }
 
 void raw_btree_impl::free_internal(block_index internal) {
     EXTPP_ASSERT(internal_nodes() > 0, "Invalid state");
-    get_allocator().free(internal);
+    get_allocator().free(internal, 1);
     set_internal_nodes(internal_nodes() - 1);
 }
 
@@ -2418,7 +2444,7 @@ u32 raw_btree::internal_node_capacity() const { return impl().internal_node_max_
 u32 raw_btree::leaf_node_capacity() const { return impl().leaf_node_max_values(); }
 bool raw_btree::empty() const { return impl().empty(); }
 u64 raw_btree::size() const { return impl().size(); }
-u64 raw_btree::height() const { return impl().height(); }
+u32 raw_btree::height() const { return impl().height(); }
 u64 raw_btree::internal_nodes() const { return impl().internal_nodes(); }
 u64 raw_btree::leaf_nodes() const { return impl().leaf_nodes(); }
 u64 raw_btree::nodes() const { return internal_nodes() + leaf_nodes(); }

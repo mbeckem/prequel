@@ -352,7 +352,7 @@ block_index raw_list_impl::allocate_node() {
 }
 
 void raw_list_impl::free_node(block_index index) {
-    get_allocator().free(index);
+    get_allocator().free(index, 1);
     m_anchor.set<&anchor::nodes>(nodes() - 1);
 }
 

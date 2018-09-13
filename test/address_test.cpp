@@ -89,7 +89,7 @@ TEST_CASE("copy", "[address]") {
 
     auto copy = [&](size_t dest, size_t source, size_t n) {
         std::memmove(&mem_file[dest], &mem_file[source], n);
-        extpp::copy(e, raw_address(dest), raw_address(source), n);
+        extpp::copy(e, raw_address(source), raw_address(dest), n);
     };
 
     auto equal = [&]() {

@@ -22,7 +22,7 @@ void write(engine& e, raw_address address, const void* data, size_t size) {
 
     const u32 block_size = e.block_size();
     const byte* buffer = reinterpret_cast<const byte*>(data);
-    block_index index = e.to_index(address);
+    block_index index = e.to_block(address);
 
     // Partial write at the start.
     if (u32 offset = e.to_offset(address); offset != 0) {
@@ -58,7 +58,7 @@ void read(engine& e, raw_address address, void* data, size_t size) {
 
     const u32 block_size = e.block_size();
     byte* buffer = reinterpret_cast<byte*>(data);
-    block_index index = e.to_index(address);
+    block_index index = e.to_block(address);
 
     // Partial read at the start.
     if (u32 offset = e.to_offset(address); offset != 0) {
@@ -92,7 +92,7 @@ void zero(engine& e, raw_address address, u64 size) {
         return;
 
     const u32 block_size = e.block_size();
-    block_index index = e.to_index(address);
+    block_index index = e.to_block(address);
 
     // Partial write at the start.
     if (u32 offset = e.to_offset(address); offset != 0) {
@@ -117,9 +117,9 @@ void zero(engine& e, raw_address address, u64 size) {
     }
 }
 
-static void copy_forward(engine& e, raw_address dest, raw_address src, u64 size) {
+static void copy_forward(engine& e, raw_address src, raw_address dest, u64 size) {
     const u32 block_size = e.block_size();
-    auto index = [&](auto addr) { return e.to_index(addr); };
+    auto index = [&](auto addr) { return e.to_block(addr); };
     auto offset = [&](auto addr) { return e.to_offset(addr); };
 
     const bool can_overwrite = distance(src, dest) >= block_size;
@@ -153,9 +153,9 @@ static void copy_forward(engine& e, raw_address dest, raw_address src, u64 size)
     }
 }
 
-static void copy_backward(engine& e, raw_address dest, raw_address src, u64 size) {
+static void copy_backward(engine& e, raw_address src, raw_address dest, u64 size) {
     const u32 block_size = e.block_size();
-    auto index = [&](auto addr) { return e.to_index(addr); };
+    auto index = [&](auto addr) { return e.to_block(addr); };
     auto offset = [&](auto addr) { return e.to_offset(addr); };
 
     const bool can_overwrite = distance(src, dest) >= block_size;
@@ -194,16 +194,16 @@ static void copy_backward(engine& e, raw_address dest, raw_address src, u64 size
 
 /// Copies `size` bytes from `src` to `dest`. The two ranges can overlap.
 /// \pre `src` and `dest` are valid addresses.
-void copy(engine& e, raw_address dest, raw_address src, u64 size) {
+void copy(engine& e, raw_address src, raw_address dest, u64 size) {
     EXTPP_ASSERT(dest, "Invalid destination address.");
     EXTPP_ASSERT(src, "Invalid source address.");
 
     if (dest == src || size == 0)
         return;
     if (src > dest || (src + size <= dest)) {
-        return copy_forward(e, dest, src, size);
+        return copy_forward(e, src, dest, size);
     }
-    return copy_backward(e, dest, src, size);
+    return copy_backward(e, src, dest, size);
 }
 
 } // namespace extpp

@@ -127,7 +127,7 @@ void free_list::push(block_index block) {
 block_index free_list::pop() {
     block_index head = m_anchor.get<&anchor::head>();
     if (!head)
-        throw std::logic_error("free_list::pop(): list is empty.");
+        EXTPP_THROW(bad_operation("freelist is empty."));
 
     free_list_node node(m_engine->read(head), block_capacity());
     if (!node.empty()) {

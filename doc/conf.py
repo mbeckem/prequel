@@ -56,7 +56,7 @@ master_doc = 'index'
 
 # General information about the project.
 project = 'extpp'
-copyright = '2017, Michael Beckemeyer'
+copyright = '2017-2018, Michael Beckemeyer'
 author = 'Michael Beckemeyer'
 
 # The version info for the project you're documenting, acts as replacement for
@@ -101,6 +101,8 @@ breathe_default_project = "extpp"
 import sphinx_rtd_theme
 html_theme = "sphinx_rtd_theme"
 html_theme_path = [sphinx_rtd_theme.get_html_theme_path()]
+
+# html_theme = "nature"
 
 # Theme options are theme-specific and customize the look and feel of a theme
 # further.  For a list of options available for each theme, see the

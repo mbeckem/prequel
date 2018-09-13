@@ -47,7 +47,7 @@ public:
         if (empty())
             return;
 
-        get_allocator().free(data());
+        get_allocator().free(data(), size());
         m_anchor.set<&anchor::start>(block_index());
         m_anchor.set<&anchor::size>(0);
     }
@@ -56,7 +56,7 @@ public:
         if (new_size == size())
             return;
 
-        block_index new_data = get_allocator().reallocate(data(), new_size);
+        block_index new_data = get_allocator().reallocate(data(), size(), new_size);
         m_anchor.set<&anchor::start>(new_data);
         m_anchor.set<&anchor::size>(new_size);
     }

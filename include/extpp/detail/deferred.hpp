@@ -45,7 +45,7 @@ public:
 
     /// Once `disable` has been called on a rollback object,
     /// the rollback function will not be executed upon destruction.
-    void disable() {
+    void disable() noexcept {
         invoke = false;
     }
 

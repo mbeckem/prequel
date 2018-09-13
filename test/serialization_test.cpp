@@ -646,3 +646,37 @@ TEST_CASE("custom serializer", "[serialization]") {
 
 #undef ROUND_TRIP
 }
+
+TEST_CASE("nested objects", "[serialization]") {
+    struct v1 {
+        u32 a = 0;
+
+        struct v2 {
+            u32 b = 0;
+            byte c = 1;
+            struct v3 {
+                u64 d = 5;
+                u64 e = 0;
+
+                static constexpr auto get_binary_format() {
+                    return make_binary_format(&v3::d, &v3::e);
+                }
+            } v3_;
+
+            static constexpr auto get_binary_format() {
+                return make_binary_format(&v2::b, &v2::c, &v2::v3_);
+            }
+        } v2_;
+
+        static constexpr auto get_binary_format() {
+            return make_binary_format(&v1::a, &v1::v2_);
+        }
+    } v1_;
+
+    size_t offset = serialized_offset<
+        &v1::v2_,
+        &v1::v2::v3_,
+        &v1::v2::v3::e
+    >();
+    REQUIRE(offset == 17);
+}

@@ -30,8 +30,8 @@ TEST_CASE("node allocator", "[node-allocator]") {
         REQUIRE(alloc.data_used() == 2);
         REQUIRE(alloc.data_free() == alloc.chunk_size() - 2);
 
-        alloc.free(a1);
-        alloc.free(a2);
+        alloc.free(a1, 1);
+        alloc.free(a2, 1);
 
         REQUIRE(alloc.data_total() == alloc.chunk_size());
         REQUIRE(alloc.data_used() == 0);

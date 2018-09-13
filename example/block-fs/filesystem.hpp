@@ -5,8 +5,8 @@
 #include <extpp/binary_format.hpp>
 #include <extpp/btree.hpp>
 #include <extpp/extent.hpp>
+#include <extpp/default_allocator.hpp>
 #include <extpp/file_engine.hpp>
-#include <extpp/region_allocator.hpp>
 
 #include <optional>
 #include <string_view>
@@ -114,7 +114,7 @@ using directory = extpp::btree<file_entry, file_entry::extract_key>;
 struct master_block {
     fixed_string magic{};                   // Magic string that identifies this FS
     u64 partition_size = 0;                 // Size of the partition, in bytes
-    extpp::region_allocator::anchor alloc;  // Allocates from the rest of the file
+    extpp::default_allocator::anchor alloc; // Allocates from the rest of the file
     directory::anchor root;                 // Root directory tree
 
     static constexpr auto get_binary_format() {
@@ -213,7 +213,7 @@ private:
     extpp::anchor_flag m_master_changed;
 
     // Persistent datastructures.
-    extpp::region_allocator m_alloc;
+    extpp::default_allocator m_alloc;
     directory m_root;
 };
 

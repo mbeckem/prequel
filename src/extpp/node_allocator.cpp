@@ -46,13 +46,17 @@ block_index node_allocator::do_allocate(u64 n) {
     return m_list.pop();
 }
 
-block_index node_allocator::do_reallocate(block_index a, u64 n) {
+block_index node_allocator::do_reallocate(block_index a, u64 s, u64 n) {
     if (n == 1)
         return a;
     EXTPP_THROW(unsupported("The node_allocator does not support reallocation."));
+    unused(s);
 }
 
-void node_allocator::do_free(block_index a) {
+void node_allocator::do_free(block_index a, u64 s) {
+    if (s != 1)
+        EXTPP_THROW(unsupported("The node_allocator does not support allocation sizes other than 1."));
+
     m_anchor.set<&anchor::free>(m_anchor.get<&anchor::free>() + 1);
     m_list.push(a);
 }

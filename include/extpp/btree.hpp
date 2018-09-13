@@ -167,7 +167,7 @@ public:
 
     bool empty() const { return m_inner.empty(); }
     u64 size() const { return m_inner.size(); }
-    u64 height() const { return m_inner.height(); }
+    u32 height() const { return m_inner.height(); }
     u64 internal_nodes() const { return m_inner.internal_nodes(); }
     u64 leaf_nodes() const { return m_inner.leaf_nodes(); }
     u64 nodes() const { return m_inner.nodes(); }

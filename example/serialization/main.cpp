@@ -91,16 +91,21 @@ struct sqlite_header_t {
 // Serializes the given sqlite header instance into the provided buffer.
 // To inspect the generated assembly, compile with optimizations.
 extern "C" void serialize(const sqlite_header_t* hdr, void* buffer, size_t buffer_size) {
-    EXTPP_ASSERT(buffer_size >= extpp::serialized_size<sqlite_header_t>(),
-                 "Buffer not large enough.");
     extpp::serialize(*hdr, static_cast<extpp::byte*>(buffer), buffer_size);
 }
 
 // Deserializes the provided buffer into an instance of `sqlite_header_t`.
 extern "C" void deserialize(sqlite_header_t* hdr, const void* buffer, size_t buffer_size) {
-    EXTPP_ASSERT(buffer_size >= extpp::serialized_size<sqlite_header_t>(),
-                 "Buffer not large enough.");
     extpp::deserialize(*hdr, static_cast<const extpp::byte*>(buffer), buffer_size);
+}
+
+// Update in place to see what the generated assembly output looks like.
+extern "C" void update(void* buffer, size_t buffer_size) {
+    sqlite_header_t hdr;
+    extpp::deserialize(hdr, static_cast<const extpp::byte*>(buffer), buffer_size);
+
+    hdr.file_size += 10;
+    extpp::serialize(hdr, static_cast<extpp::byte*>(buffer));
 }
 
 int main() {
