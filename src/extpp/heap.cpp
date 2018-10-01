@@ -97,20 +97,19 @@ bool heap_reference::is_small_object() const {
 
 raw_address heap_reference::address() const {
     EXTPP_ASSERT(valid(), "Invalid object.");
-    u64 addr = m_value & ~large_bit;
-    return raw_address(addr);
+    return raw_address(m_value << 1);
 }
 
 heap_reference heap_reference::make_small_object(raw_address addr) {
     EXTPP_ASSERT(addr, "Invalid address.");
-    EXTPP_ASSERT((addr.value() & large_bit) == 0, "Address must be a multiple of two.");
-    return heap_reference(addr.value());
+    EXTPP_ASSERT((addr.value() % 2) == 0, "Address must be a multiple of two.");
+    return heap_reference(addr.value() >> 1);
 }
 
 heap_reference heap_reference::make_large_object(raw_address addr) {
     EXTPP_ASSERT(addr, "Invalid address.");
-    EXTPP_ASSERT((addr.value() & large_bit) == 0, "Address must be a multiple of two.");
-    return heap_reference(addr.value() | large_bit);
+    EXTPP_ASSERT((addr.value() % 2) == 0, "Address must be a multiple of two.");
+    return heap_reference((addr.value() >> 1) | large_bit);
 }
 
 /**
@@ -331,7 +330,7 @@ heap_reference heap::allocate_impl(const byte* object, u32 object_size) {
 
 void heap::free(heap_reference ref) {
     if (!ref.valid()) {
-        EXTPP_THROW(bad_argument("Invalid reference."));
+        return;
     }
 
     const u32 object_size = size(ref);

@@ -28,7 +28,7 @@ struct file_engine_stats {
 class file_engine : public engine
 {
 public:
-    /// Constructs a new block engine.
+    /// Constructs a new file engine.
     ///
     /// \param fd
     ///     The file used for input and output. The reference must remain

@@ -56,9 +56,29 @@ struct member_ptr_traits<Member Object::*> {
 
 } // namespace detail
 
+/**
+ * Returns the class type when given the type of a member data.
+ *
+ * Example:
+ *  struct ex {
+ *      int x;
+ *  };
+ *
+ *  object_type_t<decltype(&ex::x)> is ex.
+ */
 template<typename MemberPtr>
 using object_type_t = typename detail::member_ptr_traits<MemberPtr>::object_type;
 
+/**
+ * Returns the class member type when given the type of a member data.
+ *
+ * Example:
+ *  struct ex {
+ *      int x;
+ *  };
+ *
+ *  object_type_t<decltype(&ex::x)> is int.
+ */
 template<typename MemberPtr>
 using member_type_t = typename detail::member_ptr_traits<MemberPtr>::member_type;
 

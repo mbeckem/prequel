@@ -35,7 +35,7 @@ public:
     static constexpr u64 invalid_value = u64(-1);
 
 private:
-    static constexpr u64 large_bit = 1;
+    static constexpr u64 large_bit = u64(1) << 63;
 
 public:
     heap_reference() = default;
@@ -48,6 +48,9 @@ public:
     explicit operator bool() const { return valid(); }
     /// @}
     ///
+
+    /// Unspecified value that can serve as an identity for this object.
+    u64 value() const { return m_value; }
 
     friend bool operator<(const heap_reference& a, const heap_reference& b) {
         // +1: invalid value comes first (like NULL)

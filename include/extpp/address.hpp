@@ -205,23 +205,42 @@ private:
     raw_address m_raw;
 };
 
+/**
+ * Returns the difference (i.e. the signed distance) between `from` and `to`.
+ * This is the address equivalent of `to - from`, or the number of bytes one
+ * has to advance in order to reach `to` from `from`.
+ */
 inline i64 difference(const raw_address& from, const raw_address& to) {
     EXTPP_ASSERT(from, "From address is invalid.");
     EXTPP_ASSERT(to, "To address is invalid.");
     return signed_difference(to.value(), from.value());
 }
 
+/**
+ * Returns the difference (i.e. the signed distance) between `from` and `to`.
+ * This is the address equivalent of `to - from`, or the number of elements one
+ * has to advance in order to reach `to` from `from`.
+ */
 template<typename T>
 i64 difference(const address<T>& from, const address<T>& to) {
     return difference(from.raw(), to.raw()) / serialized_size<T>();
 }
 
-inline u64 distance(const raw_address& from, const raw_address& to) {
-    EXTPP_ASSERT(from, "From address is invalid.");
-    EXTPP_ASSERT(to, "To address is invalid.");
-    return from <= to ? to.value() - from.value() : from.value() - to.value();
+/**
+ * Returns the absolute distance (in bytes) of `a` and `b`, i.e. `abs(a - b)`
+ * in mathematical terms.
+ */
+inline u64 distance(const raw_address& a, const raw_address& b) {
+    EXTPP_ASSERT(a, "From address is invalid.");
+    EXTPP_ASSERT(b, "To address is invalid.");
+    return a <= b ? b.value() - a.value() : a.value() - b.value();
 }
 
+
+/**
+ * Returns the absolute distance (in elements) of `a` and `b`, i.e. `abs(a - b)`
+ * in mathematical terms.
+ */
 template<typename T>
 u64 distance(const address<T>& from, const address<T>& to) {
     return distance(from.raw(), to.raw()) / serialized_size<T>();

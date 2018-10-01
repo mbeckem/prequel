@@ -75,7 +75,7 @@ public:
 
 struct file_metadata {
     fixed_string name;      // Name of the file (max 32 chars)
-    u32 permissions = 0;           // Access flags etc
+    u32 permissions = 0;    // Access flags etc
     u64 mtime = 0;          // Last modification time (file content)
     u64 ctime = 0;          // Last change (file metadata)
     u64 size = 0;           // In bytes

@@ -1,50 +1,62 @@
 #include <extpp/btree.hpp>
 #include <extpp/default_file_format.hpp>
-#include <extpp/id_generator.hpp>
 #include <extpp/heap.hpp>
+#include <extpp/id_generator.hpp>
+
 #include <clipp.h>
 
 #include <cassert>
 #include <cstdint>
 #include <functional>
 #include <iostream>
+#include <map>
 #include <tuple>
 
-namespace example {
+namespace objectdb {
 
-// Nodes are represented by a unique id.
-struct node_id {
-    node_id() = default;
-    explicit node_id(std::uint64_t value)
-        : m_value(value) {}
+static constexpr uint32_t block_size = 4096;
 
-    std::uint64_t value() const { return m_value; }
+// fnv1-a hash.
+inline uint64_t fnv_hash(const uint8_t* begin, const uint8_t* end)
+{
+    static const uint64_t magic_prime = 0x00000100000001b3;
 
-    bool valid() const { return m_value != 0; }
-    explicit operator bool() const { return valid(); }
-
-    bool operator==(const node_id& other) const {
-        return m_value == other.m_value;
+    uint64_t hash = 0xcbf29ce484222325;
+    for ( ; begin != end; ++begin) {
+        hash = hash ^ *begin;
+        hash = hash * magic_prime;
     }
 
-    bool operator<(const node_id& other) const {
-        return m_value < other.m_value;
-    }
+    return hash;
+}
 
+static void load(const extpp::heap& heap, extpp::heap_reference ref, std::string& buffer) {
+    buffer.resize(heap.size(ref));
+    heap.load(ref, (extpp::byte*) &buffer[0], buffer.size());
+}
+
+static extpp::heap_reference save(extpp::heap& heap, const std::string& buffer) {
+    return heap.allocate((const extpp::byte*) buffer.data(), buffer.size());
+}
+
+class node_id {
 private:
-    std::uint64_t m_value = 0;
+    uint64_t m_value = 0;
+
+public:
+    node_id() = default;
+    node_id(uint64_t value): m_value(value) {}
+
+    uint64_t value() const { return m_value; }
+
+    bool operator<(const node_id& other) const { return m_value < other.m_value; }
+    bool operator==(const node_id& other) const { return m_value == other.m_value; }
+    bool operator!=(const node_id& other) const { return m_value != other.m_value; }
+
+    static constexpr auto get_binary_format() {
+        return extpp::make_binary_format(&node_id::m_value);
+    }
 };
-
-static constexpr std::uint32_t block_size = 4096;
-
-using extpp::engine;
-using extpp::allocator;
-
-// Storage for data (strings and so forth).
-using heap_type = extpp::heap<block_size>;
-
-inline const extpp::type_index string_type(1);
-inline const extpp::type_index interned_string_type(2);
 
 class interned_strings {
     // If a string is interned, it can be looked up using its
@@ -52,28 +64,25 @@ class interned_strings {
     // in the entire database. This saves space for frequently used
     // strings and makes comparisons faster (interned strings can be compared
     // by checking their references for equality).
+    //
+    // We could use reference counting or garbage collection to collect
+    // unused interned keys. But currently we just store them forever (only keys
+    // are interned).
     struct entry {
-        std::uint64_t hash = 0;     // The hash of the string.
-        extpp::reference string;    // Points to the data.
+        extpp::heap_reference string;   // Reference to the string.
+        uint64_t hash = 0;              // The hash of the string.
 
-        struct key {
-            // Field to make records unique, duplicate hashes are possible.
-            std::uint64_t hash, unique;
-
-            bool operator<(const key& other) const {
-                return std::tie(hash, unique) < std::tie(other.hash, other.unique);
-            }
-
-            bool operator==(const key& other) const {
-                return hash == other.hash && unique == other.unique;
+        // Entries are indexed by their hash (and the location in the heap as a second
+        // key part to make them unique).
+        struct derive_key {
+            std::tuple<uint64_t, uint64_t> operator()(const entry& s) const {
+                return std::tuple<uint64_t, uint64_t>(s.hash, s.string.value());
             }
         };
 
-        struct key_extract {
-            key operator()(const entry& s) const {
-                return key{s.hash, s.string.value()};
-            }
-        };
+        static constexpr auto get_binary_format() {
+            return extpp::make_binary_format(&entry::string, &entry::hash);
+        }
     };
 
     // Contains one entry for every interned string.
@@ -81,225 +90,186 @@ class interned_strings {
     // references to strings in this tree do not count towards
     // the root set. Entries are removed whenever the garbage collector
     // destroys as string.
-    using tree_type = extpp::btree<entry, entry::key_extract, std::less<>, block_size>;
+    using tree_type = extpp::btree<entry, entry::derive_key>;
 
 public:
     using anchor = typename tree_type::anchor;
 
 public:
-    interned_strings(extpp::anchor_ptr<anchor> anc, allocator& alloc, heap_type& storage)
+    interned_strings(extpp::anchor_handle<anchor> anc, extpp::allocator& alloc, extpp::heap& storage)
         : m_tree(std::move(anc), alloc)
-        , m_storage(storage)
+        , m_heap(storage)
     {}
 
     // Returns the reference to the interned copy of that string, if it exists.
-    extpp::reference find(const std::string& str) const {
-        return find(str, hash(str));
+    extpp::heap_reference find(const std::string& str) const {
+        return find_impl(str, hash(str));
     }
 
     // Interns the given string. Either returns a reference to some existing copy
     // of that string or inserts a new copy into the heap.
-    extpp::reference intern(const std::string& str) {
-        const auto h = hash(str);
-        if (auto ref = find(str, h))
+    extpp::heap_reference intern(const std::string& str) {
+        const uint64_t h = hash(str);
+        if (auto ref = find_impl(str, h))
             return ref;
 
         entry ent;
         ent.hash = h;
-        ent.string = m_storage.insert(interned_string_type, str.data(), str.size());
+        ent.string = save(m_heap, str);
 
-        auto [pos, inserted] = m_tree.insert(ent);
-        assert(inserted); // Entry must be unique, even when hashes collide.
-        (void) pos;
-        (void) inserted;
+        auto result = m_tree.insert(ent);
+        assert(result.inserted); // Entry must be unique, even when hashes collide.
+        (void) result;
         return ent.string;
     }
 
-    // Called when an interned string is garbage collected. Removes the corresponding
-    // entry from the index.
-    void remove(extpp::reference ref) {
-        assert(m_storage.type(ref) == interned_string_type);
-
-        std::string data;
-        m_storage.load(ref, data);
-
-        entry ent;
-        ent.hash = hash(data);
-        ent.string = ref;
-
-        bool found = m_tree.erase(m_tree.key(ent));
-        assert(found);
-        (void) found;
-    }
-
 private:
-    extpp::reference find(const std::string& str, std::uint64_t hash) const {
-        entry::key k;
-        k.hash = hash;
-        k.unique = 0;
+    extpp::heap_reference find_impl(const std::string& str, uint64_t hash) const {
+        std::tuple<uint64_t, uint64_t> key(hash, 0);
 
         // Loop over all collisions. We have to test the real strings for equality.
         std::string value;
-        for (auto pos = m_tree.lower_bound(k); pos != m_tree.end() && pos->hash == hash; ++pos) {
-            assert(m_storage.type(pos->string) == interned_string_type);
-            m_storage.load(pos->string, value);
+        for (auto pos = m_tree.lower_bound(key); pos; pos.move_next()) {
+            entry ent = pos.get();
+            if (ent.hash != hash)
+                break;
+
+            load(m_heap, ent.string, value);
             if (value == str)
-                return pos->string;
+                return ent.string;
         }
         return {};
     }
 
-    std::uint64_t hash(const std::string& str) const {
-        // There are better hash functions, but this will do now for.
-        return std::hash<std::string>()(str);
+    static uint64_t hash(const std::string& str) {
+        const uint8_t* data = reinterpret_cast<const uint8_t*>(str.data());
+        return fnv_hash(data, data + str.size());
     }
 
 private:
     tree_type m_tree;
-    heap_type& m_storage;
+    extpp::heap& m_heap;
 };
 
 class property_map {
     struct property {
-        node_id node;           // owner of the property
-        extpp::reference name;  // name of the property (string, interned)
-        extpp::reference value; // value of the property (string)
+        node_id node;                   // owner of the property
+        extpp::heap_reference name;     // name of the property (string, interned)
+        extpp::heap_reference value;    // value of the property (string)
 
-        struct key {
-            // Derived from the fields above.
-            std::uint64_t node, name;
-
-            bool operator<(const key& other) const {
-                return std::tie(node, name) < std::tie(other.node, other.name);
-            }
-
-            bool operator==(const key& other) const {
-                return node == other.node && name == other.name;
+        // Indexed by node id value and the key.
+        struct derive_key {
+            std::tuple<uint64_t, uint64_t> operator()(const property& p) const {
+                return std::tuple<uint64_t, uint64_t>(p.node.value(), p.name.value());
             }
         };
 
-        struct key_extract {
-            key operator()(const property& p) const {
-                return key{p.node.value(), p.name.value()};
-            }
-        };
+        static constexpr auto get_binary_format() {
+            return make_binary_format(&property::node, &property::name, &property::value);
+        }
     };
 
     // Contains one entry for every node's property.
-    using tree_type = extpp::btree<property, property::key_extract, std::less<>, block_size>;
+    using tree_type = extpp::btree<property, property::derive_key>;
 
 public:
     using anchor = tree_type::anchor;
 
 public:
-    property_map(extpp::anchor_ptr<anchor> anc, allocator& alloc)
+    property_map(extpp::anchor_handle<anchor> anc, extpp::heap& heap, extpp::allocator& alloc)
         : m_tree(std::move(anc), alloc)
+        , m_heap(heap)
     {}
 
     template<typename Callback>
     void iterate_properties(node_id node, Callback&& cb) const {
-        auto [begin, end] = node_range(node);
-        for (; begin != end; ++begin)
-            cb(begin->name, begin->value);
+        node_range(node, [&](const property& prop, const auto& cursor) {
+            (void) cursor;
+            cb(prop.name, prop.value);
+        });
     }
 
     // Returns the value of the property `name` in the given node.
     // Returns a null reference if no such property exists.
-    extpp::reference get(node_id node, extpp::reference name) const {
-        property::key k;
-        k.node = node.value();
-        k.name = name.value();
+    extpp::heap_reference get(node_id node, extpp::heap_reference name) const {
+        const std::tuple<uint64_t, uint64_t> key(node.value(), name.value());
 
-        auto pos = m_tree.lower_bound(k);
-        if (pos == m_tree.end())
-            return {};
-
-        if (pos->node == node && pos->name == name)
-            return pos->value;
+        auto cursor = m_tree.find(key);
+        if (cursor) {
+            return cursor.get().value;
+        }
         return {};
     }
 
     // Sets the property `name` of the given node to `value`.
-    // Returns the old value of that property (if any).
-    extpp::reference set(node_id node, extpp::reference name, extpp::reference value) {
+    void set(node_id node, extpp::heap_reference name, extpp::heap_reference value) {
         property p;
         p.node = node;
         p.name = name;
         p.value = value;
 
-        auto [pos, inserted] = m_tree.insert(p);
-        if (!inserted) {
+        auto result = m_tree.insert(p);
+        if (!result.inserted) {
             // The property already existed.
-            extpp::reference prev = pos->value;
-            m_tree.replace(pos, p);
-            return prev;
+            property old = result.position.get();
+            m_heap.free(old.value);
+            result.position.set(p);
         }
-        // No previous value.
-        return {};
     }
 
-    // Remove a single property from a node. Returns the previous value of that property (if any).
-    extpp::reference remove(node_id node, extpp::reference name) {
-        property::key k;
-        k.node = node.value();
-        k.name = name.value();
+    // Remove a single property from a node.
+    void remove(node_id node, extpp::heap_reference name) {
+        const std::tuple<uint64_t, uint64_t> key(node.value(), name.value());
 
-        auto pos = m_tree.lower_bound(k);
-        if (pos == m_tree.end())
-            return {};
+        auto cursor = m_tree.find(key);
+        if (!cursor)
+            return;
 
-        if (pos->node == node && pos->name == name) {
-            extpp::reference value = pos->value;
-            m_tree.erase(pos);
-            return value;
-        }
-        return {};
+        property prop = cursor.get();
+        m_heap.free(prop.value);
+        cursor.erase();
     }
 
     // Remove all properties for that node.
     void remove(node_id node) {
-        auto [begin, end] = node_range(node);
-        m_tree.erase(begin, end);
+        node_range(node, [&](auto& prop, auto& cursor) {
+            (void) prop;
+            cursor.erase();
+        });
     }
 
-    // For garbage collection.
-    // Calls the visitor for every reference known to this object.
-    template<typename T>
-    void visit_references(T&& visitor) {
-        for (const auto& prop : m_tree) {
-            visitor(prop.name);
-            visitor(prop.value);
+private:
+    template<typename CursorCallback>
+    void node_range(node_id node, CursorCallback&& cb) const
+    {
+        const std::tuple<uint64_t, uint64_t> key(node.value(), 0);
+
+        auto cursor = m_tree.create_cursor();
+        cursor.lower_bound(key);
+        while (cursor) {
+            property prop = cursor.get();
+            if (prop.node != node)
+                break;
+
+            cb(prop, cursor);
+            cursor.move_next();
         }
     }
 
 private:
-    std::tuple<tree_type::iterator, tree_type::iterator>
-    node_range(node_id node) const
-    {
-        property::key lower, upper;
-
-        lower.node = node.value();
-        lower.name = 0;
-
-        upper.node = node.value();
-        upper.name = std::uint64_t(-1);
-        return std::tuple(m_tree.lower_bound(lower),
-                          m_tree.upper_bound(upper));
-    }
-
-private:
     tree_type m_tree;
+    extpp::heap& m_heap;
 };
 
 class edge_map {
     struct edge {
         node_id source;
-        extpp::reference label; // Interned string.
+        extpp::heap_reference label; // Interned string.
         node_id destination;
 
         struct key {
             // Derived from the fields above.
-            std::uint64_t source, label, destination;
+            uint64_t source, destination, label;
 
             bool operator<(const key& other) const {
                 return std::tie(source, label, destination)
@@ -311,100 +281,132 @@ class edge_map {
                         && label == other.label
                         && destination == other.destination;
             }
+
+            static constexpr auto get_binary_format() {
+                return extpp::make_binary_format(&key::source, &key::label, &key::destination);
+            }
         };
 
-        struct key_extract {
+        struct derive_key {
             key operator()(const edge& e) const {
                 return key{e.source.value(), e.label.value(), e.destination.value()};
             }
         };
+
+        static constexpr auto get_binary_format() {
+            return extpp::make_binary_format(&edge::source, &edge::label, &edge::destination);
+        }
     };
 
     // Contains one entry for every node's property.
-    using tree_type = extpp::btree<edge, edge::key_extract, std::less<>, block_size>;
+    using tree_type = extpp::btree<edge, edge::derive_key>;
 
 public:
     class anchor {
         tree_type::anchor map, reverse_map;
-        friend class edge_map;
+
+        friend edge_map;
+        friend extpp::binary_format_access;
+
+        static constexpr auto get_binary_format() {
+            return extpp::make_binary_format(&anchor::map, &anchor::reverse_map);
+        }
     };
 
 public:
-    edge_map(extpp::anchor_ptr<anchor> anc, allocator& alloc)
-        : m_map(anc.member(&anchor::map), alloc)
-        , m_reverse_map(anc.member(&anchor::reverse_map), alloc)
+    edge_map(extpp::anchor_handle<anchor> anc, extpp::allocator& alloc)
+        : m_map(anc.member<&anchor::map>(), alloc)
+        , m_reverse_map(anc.member<&anchor::reverse_map>(), alloc)
     {}
 
     template<typename Callback>
     void iterate_edges(node_id node, Callback&& cb) const {
-        auto [begin, end] = node_range(m_map, node);
-        for (; begin != end; ++begin)
-            cb(begin->label, begin->destination);
+        edge::key key;
+        key.source = node.value();
+        key.label = 0;
+        key.destination = 0;
+
+        auto cursor = m_map.lower_bound(key);
+        while (cursor) {
+            edge e = cursor.get();
+            if (e.source != node)
+                break;
+
+            cb(e.label, e.destination);
+            cursor.move_next();
+        }
     }
 
     // True if the node has either incoming or outgoing edges.
     bool has_edges(node_id node) const {
-        auto out_edges = node_range(m_map, node);
-        auto in_edges = node_range(m_reverse_map, node);
-        return out_edges.first != out_edges.second || in_edges.first != in_edges.second;
+        edge::key key;
+        key.source = node.value();
+        key.destination = 0;
+        key.label = 0;
+
+        // Edges are bi-directional; one lookup is sufficient.
+        auto cursor = m_map.lower_bound(key);
+        return cursor && cursor.get().source == node;
     }
 
     // Links the two nodes together with a directed edge and the given label.
     // Returns true if the ege was actually inserted, i.e. if it didn't exist.
-    bool link(node_id source, extpp::reference label, node_id destination) {
+    bool link(node_id source, extpp::heap_reference label, node_id destination) {
         edge e;
         e.source = source;
         e.label = label;
         e.destination = destination;
 
-        bool inserted;
-        std::tie(std::ignore, inserted) = m_map.insert(e);
-        if (inserted) {
-            std::tie(std::ignore, inserted) = m_reverse_map.insert(reversed(e));
-            assert(inserted);
+        auto result = m_map.insert(e);
+        if (result.inserted) {
+            bool reverse_inserted = m_reverse_map.insert(reversed(e)).inserted;
+            assert(reverse_inserted);
+            (void) reverse_inserted;
         }
-        return inserted;
+        return result.inserted;
     }
 
     // Removes the edge (source, label, destination) and returns true if it existed.
-    bool unlink(node_id source, extpp::reference label, node_id destination) {
+    bool unlink(node_id source, extpp::heap_reference label, node_id destination) {
         edge e;
         e.source = source;
         e.label = label;
         e.destination = destination;
 
-        if (m_map.erase(key(e))) {
-            bool removed = m_reverse_map.erase(key(reversed(e)));
-            assert(removed); // The reversed entry must have existed.
-            (void) removed;
+        auto c1 = m_map.find(key(e));
+        auto c2 = m_reverse_map.find(key(reversed(e)));
+        if (c1 && c2) {
+            c1.erase();
+            c2.erase();
             return true;
         }
+
+        // Either both or none:
+        assert(c1.at_end() == c2.at_end());
         return false;
     }
 
     // Remove all edges that begin or end at this node.
     void remove(node_id node) {
-        auto rm_edges = [&](tree_type& fwd, tree_type& bwd) {
-            auto [begin, end] = node_range(fwd, node);
-            for (auto i = begin; i != end; ++i) {
-                bool removed = bwd.erase(key(reversed(*i)));
-                assert(removed); // The reversed entry must have existed.
-                (void) removed;
-            }
-            fwd.erase(begin, end);
-        };
+        auto c1 = m_map.create_cursor();
+        auto c2 = m_reverse_map.create_cursor();
 
-        rm_edges(m_map, m_reverse_map);
-        rm_edges(m_reverse_map, m_map);
-    }
+        edge::key node_key;
+        node_key.source = node.value();
+        node_key.label = 0;
+        node_key.destination = 0;
 
-    // For garbage collection.
-    // Calls the visitor for every reference known to this object.
-    template<typename T>
-    void visit_references(T&& visitor) {
-        // No need to visit reverse map because it contains the same references.
-        for (const auto& e : m_map) {
-            visitor(e.label);
+        c1.lower_bound(node_key);
+        while (c1) {
+            edge e = c1.get();
+            if (e.source != node)
+                break;
+
+            c2.find(key(reversed(e)));
+            assert(c2); // Must find reverse entry
+            c2.erase();
+
+            c1.move_next();
         }
     }
 
@@ -418,25 +420,8 @@ private:
     }
 
     edge::key key(const edge& e) const {
-        return edge::key_extract()(e);
+        return edge::derive_key()(e);
     }
-
-    std::pair<tree_type::iterator, tree_type::iterator>
-    node_range(const tree_type& map, node_id node) const
-    {
-        edge::key lower, upper;
-
-        lower.source = node.value();
-        lower.label = 0;
-        lower.destination = 0;
-
-        upper.source = node.value();
-        upper.label = std::uint64_t(-1);
-        upper.destination = std::uint64_t(-1);
-        return std::pair(map.lower_bound(lower),
-                         map.upper_bound(upper));
-    }
-
 
 private:
     tree_type m_map, m_reverse_map;
@@ -444,82 +429,77 @@ private:
 
 // Contains one entry for every existing graph node.
 class node_index {
-    struct node {
-        node_id id;
-    };
-
-    struct key_extract {
-        node_id operator()(const node& n) const {
-            return n.id;
-        }
-    };
-
-    using tree_type = extpp::btree<node, key_extract, std::less<>, block_size>;
+    using tree_type = extpp::btree<node_id>;
 
 public:
-    using iterator = tree_type::iterator;
-    using cursor = tree_type::cursor;
-
     using anchor = tree_type::anchor;
 
 public:
-    node_index(extpp::anchor_ptr<anchor> anc, allocator& alloc)
+    node_index(extpp::anchor_handle<anchor> anc, extpp::allocator& alloc)
         : m_tree(std::move(anc), alloc)
     {}
 
-    std::uint64_t size() const { return m_tree.size(); }
+    template<typename Callback>
+    void iterate_nodes(Callback&& cb) const {
+        auto cursor = m_tree.create_cursor(m_tree.seek_min);
+        for (; cursor; cursor.move_next()) {
+            cb(cursor.get());
+        }
+    }
 
-    iterator begin() const { return m_tree.begin(); }
-    iterator end() const { return m_tree.end(); }
+    uint64_t size() const { return m_tree.size(); }
 
-    iterator find(node_id id) const {
-        return m_tree.find(id);
+    bool find(node_id id) const {
+        return static_cast<bool>(m_tree.find(id));
     }
 
     bool insert(node_id id) {
-        node n;
-        n.id = id;
-
-        auto [pos, inserted] = m_tree.insert(n);
-        (void) pos;
-        return inserted;
+        auto result = m_tree.insert(id);
+        return result.inserted;
     }
 
     bool remove(node_id id) {
-        return m_tree.erase(id);
+        auto cursor = m_tree.find(id);
+        if (!cursor)
+            return false;
+
+        cursor.erase();
+        return true;
     }
 
 private:
     tree_type m_tree;
 };
 
-using id_generator = extpp::id_generator<std::uint64_t, block_size>;
-
 class database {
     struct meta_block {
-        heap_type::anchor heap;
-        id_generator::anchor ids;
+        extpp::heap::anchor heap;
+        extpp::id_generator::anchor ids;
         interned_strings::anchor strings;
         node_index::anchor nodes;
         property_map::anchor properties;
         edge_map::anchor edges;
+
+        static constexpr auto get_binary_format() {
+            return make_binary_format(&meta_block::heap, &meta_block::ids,
+                                      &meta_block::strings, &meta_block::nodes,
+                                      &meta_block::properties, &meta_block::edges);
+        }
     };
 
-    using format_type = extpp::default_file_format<meta_block, block_size>;
+    using format_type = extpp::default_file_format<meta_block>;
 
 public:
-    database(extpp::file& f, std::uint32_t cache_size)
+    database(extpp::file& f, uint32_t cache_size)
         : m_format(f, cache_size)
-        , m_meta(m_format.user_data())
-        , m_heap(m_meta.member(&meta_block::heap), m_format.get_allocator())
-        , m_ids(m_meta.member(&meta_block::ids), m_format.get_allocator())
-        , m_strings(m_meta.member(&meta_block::strings), m_format.get_allocator(), m_heap)
-        , m_nodes(m_meta.member(&meta_block::nodes), m_format.get_allocator())
-        , m_properties(m_meta.member(&meta_block::properties), m_format.get_allocator())
-        , m_edges(m_meta.member(&meta_block::edges), m_format.get_allocator())
-    {
-        register_heap_types();
-    }
+        , m_meta(m_format.get_user_data())
+        , m_heap(m_meta.member<&meta_block::heap>(), m_format.get_allocator())
+        , m_ids(m_meta.member<&meta_block::ids>(), m_format.get_allocator())
+        , m_strings(m_meta.member<&meta_block::strings>(), m_format.get_allocator(), m_heap)
+        , m_nodes(m_meta.member<&meta_block::nodes>(), m_format.get_allocator())
+        , m_properties(m_meta.member<&meta_block::properties>(), m_heap, m_format.get_allocator())
+        , m_edges(m_meta.member<&meta_block::edges>(), m_format.get_allocator())
+    {}
 
     auto& engine() { return m_format.get_engine(); }
 
@@ -537,8 +517,7 @@ public:
 
     // Deletes a node.
     void delete_node(node_id node, bool force) {
-        auto pos = m_nodes.find(node);
-        if (pos == m_nodes.end())
+        if (!m_nodes.find(node))
             throw std::runtime_error("Node does not exist.");
 
         if (force) {
@@ -547,6 +526,7 @@ public:
             if (m_edges.has_edges(node))
                 throw std::runtime_error("Node still has incoming or outgoing edges.");
         }
+
         m_properties.remove(node);
         m_nodes.remove(node);
         m_ids.free(node.value());
@@ -554,15 +534,14 @@ public:
 
     // Returns all properties of a node.
     std::map<std::string, std::string> list_properties(node_id node) const {
-        auto node_pos = m_nodes.find(node);
-        if (node_pos == m_nodes.end())
+        if (!m_nodes.find(node))
             throw std::runtime_error("Node does not exist.");
 
         std::map<std::string, std::string> result;
         std::string key_buf, value_buf;
         m_properties.iterate_properties(node, [&](auto k, auto v) {
-            m_heap.load(k, key_buf);
-            m_heap.load(v, value_buf);
+            load(m_heap, k, key_buf);
+            load(m_heap, v, value_buf);
             result[key_buf] = value_buf;
         });
 
@@ -571,14 +550,13 @@ public:
 
     // Returns all edges starting at this node.
     std::multimap<std::string, node_id> list_edges(node_id node) const {
-        auto node_pos = m_nodes.find(node);
-        if (node_pos == m_nodes.end())
+        if (!m_nodes.find(node))
             throw std::runtime_error("Node does not exist.");
 
         std::multimap<std::string, node_id> result;
         std::string key_buf;
         m_edges.iterate_edges(node, [&](auto k, auto destination) {
-            m_heap.load(k, key_buf);
+            load(m_heap, k, key_buf);
             result.emplace(key_buf, destination);
         });
 
@@ -587,29 +565,27 @@ public:
 
     // Set the property `key` of `node` to `value`.
     void set_property(node_id node, const std::string& key, const std::string& value) {
-        auto node_pos = m_nodes.find(node);
-        if (node_pos == m_nodes.end())
+        if (!m_nodes.find(node))
             throw std::runtime_error("Node does not exist.");
 
         if (key.empty())
             throw std::runtime_error("Property names must not be empty.");
 
         // TODO: Intern small values as well?
-        extpp::reference keyref = m_strings.intern(key);
-        extpp::reference valueref = m_heap.insert(string_type, value.data(), value.size());
+        extpp::heap_reference keyref = m_strings.intern(key);
+        extpp::heap_reference valueref = save(m_heap, value);
         m_properties.set(node, keyref, valueref);
     }
 
     // Remove the property `key` from the given node.
     void unset_property(node_id node, const std::string& key) {
-        auto node_pos = m_nodes.find(node);
-        if (node_pos == m_nodes.end())
+        if (!m_nodes.find(node))
             throw std::runtime_error("Node does not exist.");
 
         if (key.empty())
             throw std::runtime_error("Property names must not be empty.");
 
-        extpp::reference keyref = m_strings.find(key);
+        extpp::heap_reference keyref = m_strings.find(key);
         if (!keyref)
             return; // No interned string -> no property with that name
         m_properties.remove(node, keyref);
@@ -617,35 +593,31 @@ public:
 
     // Creates an edge from src to dest, with the given label.
     void link_nodes(node_id src, const std::string& label, node_id dest) {
-        auto src_pos = m_nodes.find(src);
-        if (src_pos == m_nodes.end())
+        if (!m_nodes.find(src))
             throw std::runtime_error("Source node does not exist.");
 
-        auto dest_pos = m_nodes.find(dest);
-        if (dest_pos == m_nodes.end())
+        if (!m_nodes.find(dest))
             throw std::runtime_error("Destination node does not exist.");
 
         if (label.empty())
             throw std::runtime_error("Edge labels must not be empty.");
 
-        extpp::reference labelref = m_strings.intern(label);
+        extpp::heap_reference labelref = m_strings.intern(label);
         m_edges.link(src, labelref, dest);
     }
 
     // Deletes the labeled edge between src and dest.
     void unlink_nodes(node_id src, const std::string& label, node_id dest) {
-        auto src_pos = m_nodes.find(src);
-        if (src_pos == m_nodes.end())
+        if (m_nodes.find(src))
             throw std::runtime_error("Source node does not exist.");
 
-        auto dest_pos = m_nodes.find(dest);
-        if (dest_pos == m_nodes.end())
+        if (!m_nodes.find(dest))
             throw std::runtime_error("Destination node does not exist.");
 
         if (label.empty())
             throw std::runtime_error("Edge labels must not be empty.");
 
-        extpp::reference labelref = m_strings.find(label);
+        extpp::heap_reference labelref = m_strings.find(label);
         if (!labelref)
             return; // No interned string -> no edge with that label
         m_edges.unlink(src, labelref, dest);
@@ -656,76 +628,33 @@ public:
         std::vector<node_id> nodes;
         nodes.reserve(m_nodes.size());
 
-        for (const auto& node : m_nodes) {
-            nodes.push_back(node.id);
-        }
+        m_nodes.iterate_nodes([&](node_id id) {
+            nodes.push_back(id);
+        });
         return nodes;
     }
 
     void debug_print(std::ostream& o) {
         o << "Allocator state:\n";
-        m_format.get_allocator().debug_print(o);
+        m_format.get_allocator().dump(o);
         o << "\n";
 
         o << "Heap state:\n";
-        m_heap.debug_print(o);
-    }
-
-    void gc(bool compact) {
-        if (compact) {
-            collect_impl(m_heap.begin_compaction());
-        } else {
-            collect_impl(m_heap.begin_collection());
-        }
+        m_heap.dump(o);
     }
 
     void flush() { m_format.flush(); }
 
 private:
-    void register_heap_types() {
-        extpp::type_info string;
-        string.index = string_type;
-        string.dynamic_size = true;
-        string.contains_references = false;
-
-        extpp::type_info interned_string;
-        interned_string.index = interned_string_type;
-        interned_string.dynamic_size = true;
-        interned_string.contains_references = false;
-        interned_string.finalizer = [this](extpp::reference ref) {
-            // Called when the heap's garbage collector destroys a no longer
-            // referenced interned string. Makes sure that the string
-            // is no longer referenced from the (weak) index.
-            m_strings.remove(ref);
-        };
-
-        m_heap.register_type(string);
-        m_heap.register_type(interned_string);
-    }
-
-    template<typename Collector>
-    void collect_impl(Collector&& c) {
-        // Visit all root references before starting the garbage collection.
-        // We do not visit the `m_strings` index because its a set of weak
-        // references that get cleaned up by the finalizer of the interned_string type.
-        auto vis = [&](auto ref) {
-            c.visit(ref);
-        };
-
-        m_properties.visit_references(vis);
-        m_edges.visit_references(vis);
-        c();
-    }
-
-private:
     format_type m_format;
-    extpp::handle<meta_block> m_meta;
+
+    extpp::anchor_handle<meta_block> m_meta;
 
     // Data storage (only strings right now).
-    heap_type m_heap;
+    extpp::heap m_heap;
 
     // Generates unique node ids.
-    id_generator m_ids;
+    extpp::id_generator m_ids;
 
     // Indexes existing interned string instances.
     interned_strings m_strings;
@@ -751,23 +680,22 @@ enum class subcommand {
     unlink,
     print,
     print_all,
-    gc,
     debug
 };
 
 struct settings {
     std::string file;
-    std::uint32_t cache_size = 128;
+    uint32_t cache_size = 8; // Megabyte
     subcommand cmd = subcommand::print_all;
     bool print_stats = false;
 
     struct delete_t {
-        std::uint64_t node = 0;
+        uint64_t node = 0;
         bool force = false;
     } delete_;
 
     struct set_t {
-        std::uint64_t node = 0;
+        uint64_t node = 0;
         std::string name;
         std::string value;
     } set;
@@ -778,19 +706,19 @@ struct settings {
     } unset;
 
     struct link_t {
-        std::uint64_t source = 0;
-        std::uint64_t destination = 0;
+        uint64_t source = 0;
+        uint64_t destination = 0;
         std::string label;
     } link;
 
     struct unlink_t {
-        std::uint64_t source = 0;
-        std::uint64_t destination = 0;
+        uint64_t source = 0;
+        uint64_t destination = 0;
         std::string label;
     } unlink;
 
     struct print_t {
-        std::uint64_t node = 0;
+        uint64_t node = 0;
     } print;
 
     struct gc_t {
@@ -807,7 +735,7 @@ void parse(settings& s, int argc, char** argv) {
 
     auto general = "General options:" % (
         (required("-f", "--file") & value("file", s.file))          % "database file",
-        (option("-m", "--cache-size") & value("M", s.cache_size))   % ("cache size in blocks (default: " + std::to_string(s.cache_size) + ")"),
+        (option("-m", "--cache-size") & value("M", s.cache_size))   % ("cache size in megabyte (default: " + std::to_string(s.cache_size) + " MB)"),
         (option("--stats").set(s.print_stats)                       % "print statistics after command execution."),
         parameter(help)                                             % "display this text"
     );
@@ -866,12 +794,6 @@ void parse(settings& s, int argc, char** argv) {
 
     auto cmd_print_all = command("print-all").set(s.cmd, subcommand::print_all);
 
-    auto cmd_gc = (
-        command("gc").set(s.cmd, subcommand::gc),
-        "Subcommand gc:" % group(
-            option("--compact").set(s.gc.compact, true) % "perform compaction"
-        )
-    );
     auto cmd_debug = command("debug").set(s.cmd, subcommand::debug);
 
     auto cli = (general, (
@@ -879,7 +801,7 @@ void parse(settings& s, int argc, char** argv) {
         |   cmd_set     | cmd_unset
         |   cmd_link    | cmd_unlink
         |   cmd_print   | cmd_print_all
-        |   cmd_gc      | cmd_debug
+        |   cmd_debug
     )) | help;
 
     auto print_usage = [&](bool include_help){
@@ -916,10 +838,13 @@ int main(int argc, char** argv) {
     settings s;
     parse(s, argc, argv);
 
-    auto file = extpp::system_vfs().open(s.file.c_str(), extpp::vfs::read_write, extpp::vfs::open_create);
-    example::database db(*file, s.cache_size);
+    // The number of blocks cached in memory.
+    const uint32_t cache_blocks = (uint64_t(s.cache_size) * uint64_t(1 << 20)) / objectdb::block_size;
 
-    auto print_node = [&](example::node_id node) {
+    auto file = extpp::system_vfs().open(s.file.c_str(), extpp::vfs::read_write, extpp::vfs::open_create);
+    objectdb::database db(*file, cache_blocks);
+
+    auto print_node = [&](objectdb::node_id node) {
         std::cout << "Node: " << node.value() << "\n";
 
         auto props = db.list_properties(node);
@@ -945,32 +870,32 @@ int main(int argc, char** argv) {
         }
         case subcommand::delete_:
         {
-            db.delete_node(example::node_id(s.delete_.node), s.delete_.force);
+            db.delete_node(objectdb::node_id(s.delete_.node), s.delete_.force);
             break;
         }
         case subcommand::set:
         {
-            db.set_property(example::node_id(s.set.node), s.set.name, s.set.value);
+            db.set_property(objectdb::node_id(s.set.node), s.set.name, s.set.value);
             break;
         }
         case subcommand::unset:
         {
-            db.unset_property(example::node_id(s.unset.node), s.unset.name);
+            db.unset_property(objectdb::node_id(s.unset.node), s.unset.name);
             break;
         }
         case subcommand::link:
         {
-            db.link_nodes(example::node_id(s.link.source), s.link.label, example::node_id(s.link.destination));
+            db.link_nodes(objectdb::node_id(s.link.source), s.link.label, objectdb::node_id(s.link.destination));
             break;
         }
         case subcommand::unlink:
         {
-            db.unlink_nodes(example::node_id(s.unlink.source), s.unlink.label, example::node_id(s.unlink.destination));
+            db.unlink_nodes(objectdb::node_id(s.unlink.source), s.unlink.label, objectdb::node_id(s.unlink.destination));
             break;
         }
         case subcommand::print:
         {
-            print_node(example::node_id(s.print.node));
+            print_node(objectdb::node_id(s.print.node));
             break;
         }
         case subcommand::print_all:
@@ -980,11 +905,6 @@ int main(int argc, char** argv) {
                 print_node(node);
                 std::cout << "\n";
             }
-            break;
-        }
-        case subcommand::gc:
-        {
-            db.gc(s.gc.compact);
             break;
         }
         case subcommand::debug:
@@ -1007,4 +927,4 @@ int main(int argc, char** argv) {
                   << std::flush;
     }
 
-}
+} // namespace objectbd

@@ -102,6 +102,10 @@ constexpr bool has_binary_format() {
 
 template<typename T>
 constexpr auto get_binary_format() {
+    if constexpr (!has_binary_format<T>()) {
+        static_assert(has_binary_format<T>(),
+                      "The type must implement the get_binary_format function.");
+    }
     return binary_format_access::get_binary_format<T>();
 }
 

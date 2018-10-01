@@ -105,7 +105,7 @@ inline default_file_format<Anchor>::default_file_format(file& f, u32 block_size,
 
     m_anchor_handle = make_anchor_handle(m_anchor_data, m_anchor_changed);
     m_allocator = std::make_unique<default_allocator>(m_anchor_handle.template member<&anchor::alloc>(), *m_engine);
-    m_allocator->can_grow(false);
+    m_allocator->can_grow(true);
 }
 
 } // namespace extpp

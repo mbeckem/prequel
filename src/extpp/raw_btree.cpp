@@ -44,7 +44,7 @@ public:
 
     enum flags_t {
         INVALID = 1 << 0,       ///< When the cursor is at the end or was otherwise invalidated.
-        DELETED = 1 << 1,       ///< When the current element was inserted (TODO)
+        DELETED = 1 << 1,       ///< When the current element was deleted.
         INPROGRESS = 1 << 2,    ///< When an operation is not yet complete.
     };
 

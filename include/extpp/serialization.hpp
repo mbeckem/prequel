@@ -87,10 +87,7 @@ struct has_explicit_serializer<T, void_t<typename T::binary_serializer>> : std::
 // and some common standard types. Arrays, tuples, etc. of serialized types are themselves
 // serializable.
 template<typename T, typename Enable = void>
-struct default_serializer {
-    static_assert(always_false<T>::value,
-                  "The specified type cannot be serialized.");
-};
+struct default_serializer : std::false_type {};
 
 template<typename T, size_t size>
 struct big_endian_serializer {
@@ -416,9 +413,17 @@ struct explicit_serializer {
 };
 
 enum class serializer_kind {
+    // Trivial serialization is implemented as memcpy for types such as byte arrays.
     trivial_serialization,
+
+    // Default serialization implements serialialization for builin primitive types
+    // and some fixed size std containers (e.g. variant, array).
     default_serialization,
+
+    // Automatic serialization for classes that provide a get_binary_format() function.
     binary_format_serialization,
+
+    // Serializatoin for classes that have their own serialization implementation.
     explicit_serialization,
 };
 
@@ -426,15 +431,19 @@ template<typename T>
 constexpr auto which_serializer() {
     if constexpr (use_trivial_serializer<T>()) {
         return serializer_kind::trivial_serialization;
-    }
-    if constexpr (std::is_class_v<T> || std::is_union_v<T>) {
+    } else if constexpr (!std::is_base_of_v<std::false_type, default_serializer<T>>)  {
+        return serializer_kind::default_serialization;
+    } else {
         if constexpr (has_explicit_serializer<T>::value) {
             return serializer_kind::explicit_serialization;
         } else if constexpr (has_binary_format<T>()) {
             return serializer_kind::binary_format_serialization;
+        } else {
+            static_assert(always_false<T>::value,
+                          "The type cannot be serialized. You must either implement get binary format or "
+                          "explicit serialization protocols.");
         }
     }
-    return serializer_kind::default_serialization;
 }
 
 template<typename T, serializer_kind Kind = which_serializer<T>()>
