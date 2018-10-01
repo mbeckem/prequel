@@ -3,7 +3,6 @@
 
 #include <extpp/defs.hpp>
 #include <extpp/type_traits.hpp>
-#include <extpp/detail/iter_tools.hpp>
 
 #include <tuple>
 #include <utility>
@@ -19,16 +18,12 @@ public:
         : m_fields(fields...)
     {}
 
-    /// Visits all fields in the order in which they have been defined.
-    template<typename Visitor>
-    constexpr void visit_fields(Visitor&& v) const {
-        detail::tuple_for_each(m_fields, [&](auto ptr) {
-            v(ptr);
-        });
+    constexpr const std::tuple<V T::*...>& fields() const {
+        return m_fields;
     }
 
     /// Returns the number of fields.
-    constexpr size_t fields() const {
+    constexpr size_t field_count() const {
         return sizeof...(V);
     }
 

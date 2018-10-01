@@ -370,7 +370,8 @@ struct binary_format_serializer {
 
     static constexpr size_t compute_serialized_size() {
         size_t size = 0;
-        format.visit_fields([&](auto field) {
+
+        detail::tuple_for_each(format.fields(), [&](auto field) {
             size += extpp::serialized_size<member_type_t<decltype(field)>>();
         });
         return size;
@@ -379,14 +380,14 @@ struct binary_format_serializer {
     static constexpr size_t serialized_size = compute_serialized_size();
 
     static void serialize(const T& v, byte* b) {
-        format.visit_fields([&](auto field) {
+        detail::tuple_for_each(format.fields(), [&](auto field) {
             const auto& ref = get_member(v, field);
             b = extpp::serialize(ref, b);
         });
     }
 
     static void deserialize(T& v, const byte* b) {
-        format.visit_fields([&](auto field) {
+        detail::tuple_for_each(format.fields(), [&](auto field) {
             auto& ref = get_member(v, field);
             b = extpp::deserialize(ref, b);
         });
@@ -599,7 +600,7 @@ constexpr field_offset_t serialized_offset_impl(V T::*field) {
     constexpr auto format = get_binary_format<T>();
 
     field_offset_t result;
-    format.visit_fields([&](auto member_ptr) {
+    detail::tuple_for_each(format.fields(), [&](auto member_ptr) {
         using struct_field_type = member_type_t<decltype(member_ptr)>;
 
         if (result.found)

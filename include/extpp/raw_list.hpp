@@ -14,11 +14,11 @@
 namespace extpp {
 
 class raw_list;
-class raw_list_impl;
 class raw_list_cursor;
-class raw_list_cursor_impl;
 
-class raw_list_anchor {
+namespace detail {
+
+struct raw_list_anchor {
     /// The number of values in this list.
     u64 size = 0;
 
@@ -35,10 +35,14 @@ class raw_list_anchor {
         return make_binary_format(&raw_list_anchor::size, &raw_list_anchor::nodes,
                                   &raw_list_anchor::first, &raw_list_anchor::last);
     }
-
-    friend class raw_list_impl;
-    friend class binary_format_access;
 };
+
+class raw_list_impl;
+class raw_list_cursor_impl;
+
+} // namespace detail
+
+using raw_list_anchor = detail::raw_list_anchor;
 
 class raw_list
 {
@@ -171,10 +175,10 @@ public:
     void dump(std::ostream& os) const;
 
 private:
-    raw_list_impl& impl() const;
+    detail::raw_list_impl& impl() const;
 
 private:
-    std::unique_ptr<raw_list_impl> m_impl;
+    std::unique_ptr<detail::raw_list_impl> m_impl;
 };
 
 class raw_list_cursor {
@@ -211,15 +215,15 @@ public:
     explicit operator bool() const { return !at_end(); }
 
 private:
-    friend class raw_list;
-
-    raw_list_cursor(std::unique_ptr<raw_list_cursor_impl> impl);
+    detail::raw_list_cursor_impl& impl() const;
 
 private:
-    raw_list_cursor_impl& impl() const;
+    friend raw_list;
+
+    raw_list_cursor(std::unique_ptr<detail::raw_list_cursor_impl> impl);
 
 private:
-    std::unique_ptr<raw_list_cursor_impl> m_impl;
+    std::unique_ptr<detail::raw_list_cursor_impl> m_impl;
 };
 
 } // namespace extpp

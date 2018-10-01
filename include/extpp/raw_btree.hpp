@@ -12,41 +12,14 @@
 namespace extpp {
 
 class raw_btree;
-class raw_btree_impl;
 class raw_btree_cursor;
-class raw_btree_cursor_impl;
 class raw_btree_loader;
-class raw_btree_loader_impl;
 
-/// A group of properties required to configure a btree instance.
-/// The parameters must be semantically equivalent whenever the
-/// tree is (re-) opened.
-struct raw_btree_options {
-    /// Size of a value, in bytes. Must be > 0.
-    u32 value_size = 0;
-
-    /// Size of a key, in bytes. Keys are derived from values.
-    /// Must be > 0.
-    u32 key_size = 0;
-
-    /// Passed to all callbacks as the last argument.
-    /// Can remain null.
-    void* user_data = nullptr;
-
-    /// Takes a value (`value_size` readable bytes) and derives a search
-    /// key from it. The key must be stored in `key_buffer` and must
-    /// be exactly `key_size` bytes long.
-    /// `derive_key` must return equal search keys for equal values.
-    void (*derive_key)(const byte* value, byte* key_buffer, void* user_data) = nullptr;
-
-    /// Returns true if `left_key` is less than `right_key`. Both byte buffers
-    /// contain keys and have size `key_size`.
-    bool (*key_less)(const byte* left_key, const byte* right_key, void* user_data) = nullptr;
-};
+namespace detail {
 
 /// Serialized state of a btree instance.
 /// Required for (re-) opening a tree.
-class raw_btree_anchor {
+struct raw_btree_anchor {
     /// The number of values in this tree.
     u64 size = 0;
 
@@ -77,10 +50,44 @@ class raw_btree_anchor {
                     &self::size, &self::leaf_nodes, &self::internal_nodes, &self::height,
                     &self::root, &self::leftmost, &self::rightmost);
     }
-
-    friend class raw_btree_impl;
-    friend class binary_format_access;
 };
+
+namespace btree_impl {
+
+class tree;
+class loader;
+class cursor;
+
+} // namespace btree_impl
+} // namespace detail
+
+/// A group of properties required to configure a btree instance.
+/// The parameters must be semantically equivalent whenever the
+/// tree is (re-) opened.
+struct raw_btree_options {
+    /// Size of a value, in bytes. Must be > 0.
+    u32 value_size = 0;
+
+    /// Size of a key, in bytes. Keys are derived from values.
+    /// Must be > 0.
+    u32 key_size = 0;
+
+    /// Passed to all callbacks as the last argument.
+    /// Can remain null.
+    void* user_data = nullptr;
+
+    /// Takes a value (`value_size` readable bytes) and derives a search
+    /// key from it. The key must be stored in `key_buffer` and must
+    /// be exactly `key_size` bytes long.
+    /// `derive_key` must return equal search keys for equal values.
+    void (*derive_key)(const byte* value, byte* key_buffer, void* user_data) = nullptr;
+
+    /// Returns true if `left_key` is less than `right_key`. Both byte buffers
+    /// contain keys and have size `key_size`.
+    bool (*key_less)(const byte* left_key, const byte* right_key, void* user_data) = nullptr;
+};
+
+using raw_btree_anchor = detail::raw_btree_anchor;
 
 class raw_btree_cursor {
 public:
@@ -161,15 +168,15 @@ public:
     bool operator!=(const raw_btree_cursor& other) const { return !(*this == other); }
 
 private:
-    friend class raw_btree;
+    friend raw_btree;
 
-    raw_btree_cursor(std::unique_ptr<raw_btree_cursor_impl> impl);
-
-private:
-    raw_btree_cursor_impl& impl() const;
+    raw_btree_cursor(std::unique_ptr<detail::btree_impl::cursor> impl);
 
 private:
-    std::unique_ptr<raw_btree_cursor_impl> m_impl;
+    detail::btree_impl::cursor& impl() const;
+
+private:
+    std::unique_ptr<detail::btree_impl::cursor> m_impl;
 };
 
 class raw_btree_loader {
@@ -204,15 +211,15 @@ public:
     void discard();
 
 private:
-    friend class raw_btree;
+    friend raw_btree;
 
-    raw_btree_loader(std::unique_ptr<raw_btree_loader_impl> impl);
-
-private:
-    raw_btree_loader_impl& impl() const;
+    raw_btree_loader(std::unique_ptr<detail::btree_impl::loader> impl);
 
 private:
-    std::unique_ptr<raw_btree_loader_impl> m_impl;
+    detail::btree_impl::loader& impl() const;
+
+private:
+    std::unique_ptr<detail::btree_impl::loader> m_impl;
 };
 
 /// An efficient index for fixed-size values.
@@ -411,10 +418,10 @@ public:
     }
 
 private:
-    raw_btree_impl& impl() const;
+    detail::btree_impl::tree& impl() const;
 
 private:
-    std::unique_ptr<raw_btree_impl> m_impl;
+    std::unique_ptr<detail::btree_impl::tree> m_impl;
 };
 
 } // namespace extpp

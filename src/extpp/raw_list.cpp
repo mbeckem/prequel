@@ -9,6 +9,8 @@
 
 namespace extpp {
 
+namespace detail {
+
 class raw_list_node {
 private:
     struct header {
@@ -97,53 +99,6 @@ private:
     u32 m_capacity = 0;
 };
 
-class raw_list_visitor_impl {
-public:
-    raw_list_visitor_impl(const raw_list_impl* list);
-
-    bool valid() const { return m_node.valid(); }
-
-    block_index prev_address() const {
-        return node().get_prev();
-    }
-
-    block_index next_address() const {
-        return node().get_next();
-    }
-
-    block_index address() const {
-        return node().block().index();
-    }
-
-    u32 size() const { return node().get_size(); }
-
-    const byte* value(u32 index) const {
-        EXTPP_ASSERT(index < size(), "Index out of bounds.");
-        return node().get(index);
-    }
-
-    void move_next();
-    void move_prev();
-    void move_first();
-    void move_last();
-
-    u32 value_size() const;
-
-private:
-    void move_to(block_index node_index);
-
-    const raw_list_node& node() const {
-        EXTPP_ASSERT(valid(), "Invalid node.");
-        return m_node;
-    }
-
-    u32 block_size() const;
-
-private:
-    const raw_list_impl* m_list;
-    raw_list_node m_node;
-};
-
 class raw_list_cursor_impl {
 public:
     /// The list this cursor belongs to.
@@ -211,7 +166,7 @@ public:
 
 class raw_list_impl : public uses_allocator {
 public:
-    using anchor = raw_list_anchor;
+    using anchor = detail::raw_list_anchor;
 
     raw_list_impl(anchor_handle<anchor> anchor_, u32 value_size, allocator& alloc_)
         : uses_allocator(alloc_)
@@ -247,10 +202,6 @@ public:
         }
 
         return c;
-    }
-
-    std::unique_ptr<raw_list_visitor_impl> create_visitor() const {
-        return std::make_unique<raw_list_visitor_impl>(this);
     }
 
     bool empty() const { return size() == 0; }
@@ -886,6 +837,8 @@ void raw_list_cursor_impl::insert_after(const byte* data) {
     list->insert_at(node, index + 1, data);
 }
 
+} // namespace detail
+
 // --------------------------------
 //
 //   List public interface
@@ -893,7 +846,7 @@ void raw_list_cursor_impl::insert_after(const byte* data) {
 // --------------------------------
 
 raw_list::raw_list(anchor_handle<anchor> anchor_, u32 value_size, allocator& alloc_)
-    : m_impl(std::make_unique<raw_list_impl>(std::move(anchor_), value_size, alloc_))
+    : m_impl(std::make_unique<detail::raw_list_impl>(std::move(anchor_), value_size, alloc_))
 {}
 
 raw_list::~raw_list() {}
@@ -948,7 +901,7 @@ void raw_list::visit(bool (*visit_fn)(const node_view& node, void* user_data), v
 
 void raw_list::dump(std::ostream& os) const { impl().dump(os); }
 
-raw_list_impl& raw_list::impl() const {
+detail::raw_list_impl& raw_list::impl() const {
     EXTPP_ASSERT(m_impl, "Invalid list.");
     return *m_impl;
 }
@@ -962,12 +915,12 @@ raw_list_impl& raw_list::impl() const {
 raw_list_cursor::raw_list_cursor()
 {}
 
-raw_list_cursor::raw_list_cursor(std::unique_ptr<raw_list_cursor_impl> impl)
+raw_list_cursor::raw_list_cursor(std::unique_ptr<detail::raw_list_cursor_impl> impl)
     : m_impl(std::move(impl))
 {}
 
 raw_list_cursor::raw_list_cursor(const raw_list_cursor& other)
-    : m_impl(other.m_impl ? std::make_unique<raw_list_cursor_impl>(*other.m_impl) : nullptr)
+    : m_impl(other.m_impl ? std::make_unique<detail::raw_list_cursor_impl>(*other.m_impl) : nullptr)
 {}
 
 raw_list_cursor::raw_list_cursor(raw_list_cursor&& other) noexcept
@@ -981,7 +934,7 @@ raw_list_cursor& raw_list_cursor::operator=(const raw_list_cursor& other) {
         if (m_impl && other.m_impl) {
             *m_impl = *other.m_impl;
         } else {
-            m_impl = other.m_impl ? std::make_unique<raw_list_cursor_impl>(*other.m_impl) : nullptr;
+            m_impl = other.m_impl ? std::make_unique<detail::raw_list_cursor_impl>(*other.m_impl) : nullptr;
         }
     }
     return *this;
@@ -994,7 +947,7 @@ raw_list_cursor& raw_list_cursor::operator=(raw_list_cursor&& other) noexcept {
     return *this;
 }
 
-raw_list_cursor_impl& raw_list_cursor::impl() const {
+detail::raw_list_cursor_impl& raw_list_cursor::impl() const {
     if (!m_impl)
         EXTPP_THROW(bad_cursor("bad cursor"));
     return *m_impl;

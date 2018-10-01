@@ -15,7 +15,26 @@
 namespace extpp {
 
 class raw_stream;
+
+namespace detail {
+
 class raw_stream_impl;
+
+struct raw_stream_anchor {
+    /// Raw block storage.
+    extent::anchor storage;
+
+    /// Number of elements
+    u64 size = 0;
+
+    static constexpr auto get_binary_format() {
+        return make_binary_format(&raw_stream_anchor::storage, &raw_stream_anchor::size);
+    }
+};
+
+} // namespace detail
+
+using raw_stream_anchor = detail::raw_stream_anchor;
 
 /// The stream allocates new blocks in chunks of the given size.
 struct linear_growth {
@@ -36,21 +55,6 @@ struct exponential_growth {};
 
 /// Specify the growth strategy of a stream.
 using growth_strategy = std::variant<linear_growth, exponential_growth>;
-
-class raw_stream_anchor {
-    /// Raw block storage.
-    extent::anchor storage;
-
-    /// Number of elements
-    u64 size = 0;
-
-    static constexpr auto get_binary_format() {
-        return make_binary_format(&raw_stream_anchor::storage, &raw_stream_anchor::size);
-    }
-
-    friend class raw_stream_impl;
-    friend class binary_format_access;
-};
 
 class raw_stream {
 public:
@@ -189,10 +193,10 @@ public:
     growth_strategy growth() const;
 
 private:
-    raw_stream_impl& impl() const;
+    detail::raw_stream_impl& impl() const;
 
 private:
-    std::unique_ptr<raw_stream_impl> m_impl;
+    std::unique_ptr<detail::raw_stream_impl> m_impl;
 };
 
 } // namespace extpp

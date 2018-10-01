@@ -17,9 +17,11 @@ u32 calc_offset_in_block(u32 value_size, u32 index) {
 
 } // namespace
 
+namespace detail {
+
 class raw_stream_impl {
 public:
-    using anchor = raw_stream_anchor;
+    using anchor = detail::raw_stream_anchor;
 
     raw_stream_impl(anchor_handle<anchor> _anchor, u32 value_size, allocator& alloc)
         : m_anchor(std::move(_anchor))
@@ -209,8 +211,10 @@ private:
     growth_strategy m_growth = exponential_growth();
 };
 
+} // namespace detail
+
 raw_stream::raw_stream(anchor_handle<anchor> _anchor, u32 value_size, allocator& alloc)
-    : m_impl(std::make_unique<raw_stream_impl>(std::move(_anchor), value_size, alloc))
+    : m_impl(std::make_unique<detail::raw_stream_impl>(std::move(_anchor), value_size, alloc))
 {}
 
 raw_stream::~raw_stream() {}
@@ -250,7 +254,7 @@ growth_strategy raw_stream::growth() const { return impl().growth(); }
 void raw_stream::push_back(const byte* value) { impl().push_back(value); }
 void raw_stream::pop_back() { impl().pop_back(); }
 
-raw_stream_impl& raw_stream::impl() const {
+detail::raw_stream_impl& raw_stream::impl() const {
     EXTPP_ASSERT(m_impl, "Invalid stream.");
     return *m_impl;
 }

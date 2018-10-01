@@ -40,8 +40,17 @@ set(PUBLIC_HEADERS
 )
 
 set(PRIVATE_HEADERS
-    raw_btree_internal_node.hpp
-    raw_btree_leaf_node.hpp
+    btree/base.hpp
+    btree/cursor.hpp
+    btree/cursor.ipp
+    btree/internal_node.hpp
+    btree/internal_node.ipp
+    btree/leaf_node.hpp
+    btree/leaf_node.ipp
+    btree/loader.hpp
+    btree/loader.ipp
+    btree/tree.hpp
+    btree/tree.ipp
 )
 
 set(SOURCES
