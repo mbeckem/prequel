@@ -8,11 +8,11 @@
 
 namespace extpp::detail::btree_impl {
 
-inline cursor::cursor(btree_impl::tree* tree)
-    : m_tree(tree)
+inline cursor::cursor(btree_impl::tree* parent)
+    : m_tree(parent)
 {
-    if (tree)
-        tree->link_cursor(this);
+    if (m_tree)
+        m_tree->link_cursor(this);
     reset_to_invalid();
 }
 

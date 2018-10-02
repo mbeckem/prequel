@@ -3,10 +3,10 @@
 
 #include <extpp/assert.hpp>
 #include <extpp/defs.hpp>
+#include <extpp/exception.hpp>
 #include <extpp/type_traits.hpp>
 
 #include <new>
-#include <stdexcept>
 #include <type_traits>
 #include <typeinfo>
 
@@ -179,8 +179,7 @@ private:
     static auto& inner_ref(Any& self) {
         auto ptr = inner<T>(self);
         if (!ptr) {
-            // TODO Own exception?
-            throw std::logic_error("the any object does not store an object of this type.");
+            EXTPP_THROW(bad_operation("The any object does not store an object of this type."));
         }
         return *ptr;
     }

@@ -9,7 +9,11 @@
 
 namespace extpp {
 
+namespace detail {
+
 class file_engine_impl;
+
+} // namespace detail
 
 /// Contains performance statistics for a single engine.
 struct file_engine_stats {
@@ -58,14 +62,13 @@ private:
     block_handle do_zeroed(block_index index) override;
     block_handle do_overwritten(block_index index, const byte* data) override;
 
-    // TODO: Should flush imply sync() ?
     void do_flush() override;
 
 private:
-    file_engine_impl& impl() const;
+    detail::file_engine_impl& impl() const;
 
 private:
-    std::unique_ptr<file_engine_impl> m_impl;
+    std::unique_ptr<detail::file_engine_impl> m_impl;
 };
 
 } // namespace extpp

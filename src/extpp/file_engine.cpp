@@ -28,6 +28,8 @@
 
 namespace extpp {
 
+namespace detail {
+
 namespace {
 
 struct block;
@@ -35,8 +37,6 @@ struct block_cache;
 struct block_dirty_set;
 struct block_map;
 struct block_pool;
-
-// TODO: Put these classes into a private header so they can be tested again?
 
 /// A block instance represents a block from disk
 /// that has been loaded into memory.
@@ -818,6 +818,7 @@ void file_engine_impl::flush()
         flush_block(*i);
         i = n;
     }
+    m_file->sync();
 
     EXTPP_ASSERT(m_dirty.begin() == m_dirty.end(),
                 "no dirty blocks can remain.");
@@ -898,9 +899,11 @@ void file_engine_impl::rethrow_write_error()
     }
 }
 
+} // namespace detail
+
 file_engine::file_engine(file& fd, u32 block_size, u32 cache_size)
     : engine(block_size)
-    , m_impl(std::make_unique<file_engine_impl>(fd, block_size, cache_size))
+    , m_impl(std::make_unique<detail::file_engine_impl>(fd, block_size, cache_size))
 {}
 
 file_engine::~file_engine() {}
@@ -920,7 +923,7 @@ void file_engine::do_grow(u64 n) {
 }
 
 block_handle file_engine::do_access(block_index index) {
-    if (boost::intrusive_ptr<block> blk = impl().access(index.value())) {
+    if (boost::intrusive_ptr<detail::block> blk = impl().access(index.value())) {
         return block_handle(this, blk.detach());
     }
     return block_handle();
@@ -942,7 +945,7 @@ void file_engine::do_flush() {
     impl().flush();
 }
 
-file_engine_impl& file_engine::impl() const {
+detail::file_engine_impl& file_engine::impl() const {
     EXTPP_ASSERT(m_impl, "Invalid instance.");
     return *m_impl;
 }

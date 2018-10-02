@@ -51,8 +51,7 @@ private:
     int m_flags = 0;
 
 public:
-    // FIXME rename tree member
-    cursor(btree_impl::tree* m_tree);
+    explicit cursor(btree_impl::tree* parent);
     ~cursor();
 
     cursor(const cursor&) = delete;

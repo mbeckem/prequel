@@ -57,7 +57,6 @@ inline void loader::insert(const byte* values, size_t count) {
     guard.disable();
 }
 
-// TODO: Exception safety.
 inline void loader::finish() {
     if (!m_tree.empty())
         EXTPP_THROW(bad_operation("The tree must be empty."));

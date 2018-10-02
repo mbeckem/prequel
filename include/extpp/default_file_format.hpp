@@ -54,7 +54,7 @@ public:
             m_handle.set(m_anchor_data);
             m_anchor_changed.reset();
         }
-        m_engine->flush(); // TODO: Sync?
+        m_engine->flush();
     }
 
 private:

@@ -571,7 +571,6 @@ public:
         if (key.empty())
             throw std::runtime_error("Property names must not be empty.");
 
-        // TODO: Intern small values as well?
         extpp::heap_reference keyref = m_strings.intern(key);
         extpp::heap_reference valueref = save(m_heap, value);
         m_properties.set(node, keyref, valueref);

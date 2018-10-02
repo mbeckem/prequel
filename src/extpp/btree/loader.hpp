@@ -12,7 +12,6 @@
 namespace extpp::detail::btree_impl {
 
 // Future: Implement bulk loading for non-emtpy trees (i.e. all keys must be > max).
-// TODO: Exception safety, discard()
 class loader {
 public:
     loader(btree_impl::tree& tree);

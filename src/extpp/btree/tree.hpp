@@ -17,7 +17,6 @@ namespace extpp::detail::btree_impl {
 using index_iterator = detail::identity_iterator<u32>;
 
 class tree : public uses_allocator {
-    // FIXME template
     using anchor = detail::raw_btree_anchor;
 
 public:
