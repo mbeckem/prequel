@@ -108,7 +108,7 @@ u64 memory_file::file_size()
 void memory_file::truncate(u64 size)
 {
     if (size > std::numeric_limits<size_t>::max())
-        EXTPP_THROW(io_error(fmt::format("File size too large ({} B)", size)));
+        EXTPP_THROW(io_error(fmt::format("File size too large ({} byte)", size)));
     m_data.resize(size);
 }
 

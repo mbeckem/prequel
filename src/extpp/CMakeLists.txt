@@ -33,8 +33,10 @@ set(PUBLIC_HEADERS
     ${HEADER_ROOT}/node_allocator.hpp
     ${HEADER_ROOT}/raw_btree.hpp
     ${HEADER_ROOT}/raw_list.hpp
+    ${HEADER_ROOT}/raw_stack.hpp
     ${HEADER_ROOT}/raw_stream.hpp
     ${HEADER_ROOT}/serialization.hpp
+    ${HEADER_ROOT}/stack.hpp
     ${HEADER_ROOT}/stream.hpp
     ${HEADER_ROOT}/type_traits.hpp
 )
@@ -68,6 +70,7 @@ set(SOURCES
      node_allocator.cpp
      raw_btree.cpp
      raw_list.cpp
+     raw_stack.cpp
      raw_stream.cpp
      detail/free_list.cpp
 )

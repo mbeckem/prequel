@@ -174,8 +174,9 @@ public:
         , m_value_size(value_size)
         , m_node_capacity(raw_list_node::capacity(get_engine().block_size(), m_value_size))
     {
-        if (m_node_capacity == 0)
-            EXTPP_THROW(bad_argument("block size too small to fit a single value"));
+        if (m_node_capacity == 0) {
+            EXTPP_THROW(bad_argument("Block size too small to fit a single value."));
+        }
     }
 
     ~raw_list_impl();
@@ -198,7 +199,7 @@ public:
             c->move_last();
             break;
         default:
-            EXTPP_THROW(bad_argument("Invalid seek value"));
+            EXTPP_THROW(bad_argument("Invalid seek value."));
         }
 
         return c;
@@ -380,7 +381,8 @@ void raw_list_impl::push_front(const byte* value) {
 }
 
 void raw_list_impl::pop_back() {
-    EXTPP_ASSERT(!empty(), "cannot remove from an empty list");
+    if (empty())
+        EXTPP_THROW(bad_operation("The list is empty."));
 
     auto node = read_node(last());
     u32 index = node.get_size() - 1;
@@ -388,7 +390,8 @@ void raw_list_impl::pop_back() {
 }
 
 void raw_list_impl::pop_front() {
-    EXTPP_ASSERT(!empty(), "cannot remove from an empty list");
+    if (empty())
+        EXTPP_THROW(bad_operation("The list is empty."));
 
     auto node = read_node(first());
     erase_at(node, 0);
@@ -616,7 +619,7 @@ void raw_list_impl::visit(bool (*visit_fn)(const raw_list::node_view& node, void
 }
 
 void raw_list_impl::dump(std::ostream& os) const {
-    fmt::print(
+    fmt::print(os,
         "Raw list:\n"
         "  Value size: {}\n"
         "  Block size: {}\n"
@@ -631,10 +634,10 @@ void raw_list_impl::dump(std::ostream& os) const {
         nodes());
 
     if (!empty())
-        os << "\n";
+        fmt::print(os, "\n");
 
-    visit_nodes([&](const raw_list_node& node) -> bool{
-        fmt::print(
+    visit_nodes([&](const raw_list_node& node) -> bool {
+        fmt::print(os,
             "  Node @{}:\n"
             "    Previous: @{}\n"
             "    Next: @{}\n"
@@ -647,9 +650,9 @@ void raw_list_impl::dump(std::ostream& os) const {
         u32 size = node.get_size();
         for (u32 i = 0; i < size; ++i) {
             const byte* data = static_cast<const byte*>(node.get(i));
-            fmt::print("    {:>4}: {}\n", i, format_hex(data, value_size()));
+            fmt::print(os, "    {:>4}: {}\n", i, format_hex(data, value_size()));
         }
-        fmt::print("\n");
+        fmt::print(os, "\n");
         return true;
     });
 }
@@ -662,15 +665,15 @@ void raw_list_impl::dump(std::ostream& os) const {
 
 static void check_cursor_valid(const raw_list_cursor_impl& c) {
     if (!c.list)
-        EXTPP_THROW(bad_cursor("the cursor's list instance has been destroyed"));
+        EXTPP_THROW(bad_cursor("The cursor's list instance has been destroyed."));
 }
 
 static void check_cursor_valid_element(const raw_list_cursor_impl& c) {
     check_cursor_valid(c);
     if (c.flags & raw_list_cursor_impl::DELETED)
-        EXTPP_THROW(bad_cursor("cursor points to deleted element"));
+        EXTPP_THROW(bad_cursor("Cursor points to deleted element."));
     if (c.flags & raw_list_cursor_impl::INVALID)
-        EXTPP_THROW(bad_cursor("invalid cursor"));
+        EXTPP_THROW(bad_cursor("Invalid cursor."));
 
     EXTPP_ASSERT(c.node.valid(), "Invalid node.");
     EXTPP_ASSERT(c.index < c.node.get_size(), "Invalid index.");
@@ -753,7 +756,7 @@ void raw_list_cursor_impl::move_next() {
             return;
         }
     } else if (flags & INVALID) {
-        EXTPP_THROW(bad_cursor("bad cursor"));
+        EXTPP_THROW(bad_cursor("Bad cursor."));
     } else {
         ++index;
     }
@@ -784,7 +787,7 @@ void raw_list_cursor_impl::move_prev() {
             return;
         }
     } else if (flags & INVALID) {
-        EXTPP_THROW(bad_cursor("bad cursor"));
+        EXTPP_THROW(bad_cursor("Bad cursor."));
     }
 
     EXTPP_ASSERT(node.valid(), "Invalid node.");
@@ -902,7 +905,8 @@ void raw_list::visit(bool (*visit_fn)(const node_view& node, void* user_data), v
 void raw_list::dump(std::ostream& os) const { impl().dump(os); }
 
 detail::raw_list_impl& raw_list::impl() const {
-    EXTPP_ASSERT(m_impl, "Invalid list.");
+    if (!m_impl)
+        EXTPP_THROW(bad_operation("Invalid list instance."));
     return *m_impl;
 }
 
@@ -949,7 +953,7 @@ raw_list_cursor& raw_list_cursor::operator=(raw_list_cursor&& other) noexcept {
 
 detail::raw_list_cursor_impl& raw_list_cursor::impl() const {
     if (!m_impl)
-        EXTPP_THROW(bad_cursor("bad cursor"));
+        EXTPP_THROW(bad_cursor("Bad cursor."));
     return *m_impl;
 }
 

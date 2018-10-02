@@ -250,7 +250,7 @@ heap::heap(anchor_handle<anchor> _anchor, allocator& _alloc)
     m_block_size = get_engine().block_size();
     if (m_block_size < page_entry::min_block_size) {
         EXTPP_THROW(bad_argument(
-            fmt::format("Invalid block size (must be at least {} bytes)",
+            fmt::format("Invalid block size (must be at least {} bytes).",
                          page_entry::min_block_size)));
     }
 

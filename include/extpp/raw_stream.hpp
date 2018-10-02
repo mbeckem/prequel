@@ -146,7 +146,7 @@ public:
 
     /**
      * Removes all objects from this stream, but does not
-     * necessarily free the underlying storage.
+     * free the underlying storage.
      *
      * @post `size() == 0`.
      */

@@ -52,7 +52,7 @@ public:
     u32 min_chunk() const { return m_min_chunk; }
     void min_chunk(u32 chunk_size) {
         if (chunk_size == 0)
-            EXTPP_THROW(bad_argument("Invalid chunk size"));
+            EXTPP_THROW(bad_argument("Invalid chunk size."));
         m_min_chunk = chunk_size;
     }
 
@@ -673,11 +673,11 @@ void default_allocator::impl_t::validate() const {
             const extent_t extent = by_pos.get();
             if (!by_size.find(extent)) {
                 EXTPP_THROW(corruption_error(
-                                fmt::format("Failed to find by-size entry for extent at {}", extent.block)));
+                                fmt::format("Failed to find by-size entry for extent at {}.", extent.block)));
             }
             if (extent != by_size.get()) {
                 EXTPP_THROW(corruption_error(
-                                fmt::format("Unexpected extent in by-size tree at {}", extent.block)));
+                                fmt::format("Unexpected extent in by-size tree at {}.", extent.block)));
             }
 
             data_free += extent.size;
@@ -688,11 +688,11 @@ void default_allocator::impl_t::validate() const {
             const extent_t extent = by_size.get();
             if (!by_pos.find(extent.block)) {
                 EXTPP_THROW(corruption_error(
-                                fmt::format("Failed to find by-pos entry for extent at {}", extent.block)));
+                                fmt::format("Failed to find by-pos entry for extent at {}.", extent.block)));
             }
             if (extent != by_pos.get()) {
                 EXTPP_THROW(corruption_error(
-                                fmt::format("Unexpected extent in by-pos tree at {}", extent.block)));
+                                fmt::format("Unexpected extent in by-pos tree at {}.", extent.block)));
             }
         }
     }

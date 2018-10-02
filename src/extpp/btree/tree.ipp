@@ -19,24 +19,32 @@ inline tree::tree(anchor_handle<anchor> _anchor, const raw_btree_options& opts, 
     , m_options(opts)
 {
     if (m_options.value_size == 0)
-        EXTPP_THROW(bad_argument("invalid value size"));
+        EXTPP_THROW(bad_argument("Zero value size."));
     if (m_options.key_size == 0)
-        EXTPP_THROW(bad_argument("invalid key size"));
+        EXTPP_THROW(bad_argument("Zero key size."));
     if (m_options.key_size > max_key_size)
-        EXTPP_THROW(bad_argument(fmt::format("key sizes larger than {} are not supported", max_key_size)));
+        EXTPP_THROW(bad_argument(fmt::format("Key sizes larger than {} are not supported.", max_key_size)));
     if (!m_options.derive_key)
-        EXTPP_THROW(bad_argument("no derive_key function provided"));
+        EXTPP_THROW(bad_argument("No derive_key function provided."));
     if (!m_options.key_less)
-        EXTPP_THROW(bad_argument("no key_less function provided"));
+        EXTPP_THROW(bad_argument("No key_less function provided."));
 
     m_leaf_capacity = leaf_node::capacity(get_engine().block_size(), value_size());
     m_internal_max_children = internal_node::compute_max_children(get_engine().block_size(), key_size());
     m_internal_min_children = internal_node::compute_min_children(m_internal_max_children);
 
-    if (m_leaf_capacity < 2)
-        EXTPP_THROW(bad_argument("block size too small (cannot fit 2 values into one leaf)"));
-    if (m_internal_max_children < 4)
-        EXTPP_THROW(bad_argument("block size too small (cannot fit 4 children into one internal node)"));
+    if (m_leaf_capacity < 2) {
+        EXTPP_THROW(bad_argument(
+            fmt::format("Block size {} is too small (cannot fit 2 values into one leaf)",
+                        get_engine().block_size())
+        ));
+    }
+    if (m_internal_max_children < 4) {
+        EXTPP_THROW(bad_argument(
+            fmt::format("Block size {} is too small (cannot fit 4 children into one internal node)",
+                        get_engine().block_size())
+        ));
+    }
 }
 
 inline tree::~tree()
@@ -1114,7 +1122,7 @@ inline std::unique_ptr<cursor> tree::create_cursor(raw_btree::cursor_seek_t seek
         c->move_max();
         break;
     default:
-        EXTPP_THROW(bad_argument("Invalid seek value"));
+        EXTPP_THROW(bad_argument("Invalid seek value."));
     }
 
     return c;

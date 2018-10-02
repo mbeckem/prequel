@@ -1,13 +1,8 @@
-Open Questions / Design Issues
-==============================
-
--   Should there be static constructor functions like btree::open() btree::create()
-    for types that don't have a reasonable default construction?
-    
-    
-    
 Open Tasks
 ==========
 
 - Async prefetch for block reads. Engine should have function for reading that returns a future.
   Real I/O should be done in a worker thread.
+- Better programming model for anchor creation/destruction, for example static create(...) destroy(...) fn.
+- Implement mmap engine
+- Implement transactional engine with write ahead log

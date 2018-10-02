@@ -16,6 +16,7 @@ set(SOURCES
     math_test.cpp
     node_allocator_test.cpp
     serialization_test.cpp
+    stack_test.cpp
     stream_test.cpp
     test_file.hpp
 )

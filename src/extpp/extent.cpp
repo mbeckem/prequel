@@ -4,6 +4,8 @@
 
 namespace extpp {
 
+namespace detail {
+
 class extent_impl : public uses_allocator {
 public:
     using anchor = extent_anchor;
@@ -64,7 +66,7 @@ public:
 private:
     void check_index(u64 index) const {
         if (index >= size())
-            EXTPP_THROW(bad_argument("index out of bounds."));
+            EXTPP_THROW(bad_argument("Index out of bounds."));
     }
 
 private:
@@ -73,6 +75,8 @@ private:
     u32 m_block_size = 0;
 };
 
+} // namespace detail
+
 // --------------------------------
 //
 //   Extent public interface
@@ -80,7 +84,7 @@ private:
 // --------------------------------
 
 extent::extent(anchor_handle<anchor> _anchor, allocator& alloc)
-    : m_impl(std::make_unique<extent_impl>(std::move(_anchor), alloc))
+    : m_impl(std::make_unique<detail::extent_impl>(std::move(_anchor), alloc))
 {}
 
 extent::~extent() {}
@@ -100,6 +104,8 @@ u32 extent::block_size() const { return impl().block_size(); }
 
 bool extent::empty() const { return impl().empty(); }
 u64 extent::size() const { return impl().size(); }
+u64 extent::byte_size() const { return size() * block_size(); }
+
 block_index extent::data() const { return impl().data(); }
 block_index extent::get(u64 index) const { return impl().get(index); }
 block_handle extent::read(u64 index) const { return impl().read(index); }
@@ -109,7 +115,7 @@ void extent::clear() { impl().clear(); }
 void extent::reset() { impl().clear(); }
 void extent::resize(u64 new_size) { impl().resize(new_size); }
 
-extent_impl& extent::impl() const {
+detail::extent_impl& extent::impl() const {
     EXTPP_ASSERT(m_impl, "Invalid list.");
     return *m_impl;
 }

@@ -309,7 +309,7 @@ struct default_serializer<std::variant<T...>> {
         ++b;
 
         if (which >= alternatives)
-            EXTPP_THROW(io_error("Invalid value for variant alternative index"));
+            EXTPP_THROW(io_error("Invalid value for variant alternative index."));
 
         switch (which) {
         // Switch case for the type at the given index. The constexpr-if hides the body

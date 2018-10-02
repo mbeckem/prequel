@@ -30,7 +30,7 @@ public:
         , m_block_capacity(calc_block_capacity(m_extent.block_size(), m_value_size))
     {
         if (m_block_capacity == 0)
-            EXTPP_THROW(bad_argument("block size too small to fit a single value"));
+            EXTPP_THROW(bad_argument("Block size too small to fit a single value."));
     }
 
     ~raw_stream_impl() = default;
@@ -106,13 +106,18 @@ public:
     void pop_back() {
         const u64 sz = size();
         if (sz == 0)
-            EXTPP_THROW(bad_operation("stream is empty"));
+            EXTPP_THROW(bad_operation("Stream is empty."));
 
         m_anchor.set<&anchor::size>(sz - 1);
     }
 
     void clear() {
         resize(0, nullptr);
+    }
+
+    void reset() {
+        m_extent.reset();
+        m_anchor.set<&anchor::size>(0);
     }
 
     void resize(u64 n, const byte* value) {
@@ -200,7 +205,7 @@ private:
 
     void check_index(u64 index) const {
         if (index >= size())
-            EXTPP_THROW(bad_argument("index out of bounds."));
+            EXTPP_THROW(bad_argument("Index out of bounds."));
     }
 
 private:
@@ -244,7 +249,7 @@ double raw_stream::overhead() const { return impl().overhead(); }
 
 void raw_stream::get(u64 index, byte* value) const { impl().get(index, value); }
 void raw_stream::set(u64 index, const byte* value) { impl().set(index, value); }
-void raw_stream::reset() { impl().clear(); }
+void raw_stream::reset() { impl().reset(); }
 void raw_stream::clear() { impl().clear(); }
 void raw_stream::resize(u64 n, const byte* value) { impl().resize(n, value); }
 void raw_stream::reserve(u64 n) { impl().reserve(n); }
@@ -255,7 +260,8 @@ void raw_stream::push_back(const byte* value) { impl().push_back(value); }
 void raw_stream::pop_back() { impl().pop_back(); }
 
 detail::raw_stream_impl& raw_stream::impl() const {
-    EXTPP_ASSERT(m_impl, "Invalid stream.");
+    if (!m_impl)
+        EXTPP_THROW(bad_operation("Bad stream instance."));
     return *m_impl;
 }
 

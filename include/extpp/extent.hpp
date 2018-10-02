@@ -13,9 +13,12 @@
 namespace extpp {
 
 class extent;
+
+namespace detail {
+
 class extent_impl;
 
-class extent_anchor {
+struct extent_anchor {
     /// Index of the first block (or invalid).
     block_index start;
 
@@ -25,10 +28,11 @@ class extent_anchor {
     static constexpr auto get_binary_format() {
         return make_binary_format(&extent_anchor::start, &extent_anchor::size);
     }
-
-    friend class binary_format_access;
-    friend class extent_impl;
 };
+
+} // namespace detail
+
+using extent_anchor = detail::extent_anchor;
 
 /// An extent is a range of contiguous blocks in external storage.
 /// Extents can be resized dynamically.
@@ -40,7 +44,7 @@ public:
     using anchor = extent_anchor;
 
 public:
-    explicit extent(anchor_handle<anchor> _anchor, allocator& alloc);
+    explicit extent(anchor_handle<anchor> _anchor, allocator& _alloc);
     ~extent();
 
     extent(const extent&) = delete;
@@ -60,6 +64,9 @@ public:
 
     /// Returns the number of blocks in this extent.
     u64 size() const;
+
+    /// Returns the number of bytes occupied by this extent.
+    u64 byte_size() const;
 
     /// Returns the the block index of this extent's block range.
     /// Returns the invalid block index if this extent is empty.
@@ -105,10 +112,10 @@ public:
     void resize(u64 new_size);
 
 private:
-    extent_impl& impl() const;
+    detail::extent_impl& impl() const;
 
 private:
-    std::unique_ptr<extent_impl> m_impl;
+    std::unique_ptr<detail::extent_impl> m_impl;
 };
 
 } // namespace extpp

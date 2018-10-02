@@ -34,17 +34,17 @@ inline void cursor::copy(const cursor& other) {
 
 inline void cursor::check_tree_valid() const {
     if (!m_tree)
-        EXTPP_THROW(bad_cursor("the cursor's tree instance has been destroyed"));
+        EXTPP_THROW(bad_cursor("The cursor's tree instance has been destroyed."));
 }
 
 inline void cursor::check_element_valid() const {
     check_tree_valid();
     if (m_flags & cursor::INPROGRESS)
-        EXTPP_THROW(bad_cursor("leak of in-progress cursor."));
+        EXTPP_THROW(bad_cursor("Leak of in-progress cursor."));
     if (m_flags & cursor::DELETED)
-        EXTPP_THROW(bad_cursor("cursor points to deleted element"));
+        EXTPP_THROW(bad_cursor("Cursor points to deleted element."));
     if (m_flags & cursor::INVALID)
-        EXTPP_THROW(bad_cursor("bad cursor"));
+        EXTPP_THROW(bad_cursor("Bad cursor."));
 
 #ifdef EXTPP_DEBUG
     {
@@ -166,7 +166,7 @@ inline bool cursor::move_prev() {
         if (m_flags & INVALID)
             return false;
     } else if (m_flags & INVALID) {
-        EXTPP_THROW(bad_cursor("bad cursor"));
+        EXTPP_THROW(bad_cursor("Bad cursor."));
     }
 
 
@@ -209,7 +209,7 @@ inline bool cursor::move_next() {
         if (m_flags & INVALID)
             return false;
     } else if (m_flags & INVALID) {
-        EXTPP_THROW(bad_cursor("bad cursor"));
+        EXTPP_THROW(bad_cursor("Bad cursor."));
     } else {
         ++m_index;
     }

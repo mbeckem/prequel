@@ -109,7 +109,7 @@ void raw_btree::validate() const { return impl().validate(); }
 
 detail::btree_impl::tree& raw_btree::impl() const {
     if (!m_impl)
-        EXTPP_THROW(bad_operation("invalid tree instance"));
+        EXTPP_THROW(bad_operation("Invalid tree instance."));
     return *m_impl;
 }
 
@@ -165,7 +165,7 @@ raw_btree_cursor& raw_btree_cursor::operator=(raw_btree_cursor&& other) noexcept
 
 detail::btree_impl::cursor& raw_btree_cursor::impl() const {
     if (!m_impl)
-        EXTPP_THROW(bad_cursor("invalid cursor"));
+        EXTPP_THROW(bad_cursor("Invalid cursor."));
     return *m_impl;
 }
 
@@ -231,7 +231,7 @@ raw_btree_loader& raw_btree_loader::operator=(raw_btree_loader&& other) noexcept
 
 detail::btree_impl::loader& raw_btree_loader::impl() const {
     if (!m_impl)
-        EXTPP_THROW(bad_operation("bad loader"));
+        EXTPP_THROW(bad_operation("Invalid loader instance."));
     return *m_impl;
 }
 
