@@ -3,7 +3,8 @@
 
 #include <extpp/file_engine.hpp>
 #include <extpp/handle.hpp>
-#include <extpp/io.hpp>
+#include <extpp/mmap_engine.hpp>
+#include <extpp/vfs.hpp>
 
 #include <extpp/detail/deferred.hpp>
 
@@ -13,6 +14,7 @@
 namespace extpp {
 
 inline std::unique_ptr<file> get_test_file() {
+    // TODO: Make these defines or runtime options.
     static constexpr bool fs_test = false;
 
     if constexpr (fs_test) {
@@ -23,14 +25,14 @@ inline std::unique_ptr<file> get_test_file() {
 }
 
 inline std::unique_ptr<engine> get_test_engine(file& f, u32 block_size) {
+    // TODO: Make these defines or runtime options.
     static constexpr bool mmap_test = false;
 
-// TODO
-//    if constexpr (mmap_test) {
-//        return std::make_unique<mmap_engine>(f, block_size);
-//    } else {
+    if constexpr (mmap_test) {
+        return std::make_unique<mmap_engine>(f, block_size);
+    } else {
         return std::make_unique<file_engine>(f, block_size, 4);
-//    }
+    }
 }
 
 class test_file : boost::noncopyable {

@@ -27,9 +27,9 @@ set(PUBLIC_HEADERS
     ${HEADER_ROOT}/handle.hpp
     ${HEADER_ROOT}/heap.hpp
     ${HEADER_ROOT}/id_generator.hpp
-    ${HEADER_ROOT}/io.hpp
     ${HEADER_ROOT}/list.hpp
     ${HEADER_ROOT}/math.hpp
+    ${HEADER_ROOT}/mmap_engine.hpp
     ${HEADER_ROOT}/node_allocator.hpp
     ${HEADER_ROOT}/raw_btree.hpp
     ${HEADER_ROOT}/raw_list.hpp
@@ -39,6 +39,7 @@ set(PUBLIC_HEADERS
     ${HEADER_ROOT}/stack.hpp
     ${HEADER_ROOT}/stream.hpp
     ${HEADER_ROOT}/type_traits.hpp
+    ${HEADER_ROOT}/vfs.hpp
 )
 
 set(PRIVATE_HEADERS
@@ -66,22 +67,23 @@ set(SOURCES
      formatting.cpp
      heap.cpp
      id_generator.cpp
-     io.cpp
+     mmap_engine.cpp
      node_allocator.cpp
      raw_btree.cpp
      raw_list.cpp
      raw_stack.cpp
      raw_stream.cpp
+     vfs.cpp
      detail/free_list.cpp
 )
 
 if (WIN32)
     list(APPEND SOURCES
-        io_win32.cpp
+        vfs_win32.cpp
     )
 elseif(UNIX)
     list(APPEND SOURCES
-        io_unix.cpp
+        vfs_unix.cpp
     )
 endif()
 

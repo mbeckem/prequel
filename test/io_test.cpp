@@ -1,6 +1,6 @@
 #include <catch.hpp>
 
-#include <extpp/io.hpp>
+#include <extpp/vfs.hpp>
 
 #include <iostream>
 

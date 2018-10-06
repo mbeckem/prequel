@@ -310,7 +310,7 @@ void raw_list_impl::free_node(block_index index) {
 
 raw_list_node raw_list_impl::create_node() {
     auto index = allocate_node();
-    auto block = get_engine().zeroed(index);
+    auto block = get_engine().overwrite_zero(index);
     auto node = raw_list_node(std::move(block), m_value_size, m_node_capacity);
     node.init();
     return node;

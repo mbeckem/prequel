@@ -33,16 +33,20 @@ public:
         return data() + index;
     }
 
+    block_handle access(u64 index) const {
+        return get_engine().access(get(index));
+    }
+
     block_handle read(u64 index) const {
         return get_engine().read(get(index));
     }
 
-    block_handle zeroed(u64 index) const {
-        return get_engine().zeroed(get(index));
+    block_handle overwrite_zero(u64 index) const {
+        return get_engine().overwrite_zero(get(index));
     }
 
-    block_handle overwritten(u64 index, const byte* data, size_t data_size) const {
-        return get_engine().overwritten(get(index), data, data_size);
+    block_handle overwrite(u64 index, const byte* data, size_t data_size) const {
+        return get_engine().overwrite(get(index), data, data_size);
     }
 
     void clear() {
@@ -108,9 +112,10 @@ u64 extent::byte_size() const { return size() * block_size(); }
 
 block_index extent::data() const { return impl().data(); }
 block_index extent::get(u64 index) const { return impl().get(index); }
+block_handle extent::access(u64 index) const { return impl().access(index); }
 block_handle extent::read(u64 index) const { return impl().read(index); }
-block_handle extent::zeroed(u64 index) const { return impl().zeroed(index); }
-block_handle extent::overwritten(u64 index, const byte* data, size_t data_size) const { return impl().overwritten(index, data, data_size); }
+block_handle extent::overwrite_zero(u64 index) const { return impl().overwrite_zero(index); }
+block_handle extent::overwrite(u64 index, const byte* data, size_t data_size) const { return impl().overwrite(index, data, data_size); }
 void extent::clear() { impl().clear(); }
 void extent::reset() { impl().clear(); }
 void extent::resize(u64 new_size) { impl().resize(new_size); }

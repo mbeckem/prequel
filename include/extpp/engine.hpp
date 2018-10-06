@@ -18,57 +18,28 @@ namespace detail {
 // can be the mapped pointer itself.
 class block_handle_impl {
 public:
-    // Virtual copy & destroy so that refcount increment and decrement
-    // is a valid implementation of this interface.
-    virtual block_handle_impl* copy() = 0;
-    virtual void destroy() = 0;
-
     block_handle_impl(const block_handle_impl&) = delete;
     block_handle_impl& operator=(const block_handle_impl&) = delete;
 
-    u64 index() const noexcept { return m_index; }
-    u32 block_size() const noexcept { return m_block_size; }
+    virtual void handle_ref() = 0;
 
-    const byte* data() const noexcept {
-        EXTPP_ASSERT(m_data, "Data pointer was not initialized.");
-        return m_data;
-    }
+    virtual void handle_unref() = 0;
 
-    byte* writable_data() {
-        if (!m_dirty) {
-            make_dirty();
-        }
+    virtual u64 index() const noexcept = 0;
 
-        EXTPP_ASSERT(m_dirty, "The instance was not made writable.");
-        EXTPP_ASSERT(m_data, "Data pointer was not initialized.");
-        return m_data;
-    }
-
-protected:
-    block_handle_impl() = default;
-
-    // Call destroy() from the outside. Nonvirtual!
-    ~block_handle_impl() = default;
+    virtual const byte* data() const noexcept = 0;
 
     // Must either throw an exception or update this instance in such a way
     // that the data pointer can be written to.
     // Making a block writable might involve moving the block in memory to
     // protect existing readers from side effects.
-    virtual void make_dirty() = 0;
+    virtual byte* writable_data() = 0;
 
-public:
-    /// The index of this block in the underlying file. Must be updated by the implementor.
-    u64 m_index = 0;
+protected:
+    block_handle_impl() = default;
 
-    /// Size of m_data.
-    u32 m_block_size = 0;
-
-    /// True if the data can be written to.
-    bool m_dirty = false;
-
-    /// The location where this block's content resides in memory right now.
-    /// Can change as a result of make_writable().
-    byte* m_data = nullptr;
+    // Call handle_unref() from the outside. Nonvirtual!
+    ~block_handle_impl() = default;
 };
 
 } // namespace detail
@@ -78,6 +49,7 @@ public:
 /// The handle gives access to the block's raw data and it's dirty flag.
 /// While a block is being referenced by at least one block handle,
 /// it will not be evicted from main memory.
+///
 class block_handle {
 public:
     /// Constructs an invalid handle.
@@ -92,12 +64,16 @@ public:
     {
         EXTPP_ASSERT(eng, "Null engine.");
         EXTPP_ASSERT(base, "Null implementation.");
+        base->handle_ref();
     }
 
     block_handle(const block_handle& other)
         : m_engine(other.m_engine)
-        , m_impl(other.m_impl ? other.m_impl->copy() : nullptr)
-    {}
+        , m_impl(other.m_impl)
+    {
+        if (m_impl)
+            m_impl->handle_ref();
+    }
 
     block_handle(block_handle&& other) noexcept
         : m_engine(std::exchange(other.m_engine, nullptr))
@@ -106,7 +82,7 @@ public:
 
     ~block_handle() {
         if (m_impl)
-            m_impl->destroy();
+            m_impl->handle_unref();
     }
 
     block_handle& operator=(const block_handle& other) {
@@ -118,7 +94,7 @@ public:
     block_handle& operator=(block_handle&& other) noexcept {
         if (this != &other) {
             if (m_impl)
-                m_impl->destroy();
+                m_impl->handle_unref();
             m_engine = std::exchange(other.m_engine, nullptr);
             m_impl = std::exchange(other.m_impl, nullptr);
         }
@@ -297,7 +273,11 @@ public:
     u64 size() const { return do_size(); }
 
     /// Grows the underyling storage by `n` blocks.
-    void grow(u64 n) { return do_grow(n); }
+    void grow(u64 n) {
+        if (n > 0) {
+            return do_grow(n);
+        }
+    }
 
     /// Returns a handle to the given block if it already loaded into main memory.
     /// Otherwise returns an invalid handle.
@@ -320,9 +300,9 @@ public:
     /// with zeroes as well.
     ///
     /// Throws if an I/O error occurs.
-    block_handle zeroed(block_index index) {
+    block_handle overwrite_zero(block_index index) {
         EXTPP_CHECK(index, "Invalid index.");
-        return do_zeroed(index);
+        return do_overwrite_zero(index);
     }
 
     /// Like `zeroed()`, but instead sets the content of the block to `data`.
@@ -330,10 +310,10 @@ public:
     /// Throws if an I/O error occurs.
     ///
     /// \warning `data` must be a pointer to (at least) `block_size()` bytes.
-    block_handle overwritten(block_index index, const byte* data, size_t data_size) {
+    block_handle overwrite(block_index index, const byte* data, size_t data_size) {
         EXTPP_CHECK(index, "Invalid index.");
         EXTPP_CHECK(data_size >= block_size(), "Not enough data.");
-        return do_overwritten(index, data);
+        return do_overwrite(index, data);
     }
 
     /// Writes all dirty blocks back to disk.
@@ -350,8 +330,8 @@ protected:
     virtual void do_grow(u64 n) = 0;
     virtual block_handle do_access(block_index index) = 0;
     virtual block_handle do_read(block_index index) = 0;
-    virtual block_handle do_zeroed(block_index index) = 0;
-    virtual block_handle do_overwritten(block_index index, const byte* data) = 0;
+    virtual block_handle do_overwrite_zero(block_index index) = 0;
+    virtual block_handle do_overwrite(block_index index, const byte* data) = 0;
     virtual void do_flush() = 0;
 
     // log_2 (block_size)

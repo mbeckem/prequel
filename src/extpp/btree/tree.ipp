@@ -1466,7 +1466,7 @@ inline leaf_node tree::create_leaf() {
     auto index = get_allocator().allocate(1);
     set_leaf_nodes(leaf_nodes() + 1);
 
-    auto block = get_engine().zeroed(index);
+    auto block = get_engine().overwrite_zero(index);
     auto node = leaf_node(std::move(block), value_size(), m_leaf_capacity);
     node.init();
     return node;
@@ -1476,7 +1476,7 @@ inline internal_node tree::create_internal() {
     auto index = get_allocator().allocate(1);
     set_internal_nodes(internal_nodes() + 1);
 
-    auto block = get_engine().zeroed(index);
+    auto block = get_engine().overwrite_zero(index);
     auto node = internal_node(std::move(block), key_size(), m_internal_max_children);
     node.init();
     return node;

@@ -76,19 +76,24 @@ public:
     /// Throws if index is out of bounds.
     block_index get(u64 index) const;
 
+    /// Returns a handle to the block with the given index, if it can be accessed
+    /// without performing actual I/O (see \ref engine::access).
+    /// Throws if index is out of bounds.
+    block_handle access(u64 index) const;
+
     /// Returns a handle to the block with the given index.
     /// Throws if index is out of bounds.
     block_handle read(u64 index) const;
 
-    /// Returns a handle to the block with the given index via \ref engine::zeroed,
+    /// Returns a handle to the block with the given index via \ref engine::overwrite_zero,
     /// i.e. the data is not read from disk and overwritten with zeroes instead.
     /// Throws if index is out of bounds.
-    block_handle zeroed(u64 index) const;
+    block_handle overwrite_zero(u64 index) const;
 
-    /// Returns a handle to the block with the given index via \ref engine::overwritten,
+    /// Returns a handle to the block with the given index via \ref engine::overwrite,
     /// i.e. the data is not read from disk and overwritten with the given data array instead.
     /// Throws if index is out of bounds.
-    block_handle overwritten(u64 index, const byte* data, size_t data_size) const;
+    block_handle overwrite(u64 index, const byte* data, size_t data_size) const;
 
     /// Removes all blocks from this extent.
     /// \post `empty()`.

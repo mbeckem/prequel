@@ -35,12 +35,12 @@ TEST_CASE("extent", "[extent]") {
         REQUIRE(e1.data());
         REQUIRE(e1.get(0) + 1 == e1.get(1));
         {
-            auto h = e1.zeroed(0);
+            auto h = e1.overwrite_zero(0);
             auto data = h.writable_data();
             for (u32 i = 0; i < 256; ++i)
                 data[i] = byte(i);
 
-            h = e1.zeroed(1);
+            h = e1.overwrite_zero(1);
             data = h.writable_data();
             for (u32 i = 0; i < 256; ++i)
                 data[i] = byte(255 - i);

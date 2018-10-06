@@ -94,7 +94,7 @@ struct file_entry {
     extpp::extent::anchor content; // File storage
 
     static constexpr auto get_binary_format() {
-        return make_binary_format(
+        return extpp::make_binary_format(
             &file_entry::metadata, &file_entry::content
         );
     }

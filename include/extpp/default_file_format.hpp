@@ -2,7 +2,7 @@
 #define EXTPP_DEFAULT_FILE_FORMAT_HPP
 
 #include <extpp/defs.hpp>
-#include <extpp/io.hpp>
+#include <extpp/vfs.hpp>
 #include <extpp/default_allocator.hpp>
 #include <extpp/exception.hpp>
 #include <extpp/file_engine.hpp>
@@ -83,7 +83,7 @@ inline default_file_format<Anchor>::default_file_format(file& f, u32 block_size,
 
     if (m_engine->size() == 0) {
         m_engine->grow(1);
-        m_handle.reset(m_engine->zeroed(block_index(0)), 0);
+        m_handle.reset(m_engine->overwrite_zero(block_index(0)), 0);
         m_handle.construct();
         m_handle.template set<&anchor::block_size>(m_engine->block_size());
         m_engine->flush();

@@ -14,6 +14,7 @@ set(SOURCES
     iter_tools_test.cpp
     list_test.cpp
     math_test.cpp
+    mmap_engine_test.cpp
     node_allocator_test.cpp
     serialization_test.cpp
     stack_test.cpp

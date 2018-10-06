@@ -63,6 +63,15 @@ public:
     /// Number of references to this block.
     u32 m_refcount = 0;
 
+    /// True if the block contains unwritten changes.
+    bool m_dirty = false;
+
+    /// Index of the block within the file.
+    u64 m_index = 0;
+
+    /// Block sized data array.
+    byte* m_data = nullptr;
+
     /// Used by the free list in block_pool.
     boost::intrusive::list_member_hook<> m_free_hook;
 
@@ -76,18 +85,13 @@ public:
     /// in an ordered sequence. Used by the block_dirty_set.
     boost::intrusive::set_member_hook<> m_dirty_hook;
 
-    explicit block(file_engine_impl* engine, u32 block_size)
-        : m_engine(engine)
-    {
-        m_block_size = block_size;
-        m_data = static_cast<byte*>(std::malloc(block_size));
-        if (!m_data)
-            throw std::bad_alloc();
-    }
+public:
+    explicit block(file_engine_impl* engine);
 
-    ~block() {
-        free(m_data);
-    }
+    ~block();
+
+    block(const block&) = delete;
+    block& operator=(const block&) = delete;
 
     /// Puts the block into a state where it can be reused.
     void reset() noexcept {
@@ -114,31 +118,27 @@ public:
     /// Marks this block as dirty.
     inline void set_dirty() noexcept;
 
-    block(const block&) = delete;
-    block& operator=(const block&) = delete;
-
-public:
-    // Interface implementation (detail::block_handle_impl)
-
-    virtual block* copy() override {
-        ref();
-        return this;
-    }
-
-    virtual void destroy() override {
-        unref();
-    }
-
-    virtual void make_dirty() override {
-        set_dirty();
-    }
-
     friend void intrusive_ptr_add_ref(block* b) {
         b->ref();
     }
 
     friend void intrusive_ptr_release(block* b) {
         b->unref();
+    }
+
+public:
+    // Interface implementation (detail::block_handle_impl)
+
+    void handle_ref() override { ref(); }
+    void handle_unref() override { unref(); }
+
+    u64 index() const noexcept override { return m_index; }
+
+    const byte* data() const noexcept override { return m_data; }
+
+    byte* writable_data() override {
+        set_dirty();
+        return m_data;
     }
 };
 
@@ -449,7 +449,7 @@ public:
 
     /// Like `overwrite(index)`, but sets the content to that of `data`.
     /// Data must be at least `block_size()` bytes long.
-    boost::intrusive_ptr<block> overwrite_with(u64 index, const byte* data);
+    boost::intrusive_ptr<block> overwrite(u64 index, const byte* data);
 
     /// Writes all dirty blocks back to disk.
     /// Throws if an I/O error occurs.
@@ -494,6 +494,18 @@ private:
     /// Clears the error so it won't be thrown again.
     void rethrow_write_error();
 };
+
+block::block(file_engine_impl* engine)
+    : m_engine(engine)
+{
+    m_data = static_cast<byte*>(std::malloc(engine->block_size()));
+    if (!m_data)
+        throw std::bad_alloc();
+}
+
+block::~block() {
+    std::free(m_data);
+}
 
 inline void block::unref() noexcept {
     EXTPP_ASSERT(m_refcount >= 1, "invalid refcount");
@@ -766,7 +778,7 @@ boost::intrusive_ptr<block> file_engine_impl::overwrite_zero(u64 index)
     return blk;
 }
 
-boost::intrusive_ptr<block> file_engine_impl::overwrite_with(u64 index, const byte* data)
+boost::intrusive_ptr<block> file_engine_impl::overwrite(u64 index, const byte* data)
 {
     auto blk = read_impl(index, [&](byte*) {});
 
@@ -784,14 +796,15 @@ boost::intrusive_ptr<block> file_engine_impl::read_impl(u64 index, ReadAction&& 
         return boost::intrusive_ptr<block>(blk);
     }
 
+    // TODO: make room in the cache *here* instead of calling use() below.
+
     block& blk = allocate_block();
     detail::deferred guard = [&]{
         free_block(blk);
     };
 
-    EXTPP_ASSERT(blk.m_block_size == m_block_size,
-                "block size invariant");
     {
+        // TODO: We can rehash `m_blocks` here if it gets too full.
         blk.m_index = index;
         read(blk.m_data);
     }
@@ -830,8 +843,6 @@ void file_engine_impl::add_dirty_set(block& blk) noexcept {
 
 void file_engine_impl::flush_block(block& blk)
 {
-    EXTPP_ASSERT(blk.m_block_size == m_block_size,
-                "block size invariant");
     EXTPP_ASSERT(m_dirty.contains(blk),
                  "Block must be registered as dirty.");
     EXTPP_ASSERT(blk.m_dirty,
@@ -875,7 +886,7 @@ block& file_engine_impl::allocate_block()
 {
     block* blk = m_pool.remove();
     if (!blk) {
-        blk = new block(this, m_block_size);
+        blk = new block(this);
     }
     return *blk;
 }
@@ -924,21 +935,21 @@ void file_engine::do_grow(u64 n) {
 
 block_handle file_engine::do_access(block_index index) {
     if (boost::intrusive_ptr<detail::block> blk = impl().access(index.value())) {
-        return block_handle(this, blk.detach());
+        return block_handle(this, blk.get());
     }
     return block_handle();
 }
 
 block_handle file_engine::do_read(block_index index) {
-    return block_handle(this, impl().read(index.value()).detach());
+    return block_handle(this, impl().read(index.value()).get());
 }
 
-block_handle file_engine::do_zeroed(block_index index) {
-    return block_handle(this, impl().overwrite_zero(index.value()).detach());
+block_handle file_engine::do_overwrite_zero(block_index index) {
+    return block_handle(this, impl().overwrite_zero(index.value()).get());
 }
 
-block_handle file_engine::do_overwritten(block_index index, const byte* data) {
-    return block_handle(this, impl().overwrite_with(index.value(), data).detach());
+block_handle file_engine::do_overwrite(block_index index, const byte* data) {
+    return block_handle(this, impl().overwrite(index.value(), data).get());
 }
 
 void file_engine::do_flush() {
@@ -946,7 +957,7 @@ void file_engine::do_flush() {
 }
 
 detail::file_engine_impl& file_engine::impl() const {
-    EXTPP_ASSERT(m_impl, "Invalid instance.");
+    EXTPP_ASSERT(m_impl, "Invalid engine instance.");
     return *m_impl;
 }
 

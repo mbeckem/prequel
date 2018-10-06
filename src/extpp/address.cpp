@@ -36,7 +36,7 @@ void write(engine& e, raw_address address, const void* data, size_t size) {
     }
     // Write as many full blocks as possible.
     while (size >= block_size) {
-        e.overwritten(index, buffer, block_size);
+        e.overwrite(index, buffer, block_size);
 
         buffer += block_size;
         size -= block_size;
@@ -105,7 +105,7 @@ void zero(engine& e, raw_address address, u64 size) {
     }
     // Write as many full blocks as possible.
     while (size >= block_size) {
-        e.zeroed(index);
+        e.overwrite_zero(index);
 
         size -= block_size;
         index += 1;
@@ -128,7 +128,7 @@ static void copy_forward(engine& e, raw_address src, raw_address dest, u64 size)
     while (size > 0) {
         if (!dest_handle || offset(dest) == 0) {
             if (can_overwrite && offset(dest) == 0 && size >= block_size) {
-                dest_handle = e.zeroed(index(dest));
+                dest_handle = e.overwrite_zero(index(dest));
             } else {
                 dest_handle = e.read(index(dest));
             }
@@ -166,7 +166,7 @@ static void copy_backward(engine& e, raw_address src, raw_address dest, u64 size
     while (size > 0) {
         if (!dest_handle || offset(dest) == 0) {
             if (can_overwrite && offset(dest) == 0 && size >= block_size) {
-                dest_handle = e.zeroed(index(dest-1));
+                dest_handle = e.overwrite_zero(index(dest-1));
             } else {
                 dest_handle = e.read(index(dest-1));
             }

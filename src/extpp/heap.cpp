@@ -687,7 +687,7 @@ raw_address heap::allocate_small_object(const byte* object, u32 object_size) {
         free_blocks(block, 1);
     };
 
-    page_handle page = get_engine().zeroed(block);
+    page_handle page = get_engine().overwrite_zero(block);
     page.init();
 
     // Insert the page into the index.

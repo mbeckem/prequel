@@ -1,4 +1,4 @@
-#include <extpp/io.hpp>
+#include <extpp/vfs.hpp>
 
 #include <extpp/assert.hpp>
 #include <extpp/exception.hpp>
@@ -49,8 +49,11 @@ private:
 
 class unix_vfs : public vfs {
 private:
+    // System wide page size. Usually 4K.
+    size_t m_page_size;
+
 public:
-    unix_vfs() {}
+    unix_vfs();
 
     const char* name() const noexcept override { return "unix_vfs"; }
 
@@ -63,6 +66,8 @@ public:
     void memory_sync(void* addr, u64 length) override;
 
     void memory_unmap(void* addr, u64 length) override;
+
+    bool memory_in_core(void* addr, u64 length) override;
 };
 
 static std::error_code get_errno()
@@ -70,9 +75,17 @@ static std::error_code get_errno()
     return std::error_code(errno, std::system_category());
 }
 
-} // namespace extpp
+static size_t get_pagesize() {
+    long size = ::sysconf(_SC_PAGESIZE);
+    if (size == -1) {
+        auto ec = get_errno();
+        EXTPP_THROW(io_error(
+            fmt::format("Failed to query the page size: {}\n", ec.message())
+        ));
+    }
 
-namespace extpp {
+    return static_cast<size_t>(size);
+}
 
 unix_file::unix_file(unix_vfs& v, int fd, std::string name)
     : file(v)
@@ -201,6 +214,10 @@ void unix_file::check_open() const
     }
 }
 
+unix_vfs::unix_vfs() {
+    m_page_size = get_pagesize();
+}
+
 std::unique_ptr<file> unix_vfs::open(const char* path, access_t access, flags_t mode)
 {
     EXTPP_ASSERT(path != nullptr, "path null pointer");
@@ -263,7 +280,19 @@ void* unix_vfs::memory_map(file& f, u64 offset, u64 length) {
     int prot = PROT_READ | PROT_WRITE; // TODO: Not writable if file is read only
     int flags = MAP_SHARED;
 
-    void* result = ::mmap(nullptr, narrow<size_t>(length), prot, flags, uf.fd(), narrow<size_t>(offset));
+    if (offset > std::numeric_limits<off_t>::max()) {
+        EXTPP_THROW(bad_argument(
+            fmt::format("File offset {} is too large for this platform.", offset)
+        ));
+    }
+
+    if (length > std::numeric_limits<size_t>::max()) {
+        EXTPP_THROW(bad_argument(
+            fmt::format("Length {} is too large for this platform.", length)
+        ));
+    }
+
+    void* result = ::mmap(nullptr, static_cast<size_t>(length), prot, flags, uf.fd(), static_cast<off_t>(offset));
     if (result == MAP_FAILED) {
         auto ec = get_errno();
         EXTPP_THROW(io_error(
@@ -274,6 +303,12 @@ void* unix_vfs::memory_map(file& f, u64 offset, u64 length) {
 }
 
 void unix_vfs::memory_sync(void* addr, u64 length) {
+    if (length > std::numeric_limits<size_t>::max()) {
+        EXTPP_THROW(bad_argument(
+            fmt::format("Length {} is too large for this platform.", length)
+        ));
+    }
+
     if (::msync(addr, length, MS_SYNC) == -1) {
         auto ec = get_errno();
         EXTPP_THROW(io_error(fmt::format("Failed to sync: {}.", ec.message())));
@@ -281,10 +316,55 @@ void unix_vfs::memory_sync(void* addr, u64 length) {
 }
 
 void unix_vfs::memory_unmap(void* addr, u64 length) {
-    if (::munmap(addr, narrow<size_t>(length)) == -1) {
+    if (length > std::numeric_limits<size_t>::max()) {
+        EXTPP_THROW(bad_argument(
+            fmt::format("Length {} is too large for this platform.", length)
+        ));
+    }
+
+    if (::munmap(addr, length) == -1) {
         auto ec = get_errno();
         EXTPP_THROW(io_error(fmt::format("Failed to unmap: {}.", ec.message())));
     }
+}
+
+bool unix_vfs::memory_in_core(void* addr, u64 length) {
+    if (length > std::numeric_limits<size_t>::max()) {
+        EXTPP_THROW(bad_argument(
+            fmt::format("Length {} is too large for this platform.", length)
+        ));
+    }
+
+    // Must make sure that the address passed to mincore is a multiple of the page size.
+    const uintptr_t addr_value = reinterpret_cast<uintptr_t>(addr);
+    const uintptr_t addr_rounded = (reinterpret_cast<uintptr_t>(addr) / m_page_size) * m_page_size;
+    const size_t length_rounded = static_cast<size_t>(length) + (addr_value - addr_rounded);
+
+    // Implementation limit for the maximum number of pages we can query at a time:
+    static constexpr size_t max_pages = 1024;
+    const size_t npages = (length_rounded + m_page_size - 1) / m_page_size;
+    if (npages > max_pages) {
+        EXTPP_THROW(bad_operation(
+            fmt::format("Querying too many pages: {} (current max is {})", npages, max_pages)
+        ));
+    }
+
+    // Query the in-core status of all relevant pages.
+    unsigned char page_status[max_pages];
+    std::memset(page_status, 0, sizeof(page_status));
+    if (::mincore(reinterpret_cast<void*>(addr_rounded), length_rounded, page_status) == -1) {
+        auto ec = get_errno();
+        EXTPP_THROW(io_error(
+            fmt::format("Failed to call mincore(): {}", ec.message())
+        ));
+    }
+
+    // Return true if all relevant pages are in core.
+    bool in_core = true;
+    for (size_t i = 0; i < npages; ++i) {
+        in_core &= (page_status[i] & 1);
+    }
+    return in_core;
 }
 
 vfs& system_vfs()

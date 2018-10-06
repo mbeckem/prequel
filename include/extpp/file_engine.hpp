@@ -3,7 +3,7 @@
 
 #include <extpp/defs.hpp>
 #include <extpp/engine.hpp>
-#include <extpp/io.hpp>
+#include <extpp/vfs.hpp>
 
 #include <memory>
 
@@ -36,7 +36,7 @@ public:
     ///
     /// \param fd
     ///     The file used for input and output. The reference must remain
-    ///     valid for the lifetime of this instance.
+    ///     valid for the lifetime of the engine instance.
     ///
     /// \param block_size
     ///     The size of a single block, in bytes.
@@ -59,9 +59,8 @@ private:
     void do_grow(u64 n) override;
     block_handle do_access(block_index index) override;
     block_handle do_read(block_index index) override;
-    block_handle do_zeroed(block_index index) override;
-    block_handle do_overwritten(block_index index, const byte* data) override;
-
+    block_handle do_overwrite_zero(block_index index) override;
+    block_handle do_overwrite(block_index index, const byte* data) override;
     void do_flush() override;
 
 private:

@@ -358,7 +358,7 @@ raw_stack_node raw_stack_impl::read_node(block_index index) const {
 
 raw_stack_node raw_stack_impl::create_node() {
     block_index index = get_allocator().allocate(1);
-    raw_stack_node node(get_engine().zeroed(index), m_value_size, m_node_capacity);
+    raw_stack_node node(get_engine().overwrite_zero(index), m_value_size, m_node_capacity);
     node.init();
     set_nodes(nodes() + 1);
     return node;

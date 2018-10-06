@@ -3,7 +3,7 @@
 #include <string>
 #include <vector>
 
-#include <extpp/io.hpp>
+#include <extpp/vfs.hpp>
 #include <extpp/file_engine.hpp>
 
 #include "filesystem.hpp"
@@ -32,7 +32,7 @@ void format_device(extpp::file& device) {
     }
 
     // Write the master block.
-    extpp::block_handle handle = engine.zeroed(extpp::block_index(0));
+    extpp::block_handle handle = engine.overwrite_zero(extpp::block_index(0));
     handle.set(0, master);
     engine.flush();
     device.sync();

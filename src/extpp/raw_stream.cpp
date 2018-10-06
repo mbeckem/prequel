@@ -173,7 +173,7 @@ private:
     u32 block_offset(u64 index) const { return index % m_block_capacity; }
 
     block_handle create(u64 blk_index) const {
-        return m_extent.zeroed(blk_index);
+        return m_extent.overwrite_zero(blk_index);
     }
 
     block_handle read(u64 blk_index) const {

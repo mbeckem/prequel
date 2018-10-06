@@ -1,5 +1,5 @@
-#ifndef EXTPP_IO_HPP
-#define EXTPP_IO_HPP
+#ifndef EXTPP_VFS_HPP
+#define EXTPP_VFS_HPP
 
 #include <extpp/assert.hpp>
 #include <extpp/defs.hpp>
@@ -105,6 +105,10 @@ public:
     /// Unmaps a memory mapping created using map().
     virtual void memory_unmap(void* addr, u64 length);
 
+    /// Returns true if the pages that contain [addr, addr + length) are
+    /// currently loaded into memory.
+    virtual bool memory_in_core(void* addr, u64 length);
+
     vfs(const vfs&) = delete;
     vfs& operator=(const vfs&) = delete;
 
@@ -127,4 +131,4 @@ vfs& memory_vfs();
 
 } // namespace extpp
 
-#endif // EXTPP_IO_HPP
+#endif // EXTPP_VFS_HPP

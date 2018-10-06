@@ -118,7 +118,7 @@ void free_list::push(block_index block) {
         }
     }
 
-    free_list_node node(m_engine->zeroed(block), block_capacity());
+    free_list_node node(m_engine->overwrite_zero(block), block_capacity());
     node.init();
     node.set_next(head);
     m_anchor.set<&anchor::head>(block);

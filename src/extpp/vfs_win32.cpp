@@ -1,4 +1,4 @@
-#include <extpp/io.hpp>
+#include <extpp/vfs.hpp>
 
 #include <extpp/assert.hpp>
 #include <extpp/exception.hpp>

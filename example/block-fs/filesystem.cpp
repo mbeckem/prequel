@@ -180,7 +180,7 @@ void filesystem::resize(const char* path, u64 new_size) {
     }
 
     // Access and resize file content.
-    extpp::extent content(make_anchor_handle(entry.content), m_alloc);
+    extpp::extent content(extpp::make_anchor_handle(entry.content), m_alloc);
     adapt_capacity(content, new_size);
 
     // Write the changed file entry back into the directory tree.
@@ -225,7 +225,7 @@ size_t filesystem::write(const char* path, u64 offset, const byte* buffer, size_
     }
 
     // Access file content and write to disk.
-    extpp::extent content(make_anchor_handle(entry.content), m_alloc);
+    extpp::extent content(extpp::make_anchor_handle(entry.content), m_alloc);
     if (offset + size > entry.metadata.size) {
         // File needs to grow.
         adapt_capacity(content, offset + size);
@@ -282,7 +282,7 @@ void filesystem::adapt_capacity(extpp::extent& content, u64 required_bytes) {
 
 void filesystem::destroy_file(file_entry& entry) {
     // Free the file content.
-    extpp::extent content(make_anchor_handle(entry.content), m_alloc);
+    extpp::extent content(extpp::make_anchor_handle(entry.content), m_alloc);
     content.reset();
     entry.metadata.size = 0;
 }

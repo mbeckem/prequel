@@ -1,4 +1,4 @@
-#include <extpp/io.hpp>
+#include <extpp/vfs.hpp>
 
 #include <extpp/assert.hpp>
 #include <extpp/exception.hpp>
@@ -30,6 +30,11 @@ void vfs::memory_sync(void* addr, u64 length) {
 }
 
 void vfs::memory_unmap(void* addr, u64 length) {
+    unused(addr, length);
+    EXTPP_THROW(unsupported("mmap is not supported by this vfs."));
+}
+
+bool vfs::memory_in_core(void* addr, u64 length) {
     unused(addr, length);
     EXTPP_THROW(unsupported("mmap is not supported by this vfs."));
 }
