@@ -31,7 +31,7 @@ public:
     /// Typedef for the value type.
     using value_type = Value;
 
-    /// Type ef for the key type, which is the result of applying the `DeriveKey`
+    /// Typedef for the key type, which is the result of applying the `DeriveKey`
     /// function on a value.
     using key_type = std::decay_t<std::result_of_t<DeriveKey(Value)>>;
 

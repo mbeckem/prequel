@@ -44,7 +44,6 @@ TEST_CASE("bitset set and find", "[bitset]") {
     set.resize(12345);
 
     for (size_t i = 1000; i < 2000; ++i) {
-        // TODO: Bulk set.
         set.set(i);
         if (!set.test(i))
             FAIL("Bit is unset: " << i);

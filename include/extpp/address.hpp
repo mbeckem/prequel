@@ -183,7 +183,6 @@ public:
     }
 
     friend std::ostream& operator<<(std::ostream& o, const address& addr) {
-        // TODO: Include the type name of T.
         return o << addr.m_raw;
     }
 

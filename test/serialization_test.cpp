@@ -106,6 +106,28 @@ TEST_CASE("roundtrips", "[serialization]") {
                   + (u64(117) << 8)
                   + (u64(116) << 0));
 
+    ROUND_TRIP(i8, 0);
+    ROUND_TRIP(i8, 1);
+    ROUND_TRIP(i8, 127);
+    ROUND_TRIP(i8, -56);
+
+    ROUND_TRIP(i16, 0);
+    ROUND_TRIP(i16, 1);
+    ROUND_TRIP(i16, 32000);
+    ROUND_TRIP(i16, -16555);
+    ROUND_TRIP(i16, -1);
+
+    ROUND_TRIP(i32, 0);
+    ROUND_TRIP(i32, 1);
+    ROUND_TRIP(i32, -1);
+    ROUND_TRIP(i32, 56465455);
+    ROUND_TRIP(i32, -56465455);
+
+    ROUND_TRIP(i64, 0);
+    ROUND_TRIP(i64, -1);
+    ROUND_TRIP(i64, 6546465446511);
+    ROUND_TRIP(i64, -6546465446511);
+
     ROUND_TRIP(float, float(0));
     ROUND_TRIP(float, float(-0));
     ROUND_TRIP(float, float(1.1e22));
@@ -183,8 +205,37 @@ TEST_CASE("binary representation", "[serialization]") {
         buffer = make_serialized(false);
         REQUIRE(buffer[0] == 0);
     }
-
-    // TODO: Signed numbers.
+    SECTION("8 bit (signed)") {
+        auto buffer = make_serialized(i8(-25));
+        REQUIRE(buffer.size() == 1);
+        REQUIRE(buffer[0] == 0xe7);
+    }
+    SECTION("16 bit (signed)") {
+        auto buffer = make_serialized(i16(-13957));
+        REQUIRE(buffer.size() == 2);
+        REQUIRE(buffer[0] == 0xc9);
+        REQUIRE(buffer[1] == 0x7b);
+    }
+    SECTION("32 bit (signed)") {
+        auto buffer = make_serialized(i32(-881033858));
+        REQUIRE(buffer.size() == 4);
+        REQUIRE(buffer[0] == 0xcb);
+        REQUIRE(buffer[1] == 0x7c);
+        REQUIRE(buffer[2] == 0x7d);
+        REQUIRE(buffer[3] == 0x7e);
+    }
+    SECTION("64 bit (signed)") {
+        auto buffer = make_serialized(i64(-3784011604639579774LL));
+        REQUIRE(buffer.size() == 8);
+        REQUIRE(buffer[0] == 0xcb);
+        REQUIRE(buffer[1] == 0x7c);
+        REQUIRE(buffer[2] == 0x7d);
+        REQUIRE(buffer[3] == 0x7e);
+        REQUIRE(buffer[4] == 0x7f);
+        REQUIRE(buffer[5] == 0x80);
+        REQUIRE(buffer[6] == 0x81);
+        REQUIRE(buffer[7] == 0x82);
+    }
 }
 
 TEST_CASE("tuple serialization", "[serialization]") {

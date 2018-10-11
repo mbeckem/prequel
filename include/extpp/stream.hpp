@@ -105,7 +105,6 @@ public:
     /**
      * Equivalent to `get(index)`.
      */
-    // TODO: Consider proxy object for assignment support, i.e. stream[i] = value.
     value_type operator[](u64 index) const { return get(index); }
 
     /**

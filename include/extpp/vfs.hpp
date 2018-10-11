@@ -12,7 +12,7 @@ namespace extpp {
 class file;
 class vfs;
 
-// TODO: Mechanism for fadvice() and sync()
+// TODO: Mechanism for fadvice() .
 class file {
 public:
     file(extpp::vfs& v): m_vfs(v) {}

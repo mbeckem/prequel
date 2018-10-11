@@ -14,8 +14,6 @@ constexpr u32 block_size = 256;
 
 }
 
-// TODO test partial free
-
 TEST_CASE("default allocator", "[default-allocator]") {
     constexpr u32 data_chunk = 32;
 
@@ -230,6 +228,19 @@ TEST_CASE("default allocator", "[default-allocator]") {
         REQUIRE(alloc.stats().data_free == 0);
 
         alloc.validate();
+    }
+
+    SECTION("partial free") {
+        auto a1 = alloc.allocate(50);
+        alloc.free(a1 + 25, 25);
+
+        auto a2 = alloc.allocate(25);
+        REQUIRE(a1 + 25 == a2);
+
+        u64 free_before = alloc.stats().data_free;
+        alloc.free(a1, 25);
+        alloc.free(a2, 25);
+        REQUIRE(alloc.stats().data_free == free_before + 50);
     }
 }
 

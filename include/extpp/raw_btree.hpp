@@ -364,7 +364,7 @@ public:
     /// \note This only works on empty trees.
     loader bulk_load();
 
-    // TODO: Efficient min/max push_back/puhs_front with a private internal cursor.
+    // TODO: Efficient min/max push_back/push_front with a private internal cursor.
 
     void dump(std::ostream& os) const;
 

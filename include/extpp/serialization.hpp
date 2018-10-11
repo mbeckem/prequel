@@ -477,9 +477,26 @@ using serializer_t = typename select_serializer<remove_cvref_t<T>>::type;
 
 /// \defgroup serialization Binary Serialization
 ///
-/// TODO Text
+/// Functions for serialization and deserialization of values.
+/// This library establishes a bi-directional mapping between structs in memory
+/// and on storage. Instances are serialized from their usual in-RAM representation
+/// into byte buffers of fixed size (in big endian format) using the \ref serialize
+/// function or related helper functions.
+/// Values can be read back using the \ref deserialize function (and its associated helpers).
 ///
-/// blablabla
+/// Every supported type `T` has a \ref serialized_size (a constexpr value)
+/// that is similar to `sizeof(T)`, it is the size of that struct after it has been serialized.
+///
+/// The following types are supported by the (de-) serialization library:
+///     - Primitive values of fixed size (i.e. uintX_t, intX_t, char types and bool)
+///     - User defined classes that implement the \ref get_binary_format protocol
+///     - Types that implement their own custom (de-) serialization (TODO describe explicit_serializer)
+///     - Standard aggregate or fixed-size containers like T[N], std::array<T, N>, std::tuple or std::variant
+///       of types that are themselves supported (e.g., uint32_t[4] is supported because uint32_t is supported).
+///
+/// Note that these functions are used as a low level building block for fixed-size data types. If you need
+/// to model variable size data you should use one of the container classes provided by this library or
+/// implement your own one.
 
 /// Returns the exact size of the serialized representation of `T`.
 /// This function can run at compile-time.
