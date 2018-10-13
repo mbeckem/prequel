@@ -13,6 +13,7 @@
 #include <algorithm>
 #include <array>
 #include <cstring>
+#include <optional>
 #include <tuple>
 #include <type_traits>
 #include <utility>
@@ -263,6 +264,36 @@ constexpr size_t max_size() {
     return max;
 }
 
+// Optionals contain a single byte (1 or 0) that tells us whether they contain a value or not,
+// followed by the serialized value or zeroes, if there is no value.
+template<typename T>
+struct default_serializer<std::optional<T>> {
+    static constexpr size_t serialized_size = 1 + prequel::serialized_size<T>();
+
+    static void serialize(const std::optional<T>& v, byte* b) {
+        if (v) {
+            b[0] = 1;
+            prequel::serialize(*v, b + 1);
+        } else {
+            std::memset(b, 0, serialized_size);
+        }
+    }
+
+    static void deserialize(std::optional<T>& v, const byte* b) {
+        if (b[0] == 0) {
+            v = std::nullopt;
+        } else if (b[0] == 1) {
+            T value;
+            prequel::deserialize(value, b + 1);
+            v = std::move(value);
+        } else {
+            PREQUEL_THROW(corruption_error(
+                fmt::format("Invalid value for the has_value flag: {}", b[0])
+            ));
+        }
+    }
+};
+
 // Variants contain a single byte tag at the start that indicates the kind of value they carry.
 // The rest of the storage must be interpreted according to that tag.
 // For example, a std::variant<int, double, bool> that carries a double will have the tag `1` (zero indexed)
@@ -292,10 +323,10 @@ struct default_serializer<std::variant<T...>> {
 
         switch (which) {
         // Don't make the compiler generate a god damn function pointer table for this.
-        #define PREQUEL_VARIANT_CASE(i)                               \
+        #define PREQUEL_VARIANT_CASE(i)                             \
                 case i: {                                           \
                     if constexpr (i < alternatives) {               \
-                        b = prequel::serialize(std::get<i>(v), b);    \
+                        b = prequel::serialize(std::get<i>(v), b);  \
                         break;                                      \
                     }                                               \
                 }
@@ -324,24 +355,28 @@ struct default_serializer<std::variant<T...>> {
         std::memset(b, 0, end - b);
     }
 
-    static void deserialize(std::variant<T...>&v, const byte* b) {
+    static void deserialize(std::variant<T...>& v, const byte* b) {
         const byte which = b[0];
         ++b;
 
-        if (which >= alternatives)
-            PREQUEL_THROW(io_error("Invalid value for variant alternative index."));
+        if (which >= alternatives) {
+            PREQUEL_THROW(corruption_error(
+                fmt::format("Invalid value for variant alternative index: {}", which)
+            ));
+        }
+
 
         switch (which) {
         // Switch case for the type at the given index. The constexpr-if hides the body
         // of the if statement if the current variant type does not have that many alternatives.
         // This approach is better than a function table generated at compile time because
         // it (probably) does not cause excessive binary bloat.
-        #define PREQUEL_VARIANT_CASE(i)                                           \
+        #define PREQUEL_VARIANT_CASE(i)                                         \
             case i: {                                                           \
                 if constexpr (i < alternatives) {                               \
                     std::variant_alternative_t<i, std::variant<T...>> value;    \
-                    prequel::deserialize(value, b);                               \
-                    v.template emplace<i>(value);                               \
+                    prequel::deserialize(value, b);                             \
+                    v.template emplace<i>(std::move(value));                    \
                     break;                                                      \
                 }                                                               \
             };

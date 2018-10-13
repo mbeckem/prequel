@@ -251,6 +251,54 @@ TEST_CASE("tuple serialization", "[serialization]") {
     REQUIRE(buffer[5] == m3.at(0));
 }
 
+TEST_CASE("optional serialization", "[serialization]") {
+    struct test_t {
+        i32 a = 0;
+        i64 b = 1;
+
+        static constexpr auto get_binary_format() {
+            return make_binary_format(&test_t::a, &test_t::b);
+        }
+
+        bool operator==(const test_t& other) const {
+            return a == other.a && b == other.b;
+        }
+    };
+
+    using opt_t = std::optional<test_t>;
+
+    REQUIRE(prequel::serialized_size<opt_t>() == 13); // 1 byte + size(test_t)
+
+    {
+        auto buffer = prequel::serialized_value(opt_t());
+        REQUIRE(buffer.size() == 13);
+
+        std::array<byte, 13> expected{};
+        REQUIRE(std::equal(buffer.begin(), buffer.end(), expected.begin(), expected.end()));
+
+        opt_t parsed = prequel::deserialized_value<opt_t>(buffer.data(), buffer.size());
+        REQUIRE(!parsed);
+    }
+
+    {
+        test_t test;
+        test.a = 5;
+        test.b = 1982738911232LL;
+
+        auto buffer = prequel::serialized_value(opt_t(test));
+        REQUIRE(buffer.size() == 13);
+
+        std::array<byte, 13> expected{};
+        expected[0] = 1;
+        prequel::serialize(test, expected.data() + 1);
+        REQUIRE(std::equal(buffer.begin(), buffer.end(), expected.begin(), expected.end()));
+
+        opt_t parsed = prequel::deserialized_value<opt_t>(buffer.data());
+        REQUIRE(parsed);
+        REQUIRE(*parsed == test);
+    }
+}
+
 TEST_CASE("variant serialization", "[serialization]") {
     struct point {
         i32 x = 0;
