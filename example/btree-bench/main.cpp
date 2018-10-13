@@ -26,6 +26,7 @@ struct options {
     std::string file;
     bool write_mode = false;
     bool create_mode = false;
+    bool mmap = false;
     u32 block_size_bytes = 0;
     u32 cache_size_megabytes = 1;
 
@@ -123,8 +124,10 @@ options parse_options(int argc, char** argv) {
                 % "Input file",
         (required("-b", "--block-size") & value("B", opts.block_size_bytes))
                 % "Block size (in Byte)",
-        (required("-m", "--cache-size") & value("MB", opts.cache_size_megabytes))
-                % "Cache size (in Megabyte)"
+        (option("-m", "--cache-size") & value("MB", opts.cache_size_megabytes))
+                % "Cache size (in Megabyte)",
+        (option("--mmap").set(opts.mmap, true)
+                % "Use mmap instead of normal file I/O (cache size will be ignored).")
     );
 
     auto cli = (
@@ -320,18 +323,20 @@ std::pair<u64, u64> random_key(large_value_tree&,
 }
 
 template<typename Func>
-void measure(file_engine& engine, Func&& fn) {
+void measure(prequel::engine& engine, Func&& fn) {
     high_resolution_clock::time_point start = high_resolution_clock::now();
     u64 ops = 0;
     {
         ops = fn();
         std::cout << "Flushing cached buffers." << std::endl;
         engine.flush();
-        engine.fd().sync();
     }
     high_resolution_clock::time_point end = high_resolution_clock::now();
 
-    file_engine_stats stats = engine.stats();
+    // Mmap engine does not support read/write stats.
+    file_engine_stats stats;
+    if (file_engine* fe = dynamic_cast<file_engine*>(&engine))
+        stats = fe->stats();
     double seconds = std::chrono::duration<double>(end - start).count();
     double megabytes_read = (stats.reads * engine.block_size()) / double(1 << 20);
     double megabytes_written = (stats.writes * engine.block_size()) / double(1 << 20);
@@ -356,7 +361,7 @@ void measure(file_engine& engine, Func&& fn) {
 }
 
 template<typename Tree, typename ItemGenerator>
-void run_tree_insert(file_engine& engine, Tree& tree, ItemGenerator&& gen, u64 count) {
+void run_tree_insert(prequel::engine& engine, Tree& tree, ItemGenerator&& gen, u64 count) {
     measure(engine, [&]() {
         const u64 reporting_interval = std::max(count / 100, u64(1));
 
@@ -376,7 +381,7 @@ void run_tree_insert(file_engine& engine, Tree& tree, ItemGenerator&& gen, u64 c
 }
 
 template<typename Tree>
-void tree_insert(file_engine& engine, Tree& tree, options::insert_t::which_t mode, u64 count) {
+void tree_insert(prequel::engine& engine, Tree& tree, options::insert_t::which_t mode, u64 count) {
     switch (mode) {
     case options::insert_t::random:
         run_tree_insert(engine, tree, random_values(tree), count);
@@ -388,7 +393,7 @@ void tree_insert(file_engine& engine, Tree& tree, options::insert_t::which_t mod
 }
 
 template<typename Tree>
-void tree_bulk_load(file_engine& engine, Tree& tree, u64 count) {
+void tree_bulk_load(prequel::engine& engine, Tree& tree, u64 count) {
     measure(engine, [&]() {
         const u64 reporting_interval = std::max(count / 100, u64(1));
 
@@ -411,7 +416,7 @@ void tree_bulk_load(file_engine& engine, Tree& tree, u64 count) {
 }
 
 template<typename Tree>
-void tree_query(file_engine& engine, Tree& tree, u64 count) {
+void tree_query(prequel::engine& engine, Tree& tree, u64 count) {
     measure(engine, [&]() {
         if (tree.empty()) {
             throw std::runtime_error("The tree is empty.");
@@ -439,7 +444,7 @@ void tree_query(file_engine& engine, Tree& tree, u64 count) {
     });
 }
 
-void run(file_engine& engine, anchor_handle<anchor> tree_anchor, allocator& alloc, const options& opts) {
+void run(prequel::engine& engine, anchor_handle<anchor> tree_anchor, allocator& alloc, const options& opts) {
     switch (opts.action) {
     case mode::init:
     {
@@ -523,7 +528,11 @@ int main(int argc, char** argv) {
         const u32 block_size = opts.block_size_bytes;
         const u32 cache_blocks = (u64(opts.cache_size_megabytes) * u64(1 << 20)) / block_size;
 
-        default_file_format<anchor> file_format(*input, block_size, cache_blocks);
+        fmt::print("Using mmap: {}\n", opts.mmap);
+        default_file_format<anchor> file_format = opts.mmap
+                ? default_file_format<anchor>::mmap(*input, block_size)
+                : default_file_format<anchor>(*input, block_size, cache_blocks);
+
         file_format.get_allocator().min_chunk(4096);
 
         run(file_format.get_engine(),

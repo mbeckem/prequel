@@ -917,7 +917,10 @@ int main(int argc, char** argv) {
 
     db.flush();
     if (s.print_stats) {
-        prequel::file_engine_stats stats = db.engine().stats();
+        prequel::file_engine_stats stats;
+        if (prequel::file_engine* fe = dynamic_cast<prequel::file_engine*>(&db.engine()))
+            stats = fe->stats();
+
         std::cout << "\n"
                   << "I/O statistics:\n"
                   << "  Reads:      " << stats.reads << "\n"

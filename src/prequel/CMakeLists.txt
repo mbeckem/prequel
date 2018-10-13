@@ -67,6 +67,7 @@ set(SOURCES
      formatting.cpp
      heap.cpp
      id_generator.cpp
+     mmap_engine.cpp
      node_allocator.cpp
      raw_btree.cpp
      raw_list.cpp
@@ -83,7 +84,6 @@ if (WIN32)
 elseif(UNIX)
     list(APPEND SOURCES
         vfs_unix.cpp
-	mmap_engine.cpp
     )
 endif()
 
