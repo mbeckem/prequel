@@ -1,11 +1,11 @@
 #include <catch.hpp>
 
-#include <extpp/exception.hpp>
-#include <extpp/node_allocator.hpp>
+#include <prequel/exception.hpp>
+#include <prequel/node_allocator.hpp>
 
 #include "./test_file.hpp"
 
-using namespace extpp;
+using namespace prequel;
 
 TEST_CASE("node allocator", "[node-allocator]") {
     test_file file(512);

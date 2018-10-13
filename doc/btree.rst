@@ -1,5 +1,5 @@
-B-Tree: ``extpp/btree.hpp``
+B-Tree: ``prequel/btree.hpp``
 ---------------------------
 
-.. doxygenclass:: extpp::btree
+.. doxygenclass:: prequel::btree
     :members:

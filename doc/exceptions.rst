@@ -1,34 +1,34 @@
-Exceptions: ``extpp/exception.hpp``
+Exceptions: ``prequel/exception.hpp``
 ===================================
 
 Exception classes
 -----------------
 
-.. doxygenclass:: extpp::exception
+.. doxygenclass:: prequel::exception
 	:members:
 
-.. doxygenclass:: extpp::bad_alloc
+.. doxygenclass:: prequel::bad_alloc
 	:members:
 
-.. doxygenclass:: extpp::corruption_error
+.. doxygenclass:: prequel::corruption_error
 	:members:
 	
-.. doxygenclass:: extpp::unsupported
+.. doxygenclass:: prequel::unsupported
 	:members:
 	
-.. doxygenclass:: extpp::io_error
+.. doxygenclass:: prequel::io_error
 	:members:
 
-.. doxygenclass:: extpp::usage_error
+.. doxygenclass:: prequel::usage_error
 	:members:
 
-.. doxygenclass:: extpp::bad_operation
+.. doxygenclass:: prequel::bad_operation
 	:members:
 
-.. doxygenclass:: extpp::bad_cursor
+.. doxygenclass:: prequel::bad_cursor
 	:members:
 
-.. doxygenclass:: extpp::bad_argument
+.. doxygenclass:: prequel::bad_argument
 	:members:
 	
 Support Macros

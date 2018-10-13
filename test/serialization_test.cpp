@@ -1,12 +1,12 @@
 #include <catch.hpp>
 
-#include <extpp/address.hpp>
-#include <extpp/formatting.hpp>
-#include <extpp/serialization.hpp>
+#include <prequel/address.hpp>
+#include <prequel/formatting.hpp>
+#include <prequel/serialization.hpp>
 
 #include <array>
 
-using namespace extpp;
+using namespace prequel;
 
 struct no_format {
     u32 a, b, c, d;
@@ -16,7 +16,7 @@ struct has_format {
     u32 a, b, c, d;
 
 private:
-    friend extpp::binary_format_access;
+    friend prequel::binary_format_access;
 
     static constexpr auto get_binary_format() {
         return make_binary_format(&has_format::a, &has_format::b,
@@ -266,19 +266,19 @@ TEST_CASE("variant serialization", "[serialization]") {
         }
     };
 
-    REQUIRE(extpp::serialized_size<std::variant<i32, double>>() == 9); // 1 + max(size(i32), size(double))
-    REQUIRE(extpp::serialized_size<std::variant<bool, char>>() == 2); // 1 + max(1, 1)
+    REQUIRE(prequel::serialized_size<std::variant<i32, double>>() == 9); // 1 + max(size(i32), size(double))
+    REQUIRE(prequel::serialized_size<std::variant<bool, char>>() == 2); // 1 + max(1, 1)
 
     using variant_t = std::variant<i32, double, point>;
-    REQUIRE(extpp::serialized_size<variant_t>() == 13); // 1 + serialized_size(point)
+    REQUIRE(prequel::serialized_size<variant_t>() == 13); // 1 + serialized_size(point)
 
     {
-        auto buffer = extpp::serialized_value(variant_t(point{1, 2, -1}));
+        auto buffer = prequel::serialized_value(variant_t(point{1, 2, -1}));
         REQUIRE(buffer.size() == 13);
 
         std::array<byte, 13> expected{};
         expected[0] = 2; // point
-        extpp::serialize(point{1, 2, -1}, expected.data() + 1);
+        prequel::serialize(point{1, 2, -1}, expected.data() + 1);
 
         REQUIRE(std::equal(buffer.begin(), buffer.end(), expected.begin(), expected.end()));
 
@@ -288,12 +288,12 @@ TEST_CASE("variant serialization", "[serialization]") {
     }
 
     {
-        auto buffer = extpp::serialized_value(variant_t(i32(-55)));
+        auto buffer = prequel::serialized_value(variant_t(i32(-55)));
         REQUIRE(buffer.size() == 13);
 
         std::array<byte, 13> expected{};
         expected[0] = 0; // i32
-        extpp::serialize(i32(-55), expected.data() + 1);
+        prequel::serialize(i32(-55), expected.data() + 1);
 
         REQUIRE(std::equal(buffer.begin(), buffer.end(), expected.begin(), expected.end()));
 
@@ -303,12 +303,12 @@ TEST_CASE("variant serialization", "[serialization]") {
     }
 
     {
-        auto buffer = extpp::serialized_value(variant_t(double(123.1234)));
+        auto buffer = prequel::serialized_value(variant_t(double(123.1234)));
         REQUIRE(buffer.size() == 13);
 
         std::array<byte, 13> expected{};
         expected[0] = 1; // double
-        extpp::serialize(double(123.1234), expected.data() + 1);
+        prequel::serialize(double(123.1234), expected.data() + 1);
 
         REQUIRE(std::equal(buffer.begin(), buffer.end(), expected.begin(), expected.end()));
 
@@ -610,7 +610,7 @@ TEST_CASE("custom serializer", "[serialization]") {
         object_t object;
 
         static entry_t make_free(u64 next) {
-            EXTPP_ASSERT(next < (u64(1) << 63), "next too large.");
+            PREQUEL_ASSERT(next < (u64(1) << 63), "next too large.");
 
             entry_t e;
             e.free.free = 1;
@@ -619,7 +619,7 @@ TEST_CASE("custom serializer", "[serialization]") {
         }
 
         static entry_t make_object(bool marked, u64 addr) {
-            EXTPP_ASSERT(addr < (u64(1) << 62), "addr too large.");
+            PREQUEL_ASSERT(addr < (u64(1) << 62), "addr too large.");
 
             entry_t e;
             e.object.free = 0;
@@ -643,7 +643,7 @@ TEST_CASE("custom serializer", "[serialization]") {
 
         struct binary_serializer {
             constexpr static size_t serialized_size() {
-                return extpp::serialized_size<u64>();
+                return prequel::serialized_size<u64>();
             }
 
             static void serialize(const entry_t& e, byte* b) {
@@ -655,12 +655,12 @@ TEST_CASE("custom serializer", "[serialization]") {
                     val |= e.object.marked ? marked_bit : 0;
                     val |= e.object.addr;
                 }
-                extpp::serialize(val, b);
+                prequel::serialize(val, b);
             }
 
             static void deserialize(entry_t& e, const byte* b) {
                 u64 val;
-                extpp::deserialize(val, b);
+                prequel::deserialize(val, b);
                 if (val & free_bit) {
                     e.free.free = 1;
                     e.free.next = val;

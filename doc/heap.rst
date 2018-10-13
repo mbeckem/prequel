@@ -1,5 +1,5 @@
-Heap: ``extpp/heap.hpp``
+Heap: ``prequel/heap.hpp``
 ------------------------
 
-..  doxygenclass:: extpp::heap
+..  doxygenclass:: prequel::heap
     :members:

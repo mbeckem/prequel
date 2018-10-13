@@ -1,9 +1,9 @@
 #include <catch.hpp>
 
-#include <extpp/detail/bitset.hpp>
+#include <prequel/detail/bitset.hpp>
 
-using namespace extpp;
-using namespace extpp::detail;
+using namespace prequel;
+using namespace prequel::detail;
 
 TEST_CASE("bitset set and find", "[bitset]") {
     bitset set;

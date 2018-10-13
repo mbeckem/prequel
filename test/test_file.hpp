@@ -1,17 +1,17 @@
 #ifndef TEST_FILE_HPP
 #define TEST_FILE_HPP
 
-#include <extpp/file_engine.hpp>
-#include <extpp/handle.hpp>
-#include <extpp/mmap_engine.hpp>
-#include <extpp/vfs.hpp>
+#include <prequel/file_engine.hpp>
+#include <prequel/handle.hpp>
+#include <prequel/mmap_engine.hpp>
+#include <prequel/vfs.hpp>
 
-#include <extpp/detail/deferred.hpp>
+#include <prequel/detail/deferred.hpp>
 
 #include <boost/optional.hpp>
 #include <boost/noncopyable.hpp>
 
-namespace extpp {
+namespace prequel {
 
 inline std::unique_ptr<file> get_test_file() {
     // TODO: Make these defines or runtime options.
@@ -68,6 +68,6 @@ private:
     u32 m_block_size = 0;
 };
 
-} // namespace extpp
+} // namespace prequel
 
 #endif // TEST_FILE_HPP

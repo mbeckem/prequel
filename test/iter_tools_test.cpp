@@ -1,12 +1,12 @@
 #include <catch.hpp>
 
-#include <extpp/detail/iter_tools.hpp>
+#include <prequel/detail/iter_tools.hpp>
 
 #include <sstream>
 #include <tuple>
 
-using namespace extpp;
-using namespace extpp::detail;
+using namespace prequel;
+using namespace prequel::detail;
 
 TEST_CASE("tuple for each", "[iter_tools]") {
     std::stringstream stream;

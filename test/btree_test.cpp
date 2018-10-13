@@ -1,9 +1,9 @@
 #include <catch.hpp>
 
-#include <extpp/node_allocator.hpp>
-#include <extpp/raw_btree.hpp>
-#include <extpp/btree.hpp>
-#include <extpp/formatting.hpp>
+#include <prequel/node_allocator.hpp>
+#include <prequel/raw_btree.hpp>
+#include <prequel/btree.hpp>
+#include <prequel/formatting.hpp>
 
 #include "./test_file.hpp"
 
@@ -12,7 +12,7 @@
 #include <unordered_set>
 #include <vector>
 
-using namespace extpp;
+using namespace prequel;
 
 namespace {
 

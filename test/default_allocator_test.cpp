@@ -1,12 +1,12 @@
 #include <catch.hpp>
 
-#include <extpp/default_allocator.hpp>
-#include <extpp/file_engine.hpp>
+#include <prequel/default_allocator.hpp>
+#include <prequel/file_engine.hpp>
 
 #include <iostream>
 #include <random>
 
-using namespace extpp;
+using namespace prequel;
 
 namespace {
 
@@ -269,7 +269,7 @@ TEST_CASE("default allocator with custom region", "[default-allocator]") {
         REQUIRE(alloc.stats().data_free == 0);
         REQUIRE(alloc.stats().meta_data == 6);
 
-        REQUIRE_THROWS_AS(alloc.allocate(1), extpp::bad_alloc);
+        REQUIRE_THROWS_AS(alloc.allocate(1), prequel::bad_alloc);
 
         // Partial free
         alloc.free(block_index(1000), 1);

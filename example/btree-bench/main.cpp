@@ -1,5 +1,5 @@
-#include <extpp/btree.hpp>
-#include <extpp/default_file_format.hpp>
+#include <prequel/btree.hpp>
+#include <prequel/default_file_format.hpp>
 
 #include <clipp.h>
 #include <fmt/format.h>
@@ -7,7 +7,7 @@
 #include <chrono>
 #include <random>
 
-using namespace extpp;
+using namespace prequel;
 
 using std::chrono::high_resolution_clock;
 

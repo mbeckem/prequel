@@ -1,10 +1,10 @@
 #include <catch.hpp>
 
-#include <extpp/exception.hpp>
-#include <extpp/formatting.hpp>
-#include <extpp/list.hpp>
-#include <extpp/node_allocator.hpp>
-#include <extpp/raw_list.hpp>
+#include <prequel/exception.hpp>
+#include <prequel/formatting.hpp>
+#include <prequel/list.hpp>
+#include <prequel/node_allocator.hpp>
+#include <prequel/raw_list.hpp>
 
 #include <fmt/format.h>
 #include <fmt/ostream.h>
@@ -13,7 +13,7 @@
 
 #include "./test_file.hpp"
 
-using namespace extpp;
+using namespace prequel;
 
 namespace {
 

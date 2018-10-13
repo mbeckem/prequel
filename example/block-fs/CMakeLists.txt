@@ -13,11 +13,11 @@ if (NOT FUSE_FOUND)
 endif()
 
 add_library(block-fs-static filesystem.hpp filesystem.cpp)
-target_link_libraries(block-fs-static PUBLIC extpp)
+target_link_libraries(block-fs-static PUBLIC prequel)
 
 add_executable(block-fs main.cpp)
 target_compile_options(block-fs PRIVATE ${FUSE_CFLAGS})
 target_link_libraries(block-fs PRIVATE block-fs-static ${FUSE_LIBRARIES})
 
 add_executable(block-fs-format format.cpp)
-target_link_libraries(block-fs-format PRIVATE block-fs-static )
+target_link_libraries(block-fs-format PRIVATE block-fs-static)

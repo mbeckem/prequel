@@ -1,14 +1,14 @@
 #include <catch.hpp>
 
-#include <extpp/node_allocator.hpp>
-#include <extpp/raw_stack.hpp>
-#include <extpp/stack.hpp>
+#include <prequel/node_allocator.hpp>
+#include <prequel/raw_stack.hpp>
+#include <prequel/stack.hpp>
 
 #include <iostream>
 
 #include "./test_file.hpp"
 
-using namespace extpp;
+using namespace prequel;
 
 namespace {
 

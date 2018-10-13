@@ -1,4 +1,4 @@
-Serialization: ``extpp/serialization.hpp``
+Serialization: ``prequel/serialization.hpp``
 ------------------------------------------
 
 .. doxygengroup:: serialization

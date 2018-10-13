@@ -1,11 +1,11 @@
 #include <catch.hpp>
 
-#include <extpp/address.hpp>
-#include <extpp/file_engine.hpp>
+#include <prequel/address.hpp>
+#include <prequel/file_engine.hpp>
 
 #include <type_traits>
 
-using namespace extpp;
+using namespace prequel;
 
 TEST_CASE("address comparisons", "[address]") {
     raw_address a1;
@@ -84,12 +84,12 @@ TEST_CASE("copy", "[address]") {
 
     auto write = [&](size_t dest, const byte* data, size_t size) {
         std::memmove(&mem_file[dest], data, size);
-        extpp::write(e, raw_address(dest), data, size);
+        prequel::write(e, raw_address(dest), data, size);
     };
 
     auto copy = [&](size_t dest, size_t source, size_t n) {
         std::memmove(&mem_file[dest], &mem_file[source], n);
-        extpp::copy(e, raw_address(source), raw_address(dest), n);
+        prequel::copy(e, raw_address(source), raw_address(dest), n);
     };
 
     auto equal = [&]() {

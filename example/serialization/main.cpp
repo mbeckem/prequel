@@ -1,13 +1,13 @@
-#include <extpp/formatting.hpp>
-#include <extpp/serialization.hpp>
+#include <prequel/formatting.hpp>
+#include <prequel/serialization.hpp>
 
 #include <iostream>
 #include <memory>
 
-using extpp::u8;
-using extpp::u16;
-using extpp::u32;
-using extpp::u64;
+using prequel::u8;
+using prequel::u16;
+using prequel::u32;
+using prequel::u64;
 
 // A serialized type that has the same layout (when serialized) as the
 // standard Sqlite3 header.
@@ -54,7 +54,7 @@ struct sqlite_header_t {
     u32 sqlite_version_number = 0;
 
     static constexpr auto get_binary_format() {
-        return extpp::make_binary_format(
+        return prequel::make_binary_format(
             &sqlite_header_t::magic,
             &sqlite_header_t::page_size,
             &sqlite_header_t::write_version,
@@ -91,30 +91,30 @@ struct sqlite_header_t {
 // Serializes the given sqlite header instance into the provided buffer.
 // To inspect the generated assembly, compile with optimizations.
 extern "C" void serialize(const sqlite_header_t* hdr, void* buffer, size_t buffer_size) {
-    extpp::serialize(*hdr, static_cast<extpp::byte*>(buffer), buffer_size);
+    prequel::serialize(*hdr, static_cast<prequel::byte*>(buffer), buffer_size);
 }
 
 // Deserializes the provided buffer into an instance of `sqlite_header_t`.
 extern "C" void deserialize(sqlite_header_t* hdr, const void* buffer, size_t buffer_size) {
-    extpp::deserialize(*hdr, static_cast<const extpp::byte*>(buffer), buffer_size);
+    prequel::deserialize(*hdr, static_cast<const prequel::byte*>(buffer), buffer_size);
 }
 
 // Update in place to see what the generated assembly output looks like.
 extern "C" void update(void* buffer, size_t buffer_size) {
     sqlite_header_t hdr;
-    extpp::deserialize(hdr, static_cast<const extpp::byte*>(buffer), buffer_size);
+    prequel::deserialize(hdr, static_cast<const prequel::byte*>(buffer), buffer_size);
 
     hdr.file_size += 10;
-    extpp::serialize(hdr, static_cast<extpp::byte*>(buffer));
+    prequel::serialize(hdr, static_cast<prequel::byte*>(buffer));
 }
 
 int main() {
     sqlite_header_t hdr;
-    extpp::serialized_buffer<sqlite_header_t> buffer;
+    prequel::serialized_buffer<sqlite_header_t> buffer;
     serialize(&hdr, &buffer, sizeof(buffer));
 
     std::cout << "The default sqlite header is:\n"
-              << extpp::format_hex(buffer.data(), sizeof(buffer), 16)
+              << prequel::format_hex(buffer.data(), sizeof(buffer), 16)
               << std::endl;
     return 0;
 }

@@ -1,7 +1,7 @@
-#include <extpp/btree.hpp>
-#include <extpp/default_file_format.hpp>
-#include <extpp/heap.hpp>
-#include <extpp/id_generator.hpp>
+#include <prequel/btree.hpp>
+#include <prequel/default_file_format.hpp>
+#include <prequel/heap.hpp>
+#include <prequel/id_generator.hpp>
 
 #include <clipp.h>
 
@@ -30,13 +30,13 @@ inline uint64_t fnv_hash(const uint8_t* begin, const uint8_t* end)
     return hash;
 }
 
-static void load(const extpp::heap& heap, extpp::heap_reference ref, std::string& buffer) {
+static void load(const prequel::heap& heap, prequel::heap_reference ref, std::string& buffer) {
     buffer.resize(heap.size(ref));
-    heap.load(ref, (extpp::byte*) &buffer[0], buffer.size());
+    heap.load(ref, (prequel::byte*) &buffer[0], buffer.size());
 }
 
-static extpp::heap_reference save(extpp::heap& heap, const std::string& buffer) {
-    return heap.allocate((const extpp::byte*) buffer.data(), buffer.size());
+static prequel::heap_reference save(prequel::heap& heap, const std::string& buffer) {
+    return heap.allocate((const prequel::byte*) buffer.data(), buffer.size());
 }
 
 class node_id {
@@ -54,7 +54,7 @@ public:
     bool operator!=(const node_id& other) const { return m_value != other.m_value; }
 
     static constexpr auto get_binary_format() {
-        return extpp::make_binary_format(&node_id::m_value);
+        return prequel::make_binary_format(&node_id::m_value);
     }
 };
 
@@ -69,7 +69,7 @@ class interned_strings {
     // unused interned keys. But currently we just store them forever (only keys
     // are interned).
     struct entry {
-        extpp::heap_reference string;   // Reference to the string.
+        prequel::heap_reference string;   // Reference to the string.
         uint64_t hash = 0;              // The hash of the string.
 
         // Entries are indexed by their hash (and the location in the heap as a second
@@ -81,7 +81,7 @@ class interned_strings {
         };
 
         static constexpr auto get_binary_format() {
-            return extpp::make_binary_format(&entry::string, &entry::hash);
+            return prequel::make_binary_format(&entry::string, &entry::hash);
         }
     };
 
@@ -90,25 +90,25 @@ class interned_strings {
     // references to strings in this tree do not count towards
     // the root set. Entries are removed whenever the garbage collector
     // destroys as string.
-    using tree_type = extpp::btree<entry, entry::derive_key>;
+    using tree_type = prequel::btree<entry, entry::derive_key>;
 
 public:
     using anchor = typename tree_type::anchor;
 
 public:
-    interned_strings(extpp::anchor_handle<anchor> anc, extpp::allocator& alloc, extpp::heap& storage)
+    interned_strings(prequel::anchor_handle<anchor> anc, prequel::allocator& alloc, prequel::heap& storage)
         : m_tree(std::move(anc), alloc)
         , m_heap(storage)
     {}
 
     // Returns the reference to the interned copy of that string, if it exists.
-    extpp::heap_reference find(const std::string& str) const {
+    prequel::heap_reference find(const std::string& str) const {
         return find_impl(str, hash(str));
     }
 
     // Interns the given string. Either returns a reference to some existing copy
     // of that string or inserts a new copy into the heap.
-    extpp::heap_reference intern(const std::string& str) {
+    prequel::heap_reference intern(const std::string& str) {
         const uint64_t h = hash(str);
         if (auto ref = find_impl(str, h))
             return ref;
@@ -124,7 +124,7 @@ public:
     }
 
 private:
-    extpp::heap_reference find_impl(const std::string& str, uint64_t hash) const {
+    prequel::heap_reference find_impl(const std::string& str, uint64_t hash) const {
         std::tuple<uint64_t, uint64_t> key(hash, 0);
 
         // Loop over all collisions. We have to test the real strings for equality.
@@ -148,14 +148,14 @@ private:
 
 private:
     tree_type m_tree;
-    extpp::heap& m_heap;
+    prequel::heap& m_heap;
 };
 
 class property_map {
     struct property {
         node_id node;                   // owner of the property
-        extpp::heap_reference name;     // name of the property (string, interned)
-        extpp::heap_reference value;    // value of the property (string)
+        prequel::heap_reference name;     // name of the property (string, interned)
+        prequel::heap_reference value;    // value of the property (string)
 
         // Indexed by node id value and the key.
         struct derive_key {
@@ -170,13 +170,13 @@ class property_map {
     };
 
     // Contains one entry for every node's property.
-    using tree_type = extpp::btree<property, property::derive_key>;
+    using tree_type = prequel::btree<property, property::derive_key>;
 
 public:
     using anchor = tree_type::anchor;
 
 public:
-    property_map(extpp::anchor_handle<anchor> anc, extpp::heap& heap, extpp::allocator& alloc)
+    property_map(prequel::anchor_handle<anchor> anc, prequel::heap& heap, prequel::allocator& alloc)
         : m_tree(std::move(anc), alloc)
         , m_heap(heap)
     {}
@@ -191,7 +191,7 @@ public:
 
     // Returns the value of the property `name` in the given node.
     // Returns a null reference if no such property exists.
-    extpp::heap_reference get(node_id node, extpp::heap_reference name) const {
+    prequel::heap_reference get(node_id node, prequel::heap_reference name) const {
         const std::tuple<uint64_t, uint64_t> key(node.value(), name.value());
 
         auto cursor = m_tree.find(key);
@@ -202,7 +202,7 @@ public:
     }
 
     // Sets the property `name` of the given node to `value`.
-    void set(node_id node, extpp::heap_reference name, extpp::heap_reference value) {
+    void set(node_id node, prequel::heap_reference name, prequel::heap_reference value) {
         property p;
         p.node = node;
         p.name = name;
@@ -218,7 +218,7 @@ public:
     }
 
     // Remove a single property from a node.
-    void remove(node_id node, extpp::heap_reference name) {
+    void remove(node_id node, prequel::heap_reference name) {
         const std::tuple<uint64_t, uint64_t> key(node.value(), name.value());
 
         auto cursor = m_tree.find(key);
@@ -258,13 +258,13 @@ private:
 
 private:
     tree_type m_tree;
-    extpp::heap& m_heap;
+    prequel::heap& m_heap;
 };
 
 class edge_map {
     struct edge {
         node_id source;
-        extpp::heap_reference label; // Interned string.
+        prequel::heap_reference label; // Interned string.
         node_id destination;
 
         struct key {
@@ -283,7 +283,7 @@ class edge_map {
             }
 
             static constexpr auto get_binary_format() {
-                return extpp::make_binary_format(&key::source, &key::label, &key::destination);
+                return prequel::make_binary_format(&key::source, &key::label, &key::destination);
             }
         };
 
@@ -294,27 +294,27 @@ class edge_map {
         };
 
         static constexpr auto get_binary_format() {
-            return extpp::make_binary_format(&edge::source, &edge::label, &edge::destination);
+            return prequel::make_binary_format(&edge::source, &edge::label, &edge::destination);
         }
     };
 
     // Contains one entry for every node's property.
-    using tree_type = extpp::btree<edge, edge::derive_key>;
+    using tree_type = prequel::btree<edge, edge::derive_key>;
 
 public:
     class anchor {
         tree_type::anchor map, reverse_map;
 
         friend edge_map;
-        friend extpp::binary_format_access;
+        friend prequel::binary_format_access;
 
         static constexpr auto get_binary_format() {
-            return extpp::make_binary_format(&anchor::map, &anchor::reverse_map);
+            return prequel::make_binary_format(&anchor::map, &anchor::reverse_map);
         }
     };
 
 public:
-    edge_map(extpp::anchor_handle<anchor> anc, extpp::allocator& alloc)
+    edge_map(prequel::anchor_handle<anchor> anc, prequel::allocator& alloc)
         : m_map(anc.member<&anchor::map>(), alloc)
         , m_reverse_map(anc.member<&anchor::reverse_map>(), alloc)
     {}
@@ -351,7 +351,7 @@ public:
 
     // Links the two nodes together with a directed edge and the given label.
     // Returns true if the ege was actually inserted, i.e. if it didn't exist.
-    bool link(node_id source, extpp::heap_reference label, node_id destination) {
+    bool link(node_id source, prequel::heap_reference label, node_id destination) {
         edge e;
         e.source = source;
         e.label = label;
@@ -367,7 +367,7 @@ public:
     }
 
     // Removes the edge (source, label, destination) and returns true if it existed.
-    bool unlink(node_id source, extpp::heap_reference label, node_id destination) {
+    bool unlink(node_id source, prequel::heap_reference label, node_id destination) {
         edge e;
         e.source = source;
         e.label = label;
@@ -429,13 +429,13 @@ private:
 
 // Contains one entry for every existing graph node.
 class node_index {
-    using tree_type = extpp::btree<node_id>;
+    using tree_type = prequel::btree<node_id>;
 
 public:
     using anchor = tree_type::anchor;
 
 public:
-    node_index(extpp::anchor_handle<anchor> anc, extpp::allocator& alloc)
+    node_index(prequel::anchor_handle<anchor> anc, prequel::allocator& alloc)
         : m_tree(std::move(anc), alloc)
     {}
 
@@ -473,8 +473,8 @@ private:
 
 class database {
     struct meta_block {
-        extpp::heap::anchor heap;
-        extpp::id_generator::anchor ids;
+        prequel::heap::anchor heap;
+        prequel::id_generator::anchor ids;
         interned_strings::anchor strings;
         node_index::anchor nodes;
         property_map::anchor properties;
@@ -487,10 +487,10 @@ class database {
         }
     };
 
-    using format_type = extpp::default_file_format<meta_block>;
+    using format_type = prequel::default_file_format<meta_block>;
 
 public:
-    database(extpp::file& f, uint32_t cache_size)
+    database(prequel::file& f, uint32_t cache_size)
         : m_format(f, cache_size)
         , m_meta(m_format.get_user_data())
         , m_heap(m_meta.member<&meta_block::heap>(), m_format.get_allocator())
@@ -571,8 +571,8 @@ public:
         if (key.empty())
             throw std::runtime_error("Property names must not be empty.");
 
-        extpp::heap_reference keyref = m_strings.intern(key);
-        extpp::heap_reference valueref = save(m_heap, value);
+        prequel::heap_reference keyref = m_strings.intern(key);
+        prequel::heap_reference valueref = save(m_heap, value);
         m_properties.set(node, keyref, valueref);
     }
 
@@ -584,7 +584,7 @@ public:
         if (key.empty())
             throw std::runtime_error("Property names must not be empty.");
 
-        extpp::heap_reference keyref = m_strings.find(key);
+        prequel::heap_reference keyref = m_strings.find(key);
         if (!keyref)
             return; // No interned string -> no property with that name
         m_properties.remove(node, keyref);
@@ -601,7 +601,7 @@ public:
         if (label.empty())
             throw std::runtime_error("Edge labels must not be empty.");
 
-        extpp::heap_reference labelref = m_strings.intern(label);
+        prequel::heap_reference labelref = m_strings.intern(label);
         m_edges.link(src, labelref, dest);
     }
 
@@ -616,7 +616,7 @@ public:
         if (label.empty())
             throw std::runtime_error("Edge labels must not be empty.");
 
-        extpp::heap_reference labelref = m_strings.find(label);
+        prequel::heap_reference labelref = m_strings.find(label);
         if (!labelref)
             return; // No interned string -> no edge with that label
         m_edges.unlink(src, labelref, dest);
@@ -647,13 +647,13 @@ public:
 private:
     format_type m_format;
 
-    extpp::anchor_handle<meta_block> m_meta;
+    prequel::anchor_handle<meta_block> m_meta;
 
     // Data storage (only strings right now).
-    extpp::heap m_heap;
+    prequel::heap m_heap;
 
     // Generates unique node ids.
-    extpp::id_generator m_ids;
+    prequel::id_generator m_ids;
 
     // Indexes existing interned string instances.
     interned_strings m_strings;
@@ -840,7 +840,7 @@ int main(int argc, char** argv) {
     // The number of blocks cached in memory.
     const uint32_t cache_blocks = (uint64_t(s.cache_size) * uint64_t(1 << 20)) / objectdb::block_size;
 
-    auto file = extpp::system_vfs().open(s.file.c_str(), extpp::vfs::read_write, extpp::vfs::open_create);
+    auto file = prequel::system_vfs().open(s.file.c_str(), prequel::vfs::read_write, prequel::vfs::open_create);
     objectdb::database db(*file, cache_blocks);
 
     auto print_node = [&](objectdb::node_id node) {
@@ -917,7 +917,7 @@ int main(int argc, char** argv) {
 
     db.flush();
     if (s.print_stats) {
-        extpp::file_engine_stats stats = db.engine().stats();
+        prequel::file_engine_stats stats = db.engine().stats();
         std::cout << "\n"
                   << "I/O statistics:\n"
                   << "  Reads:      " << stats.reads << "\n"

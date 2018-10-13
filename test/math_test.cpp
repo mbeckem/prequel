@@ -1,8 +1,8 @@
 #include <catch.hpp>
 
-#include <extpp/math.hpp>
+#include <prequel/math.hpp>
 
-using namespace extpp;
+using namespace prequel;
 
 TEST_CASE("round power of two", "[math]") {
     REQUIRE(round_towards_pow2(1u) == 1);
@@ -35,15 +35,15 @@ TEST_CASE("is pow2", "[math]") {
 TEST_CASE("log2", "[math]") {
     for (u64 i = 0; i < 64; ++i) {
         u64 v = u64(1) << i;
-        REQUIRE(extpp::log2(v) == i);
+        REQUIRE(prequel::log2(v) == i);
     }
 
-    REQUIRE(extpp::log2(7u) == 2);
-    REQUIRE(extpp::log2(9u) == 3);
-    REQUIRE(extpp::log2(15u) == 3);
-    REQUIRE(extpp::log2(16u) == 4);
-    REQUIRE(extpp::log2(1025u) == 10);
-    REQUIRE(extpp::log2(65535u) == 15);
+    REQUIRE(prequel::log2(7u) == 2);
+    REQUIRE(prequel::log2(9u) == 3);
+    REQUIRE(prequel::log2(15u) == 3);
+    REQUIRE(prequel::log2(16u) == 4);
+    REQUIRE(prequel::log2(1025u) == 10);
+    REQUIRE(prequel::log2(65535u) == 15);
 }
 
 TEST_CASE("overflow", "[math]") {

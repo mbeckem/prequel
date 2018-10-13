@@ -1,8 +1,8 @@
 #include <catch.hpp>
 
-#include <extpp/mmap_engine.hpp>
+#include <prequel/mmap_engine.hpp>
 
-using namespace extpp;
+using namespace prequel;
 
 static constexpr u32 block_size = 512;
 

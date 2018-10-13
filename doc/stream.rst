@@ -1,5 +1,5 @@
-Stream: ``extpp/stream.hpp``
+Stream: ``prequel/stream.hpp``
 ----------------------------
 
-.. doxygenclass:: extpp::stream
+.. doxygenclass:: prequel::stream
 	:members:

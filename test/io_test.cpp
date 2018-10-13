@@ -1,8 +1,8 @@
 #include <catch.hpp>
 
-#include <extpp/vfs.hpp>
+#include <prequel/vfs.hpp>
 
 #include <iostream>
 
-using namespace extpp;
+using namespace prequel;
 

@@ -1,14 +1,14 @@
 #include <catch.hpp>
 
-#include <extpp/default_allocator.hpp>
-#include <extpp/exception.hpp>
-#include <extpp/formatting.hpp>
-#include <extpp/raw_stream.hpp>
-#include <extpp/stream.hpp>
+#include <prequel/default_allocator.hpp>
+#include <prequel/exception.hpp>
+#include <prequel/formatting.hpp>
+#include <prequel/raw_stream.hpp>
+#include <prequel/stream.hpp>
 
 #include "./test_file.hpp"
 
-using namespace extpp;
+using namespace prequel;
 
 static constexpr u32 block_size = 512;
 

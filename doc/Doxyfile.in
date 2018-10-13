@@ -1,8 +1,8 @@
 DOXYFILE_ENCODING       = UTF-8
-PROJECT_NAME            = extpp
+PROJECT_NAME            = prequel
 
 OUTPUT_DIRECTORY        = @PROJECT_BINARY_DIR@/doc/doxygen
-INPUT                   = @PROJECT_SOURCE_DIR@/include/extpp
+INPUT                   = @PROJECT_SOURCE_DIR@/include/prequel
 FILE_PATTERNS           = *.c *.cpp *.h *.hpp
 RECURSIVE               = YES
 CLANG_ASSISTED_PARSING  = YES
@@ -23,7 +23,7 @@ INTERNAL_DOCS           = NO
 DISTRIBUTE_GROUP_DOC	= YES
 
 ENABLE_PREPROCESSING    = YES
-PREDEFINED              = EXTPP_DEBUG
+PREDEFINED              = PREQUEL_DEBUG
 
 
 VERBATIM_HEADERS        = NO

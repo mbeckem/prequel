@@ -1,13 +1,13 @@
 #include <catch.hpp>
 
-#include <extpp/default_allocator.hpp>
-#include <extpp/extent.hpp>
+#include <prequel/default_allocator.hpp>
+#include <prequel/extent.hpp>
 
 #include "./test_file.hpp"
 
 #include <iostream>
 
-using namespace extpp;
+using namespace prequel;
 
 static constexpr u32 block_size = 4096;
 

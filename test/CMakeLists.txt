@@ -14,7 +14,6 @@ set(SOURCES
     iter_tools_test.cpp
     list_test.cpp
     math_test.cpp
-    mmap_engine_test.cpp
     node_allocator_test.cpp
     serialization_test.cpp
     stack_test.cpp
@@ -23,11 +22,10 @@ set(SOURCES
 )
 
 if (UNIX)
-    # TODO
-    #list(APPEND SOURCES
-    #    mmap_engine_test.cpp
-    #)
+    list(APPEND SOURCES
+        mmap_engine_test.cpp
+    )
 endif()
 
 add_executable(unit-tests ${SOURCES})
-target_link_libraries(unit-tests extpp)
+target_link_libraries(unit-tests prequel)

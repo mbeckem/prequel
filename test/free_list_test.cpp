@@ -1,10 +1,10 @@
 #include <catch.hpp>
 
-#include <extpp/detail/free_list.hpp>
+#include <prequel/detail/free_list.hpp>
 
 #include "./test_file.hpp"
 
-using namespace extpp;
+using namespace prequel;
 
 static constexpr u32 block_size = 512;
 

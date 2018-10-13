@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 2.8)
 
-project(extpp)
+project(prequel)
 
 if ((CMAKE_CXX_COMPILER_ID MATCHES "GNU") OR (CMAKE_CXX_COMPILER_ID MATCHES "Clang"))
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -Wall -Wextra -pedantic -Wno-noexcept-type -Wno-terminate -Wno-exceptions -Wno-unknown-warning-option")
@@ -19,5 +19,5 @@ find_package(fmt REQUIRED)
 
 add_subdirectory(doc)
 add_subdirectory(example)
-add_subdirectory(src/extpp)
+add_subdirectory(src/prequel)
 add_subdirectory(test)

@@ -1,11 +1,11 @@
 #include <catch.hpp>
 
-#include <extpp/id_generator.hpp>
-#include <extpp/node_allocator.hpp>
+#include <prequel/id_generator.hpp>
+#include <prequel/node_allocator.hpp>
 
 #include "./test_file.hpp"
 
-using namespace extpp;
+using namespace prequel;
 
 static constexpr u32 block_size = 512;
 

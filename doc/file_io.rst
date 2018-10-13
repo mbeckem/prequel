@@ -1,9 +1,9 @@
-File I/O: ``extpp/io.hpp``
+File I/O: ``prequel/io.hpp``
 ===========================
 
-.. doxygenclass:: extpp::vfs
+.. doxygenclass:: prequel::vfs
 	:members:
 
-.. doxygenclass:: extpp::file
+.. doxygenclass:: prequel::file
 	:members:
 

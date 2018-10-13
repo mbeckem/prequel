@@ -1,19 +1,19 @@
 Utility Headers
 ===============
 
-Assertions: ``extpp/assert.hpp``
+Assertions: ``prequel/assert.hpp``
 ---------------------------------
 
 .. doxygengroup:: assertions
 	:content-only:
 
-Common definitions: ``extpp/defs.hpp``
+Common definitions: ``prequel/defs.hpp``
 --------------------------------------
 
 .. doxygengroup:: defs
 	:content-only:
 
-Math functions: ``extpp/math.hpp``
+Math functions: ``prequel/math.hpp``
 ----------------------------------
 
 .. doxygengroup:: math

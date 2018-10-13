@@ -1,12 +1,12 @@
-#ifndef EXTPP_TYPES_HPP
-#define EXTPP_TYPES_HPP
+#ifndef PREQUEL_TYPES_HPP
+#define PREQUEL_TYPES_HPP
 
-#include <extpp/defs.hpp>
-#include <extpp/binary_format.hpp>
-#include <extpp/btree.hpp>
-#include <extpp/extent.hpp>
-#include <extpp/default_allocator.hpp>
-#include <extpp/file_engine.hpp>
+#include <prequel/defs.hpp>
+#include <prequel/binary_format.hpp>
+#include <prequel/btree.hpp>
+#include <prequel/extent.hpp>
+#include <prequel/default_allocator.hpp>
+#include <prequel/file_engine.hpp>
 
 #include <optional>
 #include <string_view>
@@ -14,12 +14,12 @@
 
 namespace blockfs {
 
-using extpp::byte;
+using prequel::byte;
 
-using extpp::u8;
-using extpp::u16;
-using extpp::u32;
-using extpp::u64;
+using prequel::u8;
+using prequel::u16;
+using prequel::u32;
+using prequel::u64;
 
 static constexpr u32 block_size = 4096;
 
@@ -57,7 +57,7 @@ public:
     }
 
     static constexpr auto get_binary_format() {
-        return extpp::make_binary_format(&fixed_string::m_data);
+        return prequel::make_binary_format(&fixed_string::m_data);
     }
 
     friend bool operator<(const fixed_string& lhs, const fixed_string& rhs)  {
@@ -81,7 +81,7 @@ struct file_metadata {
     u64 size = 0;           // In bytes
 
     static constexpr auto get_binary_format() {
-        return extpp::make_binary_format(
+        return prequel::make_binary_format(
                     &file_metadata::name, &file_metadata::permissions,
                     &file_metadata::mtime, &file_metadata::ctime,
                     &file_metadata::size);
@@ -91,10 +91,10 @@ struct file_metadata {
 // Contains the meta information associated with a file.
 struct file_entry {
     file_metadata metadata;
-    extpp::extent::anchor content; // File storage
+    prequel::extent::anchor content; // File storage
 
     static constexpr auto get_binary_format() {
-        return extpp::make_binary_format(
+        return prequel::make_binary_format(
             &file_entry::metadata, &file_entry::content
         );
     }
@@ -108,23 +108,23 @@ struct file_entry {
 };
 
 // A directory is an indexed collection of file entries.
-using directory = extpp::btree<file_entry, file_entry::extract_key>;
+using directory = prequel::btree<file_entry, file_entry::extract_key>;
 
 // The format of the first block of the filesystem.
 struct master_block {
     fixed_string magic{};                   // Magic string that identifies this FS
     u64 partition_size = 0;                 // Size of the partition, in bytes
-    extpp::default_allocator::anchor alloc; // Allocates from the rest of the file
+    prequel::default_allocator::anchor alloc; // Allocates from the rest of the file
     directory::anchor root;                 // Root directory tree
 
     static constexpr auto get_binary_format() {
-        return extpp::make_binary_format(
+        return prequel::make_binary_format(
                 &master_block::magic, &master_block::partition_size,
                 &master_block::alloc, &master_block::root);
     }
 
     static fixed_string magic_value() {
-        return fixed_string("EXTPP_BLOCK_FS_EXAMPLE_1");
+        return fixed_string("PREQUEL_BLOCK_FS_EXAMPLE_1");
     }
 };
 
@@ -156,7 +156,7 @@ struct invalid_file_offset : path_exception {
 
 class filesystem {
 public:
-    filesystem(extpp::file_engine& engine);
+    filesystem(prequel::file_engine& engine);
     ~filesystem();
 
     std::vector<file_metadata> list_files();
@@ -199,24 +199,24 @@ public:
 private:
     directory::cursor find_file(const char* path);
 
-    void adapt_capacity(extpp::extent& extent, u64 required_bytes);
+    void adapt_capacity(prequel::extent& extent, u64 required_bytes);
     void destroy_file(file_entry& entry);
 
     void writeback_master();
 
 private:
-    extpp::file_engine& m_engine;
+    prequel::file_engine& m_engine;
 
     // Master block management.
-    extpp::block_handle m_master_handle;
+    prequel::block_handle m_master_handle;
     master_block m_master;
-    extpp::anchor_flag m_master_changed;
+    prequel::anchor_flag m_master_changed;
 
     // Persistent datastructures.
-    extpp::default_allocator m_alloc;
+    prequel::default_allocator m_alloc;
     directory m_root;
 };
 
 } // namespace blockfs
 
-#endif // EXTPP_TYPES_HPP
+#endif // PREQUEL_TYPES_HPP

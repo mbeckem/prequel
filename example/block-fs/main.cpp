@@ -16,10 +16,10 @@ using namespace blockfs;
  * of a FUSE based file system.
  *
  * The file system contains a single root directory and is implemented
- * using an extpp::btree. File entries are stored directly in the tree,
+ * using an prequel::btree. File entries are stored directly in the tree,
  * and are ordered by their name, which can be up to 32 bytes long.
  *
- * The content of each file is stored in a extpp::extent, which is a
+ * The content of each file is stored in a prequel::extent, which is a
  * range of contiguous blocks. Every non-empty file therefore occupies
  * at least one block on disk. Storing large files in a single contiguous
  * sequence of blocks is a very bad approach (because lots of copying
@@ -53,7 +53,7 @@ static struct stat to_stat(const file_metadata& metadata) {
 static int fs_readdir(const char* path, void* buf, fuse_fill_dir_t filler,
                       off_t offset, struct fuse_file_info* fi)
 {
-    extpp::unused(offset, fi);
+    prequel::unused(offset, fi);
 
     if (std::strcmp(path, "/") != 0)
         return -ENOENT;
@@ -119,7 +119,7 @@ static int fs_rename(const char* from, const char* to) {
 
 // Create a file if it does not already exist.
 static int fs_create(const char* path, mode_t mode, struct fuse_file_info* fi) {
-    extpp::unused(fi, mode);
+    prequel::unused(fi, mode);
 
     if (!S_ISREG(mode)) {
         return -EINVAL; // Only regular files are supported.
@@ -135,7 +135,7 @@ static int fs_create(const char* path, mode_t mode, struct fuse_file_info* fi) {
 
 // "Open" a file. This currently just checks for the file's existence.
 static int fs_open(const char* path, struct fuse_file_info* fi) {
-    extpp::unused(fi);
+    prequel::unused(fi);
 
     filesystem& fs = filesystem_context();
     if (fs.exists(path)) {
@@ -148,7 +148,7 @@ static int fs_open(const char* path, struct fuse_file_info* fi) {
 static int fs_read(const char* path, char* buf, size_t size, off_t offset,
                    struct fuse_file_info* fi)
 {
-    extpp::unused(fi);
+    prequel::unused(fi);
 
     if (offset < 0) {
         return -EINVAL;
@@ -162,7 +162,7 @@ static int fs_read(const char* path, char* buf, size_t size, off_t offset,
 static int fs_write(const char* path, const char* buf, size_t size, off_t offset,
                     struct fuse_file_info* fi)
 {
-    extpp::unused(fi);
+    prequel::unused(fi);
 
     if (offset < 0) {
         return -EINVAL;
@@ -308,7 +308,7 @@ static int option_callback(void *data, const char *arg, int key, struct fuse_arg
  * shall be stored. The path will be forwarded to the file engine used by this program.
  *
  * NOTE: Program must be launched with -s to force single threaded fuse mode.
- * Multithreaded access to extpp datastructures is not supported (for now).
+ * Multithreaded access to prequel datastructures is not supported (for now).
  *
  * Call the program with -d for debug output or -f for foreground operation (fuse
  * will deamonize otherwise).
@@ -327,12 +327,12 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    auto file = extpp::system_vfs().open(options.filename,
-                                         extpp::vfs::read_write,
-                                         extpp::vfs::open_normal);
+    auto file = prequel::system_vfs().open(options.filename,
+                                         prequel::vfs::read_write,
+                                         prequel::vfs::open_normal);
 
     // Limits the cache to 128 MB.
-    extpp::file_engine engine(*file, block_size, (128 * (1 << 20)) / block_size);
+    prequel::file_engine engine(*file, block_size, (128 * (1 << 20)) / block_size);
     filesystem fs(engine);
 
     int ret = fuse_main(args.argc, args.argv, &operations, &fs);

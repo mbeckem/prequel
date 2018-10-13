@@ -1,11 +1,11 @@
 #include <catch.hpp>
 
-#include <extpp/detail/inlined_any.hpp>
+#include <prequel/detail/inlined_any.hpp>
 
 #include <memory>
 
-using namespace extpp;
-using namespace extpp::detail;
+using namespace prequel;
+using namespace prequel::detail;
 
 using any_t = inlined_any<64>;
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 #
-# extpp documentation build configuration file, created by
+# prequel documentation build configuration file, created by
 # sphinx-quickstart on Wed Dec 20 16:33:30 2017.
 #
 # This file is execfile()d with the current directory set to its
@@ -55,7 +55,7 @@ source_suffix = '.rst'
 master_doc = 'index'
 
 # General information about the project.
-project = 'extpp'
+project = 'prequel'
 copyright = '2017-2018, Michael Beckemeyer'
 author = 'Michael Beckemeyer'
 
@@ -88,9 +88,9 @@ todo_include_todos = False
 
 # -- Doxygen bridge
 breathe_projects = {
-    "extpp": DOXYGEN_XML
+    "prequel": DOXYGEN_XML
 }
-breathe_default_project = "extpp"
+breathe_default_project = "prequel"
 
 
 # -- Options for HTML output ----------------------------------------------
@@ -131,7 +131,7 @@ html_sidebars = {
 # -- Options for HTMLHelp output ------------------------------------------
 
 # Output file base name for HTML help builder.
-htmlhelp_basename = 'extppdoc'
+htmlhelp_basename = 'prequeldoc'
 
 
 # -- Options for LaTeX output ---------------------------------------------
@@ -158,7 +158,7 @@ latex_elements = {
 # (source start file, target name, title,
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
-    (master_doc, 'extpp.tex', 'extpp Documentation',
+    (master_doc, 'prequel.tex', 'prequel Documentation',
      'Michael Beckemeyer', 'manual'),
 ]
 
@@ -168,7 +168,7 @@ latex_documents = [
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
 man_pages = [
-    (master_doc, 'extpp', 'extpp Documentation',
+    (master_doc, 'prequel', 'prequel Documentation',
      [author], 1)
 ]
 
@@ -179,7 +179,7 @@ man_pages = [
 # (source start file, target name, title, author,
 #  dir menu entry, description, category)
 texinfo_documents = [
-    (master_doc, 'extpp', 'extpp Documentation',
-     author, 'extpp', 'One line description of project.',
+    (master_doc, 'prequel', 'prequel Documentation',
+     author, 'prequel', 'One line description of project.',
      'Miscellaneous'),
 ]
