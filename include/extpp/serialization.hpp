@@ -34,6 +34,7 @@ const byte* deserialize(T& v, const byte* buffer);
 
 namespace detail {
 
+// True if the type is a C-style array
 template<typename T>
 struct detect_array : std::false_type {};
 
@@ -42,15 +43,20 @@ struct detect_array<T[N]> : std::true_type {
     using value_type = T;
 };
 
+// True if the type is a std::array<T, N>
 template<typename T>
 struct detect_std_array : std::false_type {};
 
 template<typename T, size_t N>
 struct detect_std_array<std::array<T, N>> : std::true_type {};
 
+// True if the type is byte-sized.
+// This library only works when CHAT_BIT == 8 so char, signed char unsigned char are
+// treated the same as u8 and i8.
 template<typename T>
 constexpr bool is_byte_v = std::is_same_v<T, char> || std::is_same_v<T, signed char> || std::is_same_v<T, unsigned char> || std::is_same_v<T, u8> || std::is_same_v<T, i8>;
 
+// Use the trivial serializer (i.e. memcpy) if type is a byte or made up of bytes (recursively).
 template<typename T>
 constexpr bool use_trivial_serializer() {
     if constexpr (is_byte_v<T>) {
@@ -64,6 +70,7 @@ constexpr bool use_trivial_serializer() {
     }
 }
 
+// The trivial serializer uses memcpy for serialization and deserialization.
 template<typename T>
 struct trivial_serializer {
     static constexpr size_t serialized_size = sizeof(T);
@@ -89,6 +96,7 @@ struct has_explicit_serializer<T, void_t<typename T::binary_serializer>> : std::
 template<typename T, typename Enable = void>
 struct default_serializer : std::false_type {};
 
+// Serialization of numeric types.
 template<typename T, size_t size>
 struct big_endian_serializer {
     static_assert(sizeof(T) == size,
@@ -128,6 +136,10 @@ struct default_serializer<i64> : big_endian_serializer<i64, 8> {};
 // of floating point numbers. The following code only works on platforms
 // where the float endianess is the same as the integer endianess (which is the
 // rule in modern systems).
+//
+// This class serializes floating point numbers by copying them into an unsigned value
+// of the same size and then performing the appropriate serilization on the unsigned value.
+// For example, a float is copied into a u32 which in turn gets serialized as a big endian value.
 template<typename T, typename U>
 struct float_serializer {
     static_assert(sizeof(T) == sizeof(U),
@@ -186,6 +198,7 @@ struct default_serializer<T[N]> {
     }
 };
 
+// std::arrays use the same serilization format as c style arrays.
 template<typename T, size_t N>
 struct default_serializer<std::array<T, N>> {
     static constexpr size_t serialized_size = N * extpp::serialized_size<T>();
@@ -203,6 +216,7 @@ struct default_serializer<std::array<T, N>> {
     }
 };
 
+// pair<T1, T2> is serialized by serializing the first, then the second value.
 template<typename T1, typename T2>
 struct default_serializer<std::pair<T1, T2>> {
     static constexpr size_t serialized_size = extpp::serialized_size<T1>() + extpp::serialized_size<T2>();
@@ -218,6 +232,8 @@ struct default_serializer<std::pair<T1, T2>> {
     }
 };
 
+// tuple serialization is implemented by serializing the types in the order in which they appear
+// in the tuple declaration.
 template<typename... T>
 struct default_serializer<std::tuple<T...>> {
     static constexpr size_t serialized_size = (extpp::serialized_size<T>() + ...);
@@ -247,6 +263,10 @@ constexpr size_t max_size() {
     return max;
 }
 
+// Variants contain a single byte tag at the start that indicates the kind of value they carry.
+// The rest of the storage must be interpreted according to that tag.
+// For example, a std::variant<int, double, bool> that carries a double will have the tag `1` (zero indexed)
+// and the following bytes will contain the serialized double value.
 template<typename... T>
 struct default_serializer<std::variant<T...>> {
     static constexpr size_t alternatives = sizeof...(T);
@@ -424,7 +444,7 @@ enum class serializer_kind {
     // Automatic serialization for classes that provide a get_binary_format() function.
     binary_format_serialization,
 
-    // Serializatoin for classes that have their own serialization implementation.
+    // Serialization for classes that have their own serialization implementation.
     explicit_serialization,
 };
 
