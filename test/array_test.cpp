@@ -1,10 +1,10 @@
 #include <catch.hpp>
 
+#include <prequel/array.hpp>
 #include <prequel/default_allocator.hpp>
 #include <prequel/exception.hpp>
 #include <prequel/formatting.hpp>
-#include <prequel/raw_stream.hpp>
-#include <prequel/stream.hpp>
+#include <prequel/raw_array.hpp>
 
 #include "./test_file.hpp"
 
@@ -12,7 +12,7 @@ using namespace prequel;
 
 static constexpr u32 block_size = 512;
 
-using stream_t = stream<i32>;
+using stream_t = array<i32>;
 
 TEST_CASE("stream basics", "[stream]") {
     test_file file(block_size);

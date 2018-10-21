@@ -89,6 +89,7 @@ struct raw_btree_options {
 
 using raw_btree_anchor = detail::raw_btree_anchor;
 
+/// Cursors are used to traverse the values in a btree.
 class raw_btree_cursor {
 public:
     raw_btree_cursor();
@@ -100,11 +101,30 @@ public:
     raw_btree_cursor& operator=(raw_btree_cursor&&) noexcept;
 
 public:
+    /// Returns the size of a value.
     u32 value_size() const;
+
+    /// Returns the size of a key derived from a value.
     u32 key_size() const;
 
+    /// Returns a pointer to the current value. The returned pointer has exactly `value_size` readable bytes.
+    /// Throws an exception if the cursor does not currently point to a valid value.
+    const byte* get() const;
+
+    /// Replaces the current value with the given one. The old and the new value must have the same key.
+    /// Throws an exception if the cursor does not currently point to a valid value.
+    void set(const byte* value);
+
+    /// True iff this cursor has been positioned at the end of the tree,
+    /// in which case it does not point to a valid value.
+    /// This happens when the entire tree was traversed or when a search
+    /// operation fails to find a value.
     bool at_end() const;
+
+    /// True iff the element this cursor pointed to was erased.
     bool erased() const;
+
+    /// Equivalent to `!at_end()`.
     explicit operator bool() const { return !at_end(); }
 
     /// Reset the iterator. `at_end()` will return true.
@@ -152,14 +172,6 @@ public:
     /// already point at an erased element.
     void erase();
 
-    /// Returns a pointer to the current value. The returned pointer has exactly `value_size` readable bytes.
-    /// Throws an exception if the cursor does not currently point to a valid value.
-    const byte* get() const;
-
-    /// Replaces the current value with the given one. The old and the new value must have the same key.
-    /// Throws an exception if the cursor does not currently point to a valid value.
-    void set(const byte* value);
-
     /// Check cursor invariants. Used when testing.
     /// TODO
     void validate() const;
@@ -179,6 +191,7 @@ private:
     std::unique_ptr<detail::btree_impl::cursor> m_impl;
 };
 
+/// Implements bulk loading for btrees.
 class raw_btree_loader {
 public:
     raw_btree_loader() = delete;
@@ -192,12 +205,13 @@ public:
     raw_btree_loader& operator=(raw_btree_loader&&) noexcept;
 
     /// Insert a single new value into the tree.
-    /// The value must be greater than the previous value(s).
+    /// The value must be greater than the previous values inserted
+    /// into the tree.
     void insert(const byte* value);
 
     /// Insert a number of values into the new tree.
     /// The values must be ordered and unique and must be greater
-    /// than the previous value(s).
+    /// than the previous values inserted into the tree.
     ///
     /// \warning count is the number of values, *NOT* the number of bytes.
     void insert(const byte* values, size_t count);
@@ -222,25 +236,28 @@ private:
     std::unique_ptr<detail::btree_impl::loader> m_impl;
 };
 
-/// An efficient index for fixed-size values.
+/**
+ * An ordered index for fixed sized values that allows runtime-sized values.
+ * This means that it can be used for value sizes that are only known at runtime,
+ * for example determined through user input. All values still have to be of the same size.
+ *
+ * A btree indexes instances of `Value` by deriving a *key* for each value
+ * using the `DeriveKey` function. Keys must be comparable using `<` (which can be overwritten
+ * by specifying the `KeyLess` parameter).
+ * Two values are considered equal if their keys are equal.
+ */
 class raw_btree {
 public:
     using anchor = raw_btree_anchor;
     using cursor = raw_btree_cursor;
-    using loader = raw_btree_loader;
-
-public:
-    enum cursor_seek_t {
-        /// Don't seek to anything, i.e. create an invalid cursor.
-        seek_none = 0,
-        /// Seek to the smallest value (if any).
-        seek_min = 1,
-        /// Seek to the largest value (if any).
-        seek_max = 2
-    };
 
     struct insert_result {
+        /// Points to the position of the value.
         cursor position;
+
+        /// Whether a new value was inserted into the tree.
+        /// This will be false if an equivalent value already
+        /// existed within the tree.
         bool inserted = false;
 
         insert_result() = default;
@@ -251,7 +268,50 @@ public:
         {}
     };
 
+    using insert_result_t = insert_result;
+
+    using loader = raw_btree_loader;
+
+    enum cursor_seek_t {
+        /// Don't seek to anything, i.e. create an invalid cursor.
+        seek_none = 0,
+        /// Seek to the smallest value (if any).
+        seek_min = 1,
+        /// Seek to the largest value (if any).
+        seek_max = 2
+    };
+
+    class node_view {
+    public:
+        node_view() = default;
+        virtual ~node_view();
+
+        node_view(const node_view&) = delete;
+        node_view& operator=(const node_view&) = delete;
+
+    public:
+        virtual bool is_leaf() const  = 0;
+        virtual bool is_internal() const = 0;
+
+        virtual u32 level() const = 0;
+        virtual block_index address() const = 0;
+        virtual block_index parent_address() const = 0;
+
+        // For internal nodes.
+        virtual u32 child_count() const = 0;
+        virtual u32 key_count() const = 0;
+        virtual const byte* key(u32 index) const = 0;
+        virtual block_index child(u32 index) const = 0;
+
+        // For leaf nodes.
+        virtual u32 value_count() const = 0;
+        virtual const byte* value(u32 index) const = 0;
+    };
+
 public:
+    /// Constructs the tree rooted at the existing anchor.
+    /// The options must be equivalent every time the tree is opened;
+    /// they are not persisted to disk.
     raw_btree(anchor_handle<anchor> _anchor, const raw_btree_options& options, allocator& alloc);
     ~raw_btree();
 
@@ -261,13 +321,15 @@ public:
     raw_btree(const raw_btree&) = delete;
     raw_btree& operator=(const raw_btree&) = delete;
 
-public:
     engine& get_engine() const;
     allocator& get_allocator() const;
 
-    /// \name Tree properties
+    /// Creates a bulk loading object for this tree.
+    /// The object should be used to insert values in ascending order (according to the
+    /// tree's comparison function) into the tree.
     ///
-    /// \{
+    /// \note Only empty trees can be bulk-loaded.
+    loader bulk_load();
 
     /// Returns the size (in bytes) of every value in the tree (stored in leaf nodes).
     u32 value_size() const;
@@ -275,13 +337,13 @@ public:
     // Returns the size (in bytes) of every key in the tree (stored in internal nodes).
     u32 key_size() const;
 
-    /// Returns the number of children an internal node can point to.
+    /// Returns the maximum number of children in an internal node.
     u32 internal_node_capacity() const;
 
-    /// Returns the number of values a leaf node can store
+    /// Returns the maximum number of values in a leaf node.
     u32 leaf_node_capacity() const;
 
-    /// Returns true if the list is empty.
+    /// Returns true if the tree is empty.
     bool empty() const;
 
     /// Returns the number of entries in this tree.
@@ -316,11 +378,6 @@ public:
     /// \note Most leaves and internal nodes are never less than half full.
     double overhead() const;
 
-    /// \}
-    ///
-
-    /// \name Cursor operations
-
     /// Create a new cursor and seek it to the specified position.
     /// The cursor is initially invalid if `seek_none` is specified;
     /// otherwise the cursor will attempt to move to the implied element.
@@ -346,8 +403,6 @@ public:
     /// it will be overwritten.
     insert_result insert_or_update(const byte* value);
 
-    /// }
-
     /// Removes all data from this tree. After this operation completes,
     /// the tree will not occupy any space on disk.
     /// \post `empty() && byte_size() == 0`.
@@ -357,48 +412,11 @@ public:
     /// \post `empty()`.
     void clear();
 
-    /// Creates a bulk loading object for this tree.
-    /// The object should be used to insert values in ascending order (occording to the
-    /// tree's comparison function) into the tree.
-    ///
-    /// \note This only works on empty trees.
-    loader bulk_load();
-
-    // TODO: Efficient min/max push_back/push_front with a private internal cursor.
-
     void dump(std::ostream& os) const;
 
     /// Perform validation of the tree's structure. Basic invariants, such as the
     /// order and number of values (per node and in total) are checked.
     void validate() const;
-
-public:
-    class node_view {
-    public:
-        node_view() = default;
-        virtual ~node_view();
-
-        node_view(const node_view&) = delete;
-        node_view& operator=(const node_view&) = delete;
-
-    public:
-        virtual bool is_leaf() const  = 0;
-        virtual bool is_internal() const = 0;
-
-        virtual u32 level() const = 0;
-        virtual block_index address() const = 0;
-        virtual block_index parent_address() const = 0;
-
-        // For internal nodes.
-        virtual u32 child_count() const = 0;
-        virtual u32 key_count() const = 0;
-        virtual const byte* key(u32 index) const = 0;
-        virtual block_index child(u32 index) const = 0;
-
-        // For leaf nodes.
-        virtual u32 value_count() const = 0;
-        virtual const byte* value(u32 index) const = 0;
-    };
 
     /// Visits every internal node and every leaf node from top to bottom. The function
     /// will be invoked for every node until it returns false, at which point the iteration
@@ -416,6 +434,8 @@ public:
         };
         visit(visit_fn, reinterpret_cast<void*>(std::addressof(fn)));
     }
+
+    // TODO: Efficient min/max push_back/push_front with a private internal cursor.
 
 private:
     detail::btree_impl::tree& impl() const;

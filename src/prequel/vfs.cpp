@@ -53,9 +53,6 @@ public:
 };
 
 class memory_file : public file {
-    std::string m_name;
-    std::vector<byte> m_data;
-
 public:
     memory_file(in_memory_vfs& v, std::string name)
         : file(v)
@@ -72,6 +69,11 @@ public:
 
 private:
     void range_check(u64 offset, u32 count) const;
+
+private:
+    std::string m_name;
+    std::vector<byte> m_data;
+    size_t size = 0;
 };
 
 void memory_file::range_check(u64 offset, u32 count) const

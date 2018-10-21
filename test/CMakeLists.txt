@@ -2,6 +2,7 @@ set(SOURCES
     main.cpp
 
     address_test.cpp
+    array_test.cpp
     bitset_test.cpp
     btree_test.cpp
     default_allocator_test.cpp
@@ -17,7 +18,6 @@ set(SOURCES
     node_allocator_test.cpp
     serialization_test.cpp
     stack_test.cpp
-    stream_test.cpp
     test_file.hpp
 )
 

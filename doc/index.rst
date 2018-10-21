@@ -4,18 +4,20 @@
    contain the root `toctree` directive.
 
 Welcome to prequel's documentation!
-=================================
+===================================
 
 .. toctree::
-   :maxdepth: 2
-   :numbered:
-   :includehidden:
+    :maxdepth: 2
+    :numbered:
+    :includehidden:
 
-   datastructures
-   serialization
-   file_io
-   exceptions
-   utility
+    introduction
+    datastructures
+    engine
+    vfs
+    serialization
+    exceptions
+    utility
 
 
 

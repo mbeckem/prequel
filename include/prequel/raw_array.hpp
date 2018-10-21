@@ -1,5 +1,5 @@
-#ifndef PREQUEL_RAW_STREAM_HPP
-#define PREQUEL_RAW_STREAM_HPP
+#ifndef PREQUEL_RAW_ARRAY_HPP
+#define PREQUEL_RAW_ARRAY_HPP
 
 #include <prequel/allocator.hpp>
 #include <prequel/anchor_handle.hpp>
@@ -14,13 +14,13 @@
 
 namespace prequel {
 
-class raw_stream;
+class raw_array;
 
 namespace detail {
 
-class raw_stream_impl;
+class raw_array_impl;
 
-struct raw_stream_anchor {
+struct raw_array_anchor {
     /// Raw block storage.
     extent::anchor storage;
 
@@ -28,13 +28,13 @@ struct raw_stream_anchor {
     u64 size = 0;
 
     static constexpr auto get_binary_format() {
-        return make_binary_format(&raw_stream_anchor::storage, &raw_stream_anchor::size);
+        return make_binary_format(&raw_array_anchor::storage, &raw_array_anchor::size);
     }
 };
 
 } // namespace detail
 
-using raw_stream_anchor = detail::raw_stream_anchor;
+using raw_array_anchor = detail::raw_array_anchor;
 
 /// The stream allocates new blocks in chunks of the given size.
 struct linear_growth {
@@ -56,19 +56,32 @@ struct exponential_growth {};
 /// Specify the growth strategy of a stream.
 using growth_strategy = std::variant<linear_growth, exponential_growth>;
 
-class raw_stream {
+/**
+ * A dynamic array for fixed-size values.
+ * The size of values can be determined at runtime (e.g. through user input)
+ * but must remain constant during the use of an array.
+ *
+ * A array stores a sequence of fixed-size values in contiguous storage on disk.
+ * The stream can reserve capacity ahead of time to prepare for future insertions,
+ * very similar to `std::vector<T>`.
+ */
+class raw_array {
 public:
-    using anchor = raw_stream_anchor;
+    using anchor = raw_array_anchor;
 
 public:
-    explicit raw_stream(anchor_handle<anchor> _anchor, u32 value_size, allocator& alloc);
-    ~raw_stream();
+    /**
+     * Accesses a raw array rooted at the given anchor.
+     * `value_size` and `alloc` must be equivalent every time the raw array is loaded.
+     */
+    explicit raw_array(anchor_handle<anchor> _anchor, u32 value_size, allocator& alloc);
+    ~raw_array();
 
-    raw_stream(const raw_stream&) = delete;
-    raw_stream& operator=(const raw_stream&) = delete;
+    raw_array(const raw_array&) = delete;
+    raw_array& operator=(const raw_array&) = delete;
 
-    raw_stream(raw_stream&&) noexcept;
-    raw_stream& operator=(raw_stream&&) noexcept;
+    raw_array(raw_array&&) noexcept;
+    raw_array& operator=(raw_array&&) noexcept;
 
 public:
     engine& get_engine() const;
@@ -193,12 +206,12 @@ public:
     growth_strategy growth() const;
 
 private:
-    detail::raw_stream_impl& impl() const;
+    detail::raw_array_impl& impl() const;
 
 private:
-    std::unique_ptr<detail::raw_stream_impl> m_impl;
+    std::unique_ptr<detail::raw_array_impl> m_impl;
 };
 
 } // namespace prequel
 
-#endif // PREQUEL_RAW_STREAM_HPP
+#endif // PREQUEL_RAW_ARRAY_HPP

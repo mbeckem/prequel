@@ -1,12 +1,11 @@
 Datastructures
 ==============
 
-asdasd
-
-
 .. toctree::
-   stream
-   btree
-   heap
 
+    btree
+    heap
+    list
+    stack
+    stream
 

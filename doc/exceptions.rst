@@ -1,8 +1,10 @@
-Exceptions: ``prequel/exception.hpp``
-===================================
+Exceptions
+==========
 
-Exception classes
------------------
+Reference
+---------
+
+``#include <prequel/exception.hpp>``
 
 .. doxygenclass:: prequel::exception
 	:members:
@@ -30,9 +32,6 @@ Exception classes
 
 .. doxygenclass:: prequel::bad_argument
 	:members:
-	
-Support Macros
---------------
 
 .. doxygengroup:: exception_support
 	:content-only:

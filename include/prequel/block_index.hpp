@@ -80,9 +80,11 @@ private:
 };
 
 /// Zeroes `size` blocks, starting from `index`.
+/// \relates block_index
 void zero_blocks(engine& e, block_index index, u64 size);
 
 /// Copies `size` blocks from `src` to `dest`. The block ranges can overlap.
+/// \relates block_index
 void copy_blocks(engine& e, block_index src, block_index dest, u64 size);
 
 } // namespace prequel

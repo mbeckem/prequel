@@ -1,4 +1,4 @@
-#include <prequel/raw_stream.hpp>
+#include <prequel/raw_array.hpp>
 
 #include <prequel/exception.hpp>
 #include <prequel/extent.hpp>
@@ -19,11 +19,11 @@ u32 calc_offset_in_block(u32 value_size, u32 index) {
 
 namespace detail {
 
-class raw_stream_impl {
+class raw_array_impl {
 public:
-    using anchor = detail::raw_stream_anchor;
+    using anchor = detail::raw_array_anchor;
 
-    raw_stream_impl(anchor_handle<anchor> _anchor, u32 value_size, allocator& alloc)
+    raw_array_impl(anchor_handle<anchor> _anchor, u32 value_size, allocator& alloc)
         : m_anchor(std::move(_anchor))
         , m_extent(m_anchor.member<&anchor::storage>(), alloc)
         , m_value_size(value_size)
@@ -33,10 +33,10 @@ public:
             PREQUEL_THROW(bad_argument("Block size too small to fit a single value."));
     }
 
-    ~raw_stream_impl() = default;
+    ~raw_array_impl() = default;
 
-    raw_stream_impl(const raw_stream_impl&) = delete;
-    raw_stream_impl& operator=(const raw_stream_impl&) = delete;
+    raw_array_impl(const raw_array_impl&) = delete;
+    raw_array_impl& operator=(const raw_array_impl&) = delete;
 
 public:
     allocator& get_allocator() const { return m_extent.get_allocator(); }
@@ -106,7 +106,7 @@ public:
     void pop_back() {
         const u64 sz = size();
         if (sz == 0)
-            PREQUEL_THROW(bad_operation("Stream is empty."));
+            PREQUEL_THROW(bad_operation("Array is empty."));
 
         m_anchor.set<&anchor::size>(sz - 1);
     }
@@ -218,50 +218,50 @@ private:
 
 } // namespace detail
 
-raw_stream::raw_stream(anchor_handle<anchor> _anchor, u32 value_size, allocator& alloc)
-    : m_impl(std::make_unique<detail::raw_stream_impl>(std::move(_anchor), value_size, alloc))
+raw_array::raw_array(anchor_handle<anchor> _anchor, u32 value_size, allocator& alloc)
+    : m_impl(std::make_unique<detail::raw_array_impl>(std::move(_anchor), value_size, alloc))
 {}
 
-raw_stream::~raw_stream() {}
+raw_array::~raw_array() {}
 
-raw_stream::raw_stream(raw_stream&& other) noexcept
+raw_array::raw_array(raw_array&& other) noexcept
     : m_impl(std::move(other.m_impl)) {}
 
-raw_stream& raw_stream::operator=(raw_stream&& other) noexcept {
+raw_array& raw_array::operator=(raw_array&& other) noexcept {
     if (this != &other)
         m_impl = std::move(other.m_impl);
     return *this;
 }
 
-allocator& raw_stream::get_allocator() const { return impl().get_allocator(); }
-engine& raw_stream::get_engine() const { return impl().get_engine(); }
+allocator& raw_array::get_allocator() const { return impl().get_allocator(); }
+engine& raw_array::get_engine() const { return impl().get_engine(); }
 
-u32 raw_stream::value_size() const { return impl().value_size(); }
-u32 raw_stream::block_capacity() const { return impl().block_capacity(); }
+u32 raw_array::value_size() const { return impl().value_size(); }
+u32 raw_array::block_capacity() const { return impl().block_capacity(); }
 
-bool raw_stream::empty() const { return impl().empty(); }
-u64 raw_stream::size() const { return impl().size(); }
-u64 raw_stream::capacity() const { return impl().capacity(); }
-u64 raw_stream::blocks() const { return impl().blocks(); }
-double raw_stream::fill_factor() const { return impl().fill_factor(); }
-u64 raw_stream::byte_size() const { return impl().byte_size(); }
-double raw_stream::overhead() const { return impl().overhead(); }
+bool raw_array::empty() const { return impl().empty(); }
+u64 raw_array::size() const { return impl().size(); }
+u64 raw_array::capacity() const { return impl().capacity(); }
+u64 raw_array::blocks() const { return impl().blocks(); }
+double raw_array::fill_factor() const { return impl().fill_factor(); }
+u64 raw_array::byte_size() const { return impl().byte_size(); }
+double raw_array::overhead() const { return impl().overhead(); }
 
-void raw_stream::get(u64 index, byte* value) const { impl().get(index, value); }
-void raw_stream::set(u64 index, const byte* value) { impl().set(index, value); }
-void raw_stream::reset() { impl().reset(); }
-void raw_stream::clear() { impl().clear(); }
-void raw_stream::resize(u64 n, const byte* value) { impl().resize(n, value); }
-void raw_stream::reserve(u64 n) { impl().reserve(n); }
-void raw_stream::growth(const growth_strategy& g) { impl().growth(g); }
-growth_strategy raw_stream::growth() const { return impl().growth(); }
+void raw_array::get(u64 index, byte* value) const { impl().get(index, value); }
+void raw_array::set(u64 index, const byte* value) { impl().set(index, value); }
+void raw_array::reset() { impl().reset(); }
+void raw_array::clear() { impl().clear(); }
+void raw_array::resize(u64 n, const byte* value) { impl().resize(n, value); }
+void raw_array::reserve(u64 n) { impl().reserve(n); }
+void raw_array::growth(const growth_strategy& g) { impl().growth(g); }
+growth_strategy raw_array::growth() const { return impl().growth(); }
 
-void raw_stream::push_back(const byte* value) { impl().push_back(value); }
-void raw_stream::pop_back() { impl().pop_back(); }
+void raw_array::push_back(const byte* value) { impl().push_back(value); }
+void raw_array::pop_back() { impl().pop_back(); }
 
-detail::raw_stream_impl& raw_stream::impl() const {
+detail::raw_array_impl& raw_array::impl() const {
     if (!m_impl)
-        PREQUEL_THROW(bad_operation("Bad stream instance."));
+        PREQUEL_THROW(bad_operation("Bad array instance."));
     return *m_impl;
 }
 

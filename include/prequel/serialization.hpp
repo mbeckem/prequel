@@ -534,7 +534,7 @@ using serializer_t = typename select_serializer<remove_cvref_t<T>>::type;
 ///
 /// Functions for serialization and deserialization of values.
 /// This library establishes a bi-directional mapping between structs in memory
-/// and on storage. Instances are serialized from their usual in-RAM representation
+/// and in secondary storage. Instances are serialized from their usual in-RAM representation
 /// into byte buffers of fixed size (in big endian format) using the \ref serialize
 /// function or related helper functions.
 /// Values can be read back using the \ref deserialize function (and its associated helpers).

@@ -21,11 +21,10 @@
 # import sys
 # sys.path.insert(0, os.path.abspath('.'))
 
-
 import os
+import sys
 
-# Passed in from cmake
-DOXYGEN_XML = os.environ.get("DOXYGEN_XML")
+sys.path.insert(0, os.path.abspath("./doxyrest/sphinx"))
 
 # -- General configuration ------------------------------------------------
 
@@ -39,7 +38,8 @@ DOXYGEN_XML = os.environ.get("DOXYGEN_XML")
 extensions = [
     'sphinx.ext.mathjax',
     'sphinx.ext.ifconfig',
-    'breathe'
+    'doxyrest',
+    'cpplexer'
 ]
 
 # Add any paths that contain templates here, relative to this directory.
@@ -86,29 +86,31 @@ pygments_style = 'sphinx'
 # If true, `todo` and `todoList` produce output, else they produce nothing.
 todo_include_todos = False
 
-# -- Doxygen bridge
-breathe_projects = {
-    "prequel": DOXYGEN_XML
-}
-breathe_default_project = "prequel"
-
-
 # -- Options for HTML output ----------------------------------------------
 
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
-#
+
 import sphinx_rtd_theme
 html_theme = "sphinx_rtd_theme"
-html_theme_path = [sphinx_rtd_theme.get_html_theme_path()]
 
-# html_theme = "nature"
+html_theme_options = {
+    # TODO
+    'canonical_url': '',
+    'analytics_id': '',
+    'logo_only': False,
+    'display_version': True,
+    'prev_next_buttons_location': None, # or bottom, top, both
+    'style_external_links': True,
+    #'vcs_pageview_mode': '',
 
-# Theme options are theme-specific and customize the look and feel of a theme
-# further.  For a list of options available for each theme, see the
-# documentation.
-#
-# html_theme_options = {}
+    # Toc options
+    'collapse_navigation': True,
+    'sticky_navigation': True,
+    'navigation_depth': 4,
+    'includehidden': True,
+    'titles_only': False
+}
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,

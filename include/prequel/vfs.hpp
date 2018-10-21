@@ -97,6 +97,12 @@ public:
 
     /// Maps a portion of the file into the process address space.
     /// Throws if not supported by the platform.
+    ///
+    /// \note On supported platforms, this function allows for mapping
+    /// a range that is greater than the size of the file, i.e. one can
+    /// reserve large chunks for virtual memory ahead of time and have the
+    /// file grow in order to fill it. No memory that lies outside
+    /// the actual size of the file must be read or written to.
     virtual void* memory_map(file& f, u64 offset, u64 length);
 
     /// Synchronize (part of) a mapped address range with the disk.

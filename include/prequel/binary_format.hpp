@@ -9,8 +9,12 @@
 
 namespace prequel {
 
+/// \defgroup binary_format Binary Format
+
 /// Stores a series of member data pointers in order to reflect
 /// over the members of a class. Only used at compile time.
+///
+/// \ingroup binary_format
 template<typename T, typename... V>
 class binary_format {
 public:
@@ -18,6 +22,8 @@ public:
         : m_fields(fields...)
     {}
 
+    /// Returns the description of the classes fields,
+    /// as a tuple of member data pointers.
     constexpr const std::tuple<V T::*...>& fields() const {
         return m_fields;
     }
@@ -60,12 +66,16 @@ private:
 ///     };
 /// \endcode
 ///
-/// \ingroup serialization
+/// \ingroup binary_format
 template<typename T, typename... V>
 constexpr binary_format<T, V...> make_binary_format(V T::*... members) {
     return binary_format<T, V...>(members...);
 }
 
+/// Declare this class as a friend if you wish to keep the `get_binary_format()` 
+/// function private.
+///
+/// \ingroup binary_format
 class binary_format_access {
 private:
     template<typename T>
@@ -90,11 +100,18 @@ public:
     }
 };
 
+/// Returns true iff the type implements the get_binary_format() static function.
+///
+/// \ingroup binary_format
 template<typename T>
 constexpr bool has_binary_format() {
     return binary_format_access::has_binary_format<T>();
 }
 
+/// Returns a binary format instance that describes the type T.
+/// Results in a compile-time error if T does not implement the get_binary_format() static function.
+///
+/// \ingroup binary_format
 template<typename T>
 constexpr auto get_binary_format() {
     if constexpr (!has_binary_format<T>()) {

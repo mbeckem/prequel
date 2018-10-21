@@ -208,6 +208,8 @@ private:
  * Returns the difference (i.e. the signed distance) between `from` and `to`.
  * This is the address equivalent of `to - from`, or the number of bytes one
  * has to advance in order to reach `to` from `from`.
+ *
+ * \relates raw_address
  */
 inline i64 difference(const raw_address& from, const raw_address& to) {
     PREQUEL_ASSERT(from, "From address is invalid.");
@@ -219,6 +221,8 @@ inline i64 difference(const raw_address& from, const raw_address& to) {
  * Returns the difference (i.e. the signed distance) between `from` and `to`.
  * This is the address equivalent of `to - from`, or the number of elements one
  * has to advance in order to reach `to` from `from`.
+ *
+ * \relates address
  */
 template<typename T>
 i64 difference(const address<T>& from, const address<T>& to) {
@@ -228,6 +232,8 @@ i64 difference(const address<T>& from, const address<T>& to) {
 /**
  * Returns the absolute distance (in bytes) of `a` and `b`, i.e. `abs(a - b)`
  * in mathematical terms.
+ *
+ * \relates raw_address
  */
 inline u64 distance(const raw_address& a, const raw_address& b) {
     PREQUEL_ASSERT(a, "From address is invalid.");
@@ -239,6 +245,8 @@ inline u64 distance(const raw_address& a, const raw_address& b) {
 /**
  * Returns the absolute distance (in elements) of `a` and `b`, i.e. `abs(a - b)`
  * in mathematical terms.
+ *
+ * \relates address
  */
 template<typename T>
 u64 distance(const address<T>& from, const address<T>& to) {
@@ -246,12 +254,14 @@ u64 distance(const address<T>& from, const address<T>& to) {
 }
 
 /// Performs the equivalent of `reinterpret_cast` to `To*`.
+/// \relates raw_address
 template<typename To>
 address<To> raw_address_cast(const raw_address& addr) {
     return address<To>(addr);
 }
 
-// Just to aid overload resolution.
+/// Just to aid overload resolution.
+/// \relates raw_address
 template<typename To, typename From>
 address<To> raw_address_cast(const address<From>& addr) {
     return raw_address_cast<To>(addr.raw());

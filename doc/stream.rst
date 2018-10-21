@@ -1,5 +1,18 @@
-Stream: ``prequel/stream.hpp``
-----------------------------
+Stream
+======
+
+Stream Reference
+----------------
+
+``#include <prequel/stream.hpp>``
 
 .. doxygenclass:: prequel::stream
-	:members:
+    :members:
+
+Raw Stream Reference
+--------------------
+
+``#include <prequel/raw_stream.hpp>``
+
+.. doxygenclass:: prequel::raw_stream
+    :members:

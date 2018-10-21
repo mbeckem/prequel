@@ -174,6 +174,8 @@ public:
 
 /// Cast the block handle to a specific type. This cast is unchecked,
 /// you must be sure that accessing the storage in this way is well defined.
+///
+/// \relates handle
 template<typename T>
 handle<T> cast(block_handle block, u32 offset = 0) {
     return handle<T>(std::move(block), offset);

@@ -43,74 +43,122 @@ public:
             return make_binary_format(&anchor::tree);
         }
 
-        friend class btree;
-        friend class binary_format_access;
+        friend btree;
+        friend binary_format_access;
     };
 
 public:
-    // TODO Copydoc from raw tree cursor.
+    /// Cursors are used to traverse the values in a btree.
     class cursor {
-        raw_btree::cursor inner;
+    public:
+        cursor() = default;
+
+        /// Returns the size of a serialized value. This is a compile-time constant.
+        static constexpr u32 value_size() { return btree::value_size(); }
+
+        /// Returns the size of a serialized key, derived from a value.
+        /// This is a compile-time constant.
+        static constexpr u32 key_size() { return btree::key_size(); }
+
+        /// True iff this cursor has been positioned at the end of the tree,
+        /// in which case it does not point to a valid value.
+        /// This happens when the entire tree was traversed or when a search
+        /// operation fails to find a value.
+        bool at_end() const { return inner.at_end(); }
+
+        /// True iff the element this cursor pointed to was erased.
+        bool erased() const { return inner.erased(); }
+
+        /// Equivalent to `!at_end()`.
+        explicit operator bool() const { return static_cast<bool>(inner); }
+
+        /// Reset the iterator. `at_end()` will return true.
+        void reset() { inner.reset(); }
+
+        /// Move this cursor to the smallest value in the tree (leftmost value).
+        void move_min() { inner.move_min(); }
+
+        /// Move this cursor to the largest value in the tree (rightmost value).
+        void move_max() { inner.move_max(); }
+
+        /// Move this cursor to the next value.
+        void move_next() { inner.move_next(); }
+
+        /// Move this cursor to the previous value.
+        void move_prev() { inner.move_prev(); }
+
+        /// Seeks to the first value for which `derive_key(value) >= key` is true.
+        /// Returns true if such a value was found. Returns false and becomes invalid otherwise.
+        bool lower_bound(const key_type& key) {
+            auto buffer = serialized_value(key);
+            return inner.lower_bound(buffer.data());
+        }
+
+        /// Like \ref lower_bound, but seeks to the first value for which
+        /// `derive_key(value) > key` returns true.
+        bool upper_bound(const key_type& key) {
+            auto buffer = serialized_value(key);
+            return inner.upper_bound(buffer.data());
+        }
+
+        /// Seeks to to value with the given key.
+        /// Returns true if such a value was found. Returns false and becomes invalid otherwise.
+        bool find(const key_type& key) {
+            auto buffer = serialized_value(key);
+            return inner.find(buffer.data());
+        }
+
+        /// Attempts to insert the given value into the tree. The tree will not be modified
+        /// if a value with the same key already exists.
+        ///
+        /// Returns true if the value was inserted, false otherwise.
+        /// The cursor will point to the value in question in any case.
+        bool insert(const value_type& value) {
+            auto buffer = serialized_value(value);
+            return inner.insert(buffer.data());
+        }
+
+        /// Inserts the value into the tree. If a value with the same key already exists,
+        /// it will be overwritten.
+        ///
+        /// Returns true if the key did not exist.
+        bool insert_or_update(const value_type& value) {
+            auto buffer = serialized_value(value);
+            return inner.insert_or_update(buffer.data());
+        }
+
+        /// Erases the element that this cursors points at.
+        /// In order for this to work, the cursor must not be at the end and must not
+        /// already point at an erased element.
+        void erase() { inner.erase(); }
+
+        /// Returns the current value of this cursor.
+        /// Throws an exception if the cursor does not currently point to a valid value.
+        value_type get() const { return deserialized_value<value_type>(inner.get()); }
+
+        /// Replaces the current value with the given one. The old and the new value must have the same key.
+        /// Throws an exception if the cursor does not currently point to a valid value.
+        void set(const value_type& value) {
+            auto buffer = serialized_value(value);
+            inner.set(buffer.data());
+        }
+
+        /// Check cursor invariants. Used when testing.
+        void validate() const { inner.validate(); }
+
+        bool operator==(const cursor& other) const { return inner == other.inner; }
+        bool operator!=(const cursor& other) const { return inner != other.inner; }
 
     private:
         friend class btree;
 
         cursor(raw_btree::cursor&& inner): inner(std::move(inner)) {}
 
-    public:
-        cursor() = default;
-
-        bool at_end() const { return inner.at_end(); }
-        bool erased() const { return inner.erased(); }
-        explicit operator bool() const { return static_cast<bool>(inner); }
-
-        void reset() { inner.reset(); }
-        void move_min() { inner.move_min(); }
-        void move_max() { inner.move_max(); }
-        void move_next() { inner.move_next(); }
-        void move_prev() { inner.move_prev(); }
-
-        bool lower_bound(const key_type& key) {
-            auto buffer = serialized_value(key);
-            return inner.lower_bound(buffer.data());
-        }
-
-        bool upper_bound(const key_type& key) {
-            auto buffer = serialized_value(key);
-            return inner.upper_bound(buffer.data());
-        }
-
-        bool find(const key_type& key) {
-            auto buffer = serialized_value(key);
-            return inner.find(buffer.data());
-        }
-
-        bool insert(const value_type& value) {
-            auto buffer = serialized_value(value);
-            return inner.insert(buffer.data());
-        }
-
-        bool insert_or_update(const value_type& value) {
-            auto buffer = serialized_value(value);
-            return inner.insert_or_update(buffer.data());
-        }
-
-        void erase() { inner.erase(); }
-
-        value_type get() const { return deserialized_value<value_type>(inner.get()); }
-
-        void set(const value_type& value) {
-            auto buffer = serialized_value(value);
-            inner.set(buffer.data());
-        }
-
-        void validate() const { inner.validate(); }
-
-        bool operator==(const cursor& other) const { return inner == other.inner; }
-        bool operator!=(const cursor& other) const { return inner != other.inner; }
+    private:
+        raw_btree::cursor inner;
     };
 
-    // TODO copy doc from raw btree loader
+    /// Implements bulk loading for btrees.
     class loader {
         raw_btree::loader inner;
 
@@ -124,20 +172,32 @@ public:
         loader(loader&&) noexcept = default;
         loader& operator=(loader&&) noexcept = default;
 
+        /// Insert a single new value into the tree.
+        /// The value must be greater than the previous values inserted
+        /// into the tree.
         void insert(const value_type& value) {
             auto buffer = serialized_value(value);
             inner.insert(buffer.data());
         }
 
+        /// Insert a number of values into the new tree.
+        /// The values must be ordered and unique and must be greater
+        /// than the previous values inserted into the tree.
         template<typename InputIter>
         void insert(const InputIter& begin, const InputIter& end) {
-            // TODO: Test whether batching here is worth it.
+            // TODO: Test whether batching here is worth it, i.e. maybe just
+            // push one large, serialized buffer to the raw loader.
             for (auto i = begin; i != end; ++i) {
                 insert(*i);
             }
         }
 
+        /// Finalizes the loading procedure. All changes will be applied
+        /// to the tree and no more values can be inserted using this loader.
         void finish() { inner.finish(); }
+
+        /// Discard all values inserted into this loader (finish() must not have been called).
+        /// Frees all allocated blocks and leaves the tree unmodified.
         void discard() { inner.discard(); }
     };
 
@@ -161,6 +221,13 @@ public:
     };
 
 public:
+    /// \name Construction and configuration
+    ///
+    /// \{
+
+    /// Constructs the tree rooted at the existing anchor.
+    /// The options must be equivalent every time the tree is opened;
+    /// they are not persisted to disk.
     explicit btree(anchor_handle<anchor> anchor_, allocator& alloc_, DeriveKey derive_key = DeriveKey(), KeyLess less = KeyLess())
         : m_state(std::make_unique<state_t>(std::move(derive_key), std::move(less)))
         , m_inner(std::move(anchor_).template member<&anchor::tree>(), make_options(), alloc_)
@@ -168,29 +235,6 @@ public:
 
     engine& get_engine() const { return m_inner.get_engine(); }
     allocator& get_allocator() const { return m_inner.get_allocator(); }
-
-    /// \name Tree size
-    ///
-    /// \{
-
-    static constexpr u32 value_size() { return serialized_size<value_type>(); }
-    static constexpr u32 key_size() { return serialized_size<key_type>(); }
-
-    u32 internal_node_capacity() const { return m_inner.internal_node_capacity(); }
-    u32 leaf_node_capacity() const { return m_inner.leaf_node_capacity(); }
-
-    bool empty() const { return m_inner.empty(); }
-    u64 size() const { return m_inner.size(); }
-    u32 height() const { return m_inner.height(); }
-    u64 internal_nodes() const { return m_inner.internal_nodes(); }
-    u64 leaf_nodes() const { return m_inner.leaf_nodes(); }
-    u64 nodes() const { return m_inner.nodes(); }
-
-    double fill_factor() const { return m_inner.fill_factor(); }
-    u64 byte_size() const { return m_inner.byte_size(); }
-    double overhead() const { return m_inner.overhead(); }
-
-    /// \}
 
     /// Derives the key from the given value by applying the DeriveKey function.
     key_type derive_key(const value_type& value) const {
@@ -203,42 +247,122 @@ public:
         return m_state->less(lhs, rhs);
     }
 
+    /// Creates a bulk loading object for this tree.
+    /// The object should be used to insert values in ascending order (according to the
+    /// tree's comparison function) into the tree.
+    ///
+    /// \note Only empty trees can be bulk-loaded.
+    loader bulk_load() {
+        return loader(m_inner.bulk_load());
+    }
+
+    /// \}
+
+    /// \name Tree size
+    ///
+    /// \{
+
+    /// Returns the size of a serialized value. This is a compile-time constant.
+    static constexpr u32 value_size() { return serialized_size<value_type>(); }
+
+    /// Returns the size of a serialized key, derived from a value.
+    /// This is a compile-time constant.
+    static constexpr u32 key_size() { return serialized_size<key_type>(); }
+
+    /// Returns the maximum number of children in an internal node.
+    u32 internal_node_capacity() const { return m_inner.internal_node_capacity(); }
+
+    /// Returns the maximum number of values in a leaf node.
+    u32 leaf_node_capacity() const { return m_inner.leaf_node_capacity(); }
+
+    /// Returns true if the tree is empty.
+    bool empty() const { return m_inner.empty(); }
+
+    /// Returns the number of entries in this tree.
+    u64 size() const { return m_inner.size(); }
+
+    /// Returns the height of this tree. The height is length of all paths from the
+    /// root to a leaf (they all have the same length).
+    /// - height == 0: The tree is empty.
+    /// - height == 1: The tree has a single leaf.
+    /// - height >= 2: The first (height - 1) are internal nodes, then a leaf is reached.
+    u32 height() const { return m_inner.height(); }
+
+    /// Returns the number of internal nodes in this tree.
+    u64 internal_nodes() const { return m_inner.internal_nodes(); }
+
+    /// Returns the number of leaf nodes in this tree.
+    u64 leaf_nodes() const { return m_inner.leaf_nodes(); }
+
+    /// Returns the total number of nodes in this tree.
+    u64 nodes() const { return m_inner.nodes(); }
+
+    /// Returns the average fullness of this tree's leaf nodes.
+    double fill_factor() const { return m_inner.fill_factor(); }
+
+    /// The size of this datastructure in bytes (not including the anchor).
+    u64 byte_size() const { return m_inner.byte_size(); }
+
+    /// Returns the relative overhead compared to a linear file filled with the
+    /// same entries as this tree. Computed by dividing the total size of this tree
+    /// by the total size of its elements.
+    ///
+    /// \note Most leaves and internal nodes are never less than half full.
+    double overhead() const { return m_inner.overhead(); }
+
+    /// \}
+
+    /// Create a new cursor and seek it to the specified position.
+    /// The cursor is initially invalid if `seek_none` is specified;
+    /// otherwise the cursor will attempt to move to the implied element.
     cursor create_cursor(cursor_seek_t seek = seek_none) const {
         return cursor(m_inner.create_cursor(seek));
     }
 
+    /// Seek to the given key within this tree. The cursor will be invalid
+    /// if the key was not found, otherwise it will point to the found value.
     cursor find(const key_type& key) const {
         auto buffer = serialized_value(key);
         return cursor(m_inner.find(buffer.data()));
     }
 
+    /// Seek to the smallest key `lb` with `lb >= key`. The cursor will be invalid
+    /// if no such key exists within this tree.
     cursor lower_bound(const key_type& key) const {
         auto buffer = serialized_value(key);
         return cursor(m_inner.lower_bound(buffer.data()));
     }
 
+    /// Seek to the smallest key `lb` with `lb > key`. The cursor will be invalid
+    /// if no such key exists within this tree.
     cursor upper_bound(const key_type& key) const {
         auto buffer = serialized_value(key);
         return cursor(m_inner.upper_bound(buffer.data()));
     }
 
+    /// Attempts to insert the given value into the tree. The tree will not be modified
+    /// if a value with the same key already exists.
     insert_result insert(const value_type& value) {
         auto buffer = serialized_value(value);
         auto result = m_inner.insert(buffer.data());
         return insert_result(cursor(std::move(result.position)), result.inserted);
     }
 
+    /// Inserts the value into the tree. If a value with the same key already exists,
+    /// it will be overwritten.
     insert_result insert_or_update(const value_type& value) {
         auto buffer = serialized_value(value);
         auto result = m_inner.insert_or_update(buffer.data());
         return insert_result(cursor(std::move(result.position)), result.inserted);
     }
 
-    loader bulk_load() {
-        return loader(m_inner.bulk_load());
-    }
-
+    /// Removes all data from this tree. After this operation completes,
+    /// the tree will not occupy any space on disk.
+    /// \post `empty() && byte_size() == 0`.
     void reset() { m_inner.reset(); }
+
+    /// Erases the content of this tree.
+    /// \post `empty()`.
     void clear() { m_inner.clear(); }
 
 public:
@@ -275,6 +399,10 @@ public:
         const raw_btree::node_view& m_inner;
     };
 
+    /// Visits every internal node and every leaf node from top to bottom. The function
+    /// will be invoked for every node until it returns false, at which point the iteration
+    /// through the tree will stop.
+    /// The tree must not be modified during this operation.
     template<typename Func>
     void visit(Func&& fn) const {
         m_inner.visit([&](const raw_btree::node_view& raw_view) -> bool {
@@ -285,8 +413,11 @@ public:
 
     void dump(std::ostream& os);
 
+    /// Perform validation of the tree's structure. Basic invariants, such as the
+    /// order and number of values (per node and in total) are checked.
     void validate() const { m_inner.validate(); }
 
+    /// Returns a reference to the underlying raw btree.
     const raw_btree& raw() const { return m_inner; }
 
 private:

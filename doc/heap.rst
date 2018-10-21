@@ -1,5 +1,10 @@
-Heap: ``prequel/heap.hpp``
-------------------------
+Heap
+====
 
-..  doxygenclass:: prequel::heap
+Heap Reference
+--------------
+
+``#include <prequel/heap.hpp>``
+
+.. doxygenclass:: prequel::heap
     :members:

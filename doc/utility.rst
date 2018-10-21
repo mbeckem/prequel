@@ -1,21 +1,29 @@
 Utility Headers
 ===============
 
-Assertions: ``prequel/assert.hpp``
----------------------------------
+Assertions
+----------
+
+``#include <prequel/assert.hpp>``
 
 .. doxygengroup:: assertions
-	:content-only:
+    :content-only:
 
-Common definitions: ``prequel/defs.hpp``
---------------------------------------
+
+Common definitions
+------------------
+
+``#include <prequel/defs.hpp>``
 
 .. doxygengroup:: defs
-	:content-only:
+    :content-only:
 
-Math functions: ``prequel/math.hpp``
-----------------------------------
+
+Math functions
+--------------
+
+``#include <prequel/math.hpp>``
 
 .. doxygengroup:: math
-	:content-only:
+    :content-only:
 

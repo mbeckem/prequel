@@ -12,6 +12,7 @@ set(PUBLIC_HEADERS
     ${HEADER_ROOT}/address.hpp
     ${HEADER_ROOT}/allocator.hpp
     ${HEADER_ROOT}/anchor_handle.hpp
+    ${HEADER_ROOT}/array.hpp
     ${HEADER_ROOT}/assert.hpp
     ${HEADER_ROOT}/binary_format.hpp
     ${HEADER_ROOT}/block_index.hpp
@@ -28,16 +29,16 @@ set(PUBLIC_HEADERS
     ${HEADER_ROOT}/heap.hpp
     ${HEADER_ROOT}/id_generator.hpp
     ${HEADER_ROOT}/list.hpp
+    ${HEADER_ROOT}/map.hpp
     ${HEADER_ROOT}/math.hpp
     ${HEADER_ROOT}/mmap_engine.hpp
     ${HEADER_ROOT}/node_allocator.hpp
+    ${HEADER_ROOT}/raw_array.hpp
     ${HEADER_ROOT}/raw_btree.hpp
     ${HEADER_ROOT}/raw_list.hpp
     ${HEADER_ROOT}/raw_stack.hpp
-    ${HEADER_ROOT}/raw_stream.hpp
     ${HEADER_ROOT}/serialization.hpp
     ${HEADER_ROOT}/stack.hpp
-    ${HEADER_ROOT}/stream.hpp
     ${HEADER_ROOT}/type_traits.hpp
     ${HEADER_ROOT}/vfs.hpp
 )
@@ -69,10 +70,10 @@ set(SOURCES
      id_generator.cpp
      mmap_engine.cpp
      node_allocator.cpp
+     raw_array.cpp
      raw_btree.cpp
      raw_list.cpp
      raw_stack.cpp
-     raw_stream.cpp
      vfs.cpp
      detail/free_list.cpp
 )

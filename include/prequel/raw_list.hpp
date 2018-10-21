@@ -44,6 +44,11 @@ class raw_list_cursor_impl;
 
 using raw_list_anchor = detail::raw_list_anchor;
 
+/**
+ * A list of fixed-size values implemented using linked blocks.
+ * The size of values can be determined at runtime (e.g. through user input)
+ * but must remain constant during the use of an array.
+ */
 class raw_list
 {
 public:
@@ -58,6 +63,10 @@ public:
     };
 
 public:
+    /**
+     * Loads a raw list instance rooted at the existing anchor.
+     * `value_size` and `_alloc` must be equivalent every time the list is loaded.
+     */
     explicit raw_list(anchor_handle<anchor> _anchor, u32 value_size, allocator& _alloc);
     ~raw_list();
 
@@ -75,7 +84,7 @@ public:
     ///
     /// \{
 
-    /// Returns the size (in bytes) of every value in the list.
+    /// Returns the size of a value.
     u32 value_size() const;
 
     /// Returns the maximum number of values per list node.
@@ -119,21 +128,21 @@ public:
     /// The value must be `value_size()` bytes long.
     void push_back(const byte* value);
 
-    /// Removes all data from this list.
-    /// The list will not occupy any space on disk.
-    /// \post `empty() && byte_size() == 0`.
-    void reset();
+    /// Removes the first element from the list.
+    void pop_front();
+
+    /// Removes the last element from the list.
+    void pop_back();
 
     /// Removes all elements from the list.
     /// After clear() has returned, the list will not hold any nodes.
     /// \post `empty()`.
     void clear();
 
-    /// Removes the first element from the list.
-    void pop_front();
-
-    /// Removes the last element from the list.
-    void pop_back();
+    /// Removes all data from this list.
+    /// The list will not occupy any space on disk.
+    /// \post `empty() && byte_size() == 0`.
+    void reset();
 
     // TODO: validate
 
@@ -155,7 +164,7 @@ public:
         virtual const byte* value(u32 index) const = 0;
     };
 
-    /// Visits internal node from begin to end.
+    /// Visits every node from begin to end.
     /// The function will be invoked for every node until it returns false, at which point the iteration
     /// through the list will stop.
     /// The list must not be modified during this operation.
@@ -181,6 +190,7 @@ private:
     std::unique_ptr<detail::raw_list_impl> m_impl;
 };
 
+/// Cursors are used to traverse the values in a list.
 class raw_list_cursor {
 public:
     raw_list_cursor();
@@ -191,28 +201,55 @@ public:
     raw_list_cursor& operator=(const raw_list_cursor&);
     raw_list_cursor& operator=(raw_list_cursor&&) noexcept;
 
-    void move_first();
-    void move_last();
-    void move_next();
-    void move_prev();
-
-    void erase();
-    void insert_before(const byte* data);
-    void insert_after(const byte* data);
-
-    const byte* get() const;
-    void set(const byte* data);
+public:
+    /// Returns the size of a value.
     u32 value_size() const;
 
-    // Returns true if the cursor has become invalid (by iterating
-    // past the end or the beginning).
+    /// Returns a pointer to the current value. The returned pointer has exactly `value_size` readable bytes.
+    /// Throws an exception if the cursor does not currently point to a valid value.
+    const byte* get() const;
+
+    /// Returns a pointer to the current value. The returned pointer has exactly `value_size` readable bytes.
+    /// Throws an exception if the cursor does not currently point to a valid value.
+    void set(const byte* data);
+
+    /// Returns true if the cursor has become invalid (by iterating
+    /// past the end or the beginning).
     bool at_end() const;
 
-    // Returns true if the cursor's current list element has been erased.
-    // Iterators to erased elements have to be moved before they can be useful again.
+    /// Returns true if the cursor's current list element has been erased.
+    /// Iterators to erased elements have to be moved before they can be useful again.
     bool erased() const;
 
+    /// Equivalent to `!at_end()`.
     explicit operator bool() const { return !at_end(); }
+
+    /// Moves this cursor to the first value in the list.
+    void move_first();
+
+    /// Moves this cursor to the last value in the list.
+    void move_last();
+
+    /// Moves this cursor the the next value.
+    void move_next();
+
+    /// Moves this cursor to the previous value.
+    void move_prev();
+
+    /// Inserts the new value *before* the current list element.
+    /// The cursor must point to a valid element.
+    /// The provided byte buffer must have `value_size` readable bytes.
+    void insert_before(const byte* data);
+
+    /// Inserts the new value *after* the current list element.
+    /// The cursor must point to a valid element.
+    /// The provided byte buffer must have `value_size` readable bytes.
+    void insert_after(const byte* data);
+
+    /// Erases the element that this cursors points at.
+    /// In order for this to work, the cursor must not be at the end and must not
+    /// already point at an erased element.
+    void erase();
 
 private:
     detail::raw_list_cursor_impl& impl() const;

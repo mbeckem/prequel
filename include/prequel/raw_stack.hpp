@@ -38,6 +38,10 @@ public:
     using anchor = raw_stack_anchor;
 
 public:
+    /**
+     * Accesses a raw stack instance rooted at the given anchor.
+     * `value_size` and `alloc` must be equivalent every time the stack is loaded.
+     */
     explicit raw_stack(anchor_handle<anchor> _anchor, u32 value_size, allocator& alloc);
     ~raw_stack();
 
@@ -62,7 +66,7 @@ public:
     u32 node_capacity() const;
 
     /**
-     * Returns true if the stack is empty, i.e. contains zero values.
+     * Returns true if the stack is empty.
      */
     bool empty() const;
 
@@ -72,7 +76,7 @@ public:
     u64 size() const;
 
     /**
-     * Returns the number of stack nodes currenty allocated by the stack.
+     * Returns the number of nodes currenty allocated by the stack.
      */
     u64 nodes() const;
 
@@ -95,6 +99,8 @@ public:
     /**
      * Retrieves the top value and copies it into the provided value buffer.
      * The buffer must be at least `value_size()` bytes long.
+     *
+     * @throws bad_operation If the stack is empty.
      */
     void top(byte* value) const;
 

@@ -44,12 +44,12 @@ protected:
 
 } // namespace detail
 
-/// A block handle is a (possibly invalid) reference to a block
-/// loaded into memory by the block engine.
-/// The handle gives access to the block's raw data and it's dirty flag.
-/// While a block is being referenced by at least one block handle,
-/// it will not be evicted from main memory.
+/// A block handle is a reference to a block that has been oaded into memory
+/// by an engine. The handle gives access to the block's raw data.
+/// A block will not be evicted from main memory while it is being referenced
+/// by at least one block handle.
 ///
+/// \note Block handles can be invalid if they were default constructed or have been moved.
 class block_handle {
 public:
     /// Constructs an invalid handle.
@@ -208,8 +208,12 @@ private:
     detail::block_handle_impl* m_impl = nullptr;
 };
 
+/**
+ * Provides block-oriented access to the contents of a file.
+ * This class defines the interface for multiple engine implementations.
+ */
 class engine {
-public:
+protected:
     explicit engine(u32 block_size)
         : m_block_size(block_size)
     {
@@ -220,52 +224,11 @@ public:
         m_offset_mask = m_block_size - 1;
     }
 
+public:
     virtual ~engine() = default;
 
     /// Returns the size (in bytes) of every block returned by this engine.
     u32 block_size() const noexcept { return m_block_size; }
-
-    /// Returns the address to the first byte of the given block.
-    /// Returns the invalid address if the block index is invalid.
-    raw_address to_address(block_index index) const noexcept {
-        return to_address(index, 0);
-    }
-
-    /// Returns the address to the given byte offset in the given block.
-    /// Returns the invalid address if the block index is invalid.
-    ///
-    /// \pre `offset_in_block < block_size()`.
-    raw_address to_address(block_index index, u32 offset_in_block) const noexcept {
-        PREQUEL_ASSERT(offset_in_block < block_size(), "Offset out of bounds.");
-        if (!index) {
-            return raw_address();
-        }
-        return raw_address((index.value() << m_block_size_log) | offset_in_block);
-    }
-
-    /// Takes the raw_address of a byte on disk and returns the block index of the containing block.
-    /// If `addr` is invalid, an invalid block index will be returned.
-    block_index to_block(raw_address addr) const noexcept {
-        if (!addr) {
-            return block_index();
-        }
-        u64 index = addr.value() >> m_block_size_log;
-        return block_index(index);
-    }
-
-    /// Takes the raw address of a byte on disk and returns the offset of the byte in it's containing block.
-    /// Returns 0 if the the address is invalid.
-    u32 to_offset(raw_address addr) const noexcept {
-        if (!addr) {
-            return 0;
-        }
-        return u32(addr.value()) & m_offset_mask;
-    }
-
-    /// Converts the block count to a number of bytes.
-    u64 to_byte_size(u64 block_count) const noexcept {
-        return block_count << m_block_size_log;
-    }
 
     /// Returns the size of the underlying storage, in blocks.
     /// All block indices in `[0, size())` are valid for
@@ -320,6 +283,48 @@ public:
     /// Throws if an I/O error occurs.
     void flush() {
         do_flush();
+    }
+
+    /// Returns the address to the first byte of the given block.
+    /// Returns the invalid address if the block index is invalid.
+    raw_address to_address(block_index index) const noexcept {
+        return to_address(index, 0);
+    }
+
+    /// Returns the address to the given byte offset in the given block.
+    /// Returns the invalid address if the block index is invalid.
+    ///
+    /// \pre `offset_in_block < block_size()`.
+    raw_address to_address(block_index index, u32 offset_in_block) const noexcept {
+        PREQUEL_ASSERT(offset_in_block < block_size(), "Offset out of bounds.");
+        if (!index) {
+            return raw_address();
+        }
+        return raw_address((index.value() << m_block_size_log) | offset_in_block);
+    }
+
+    /// Takes the raw_address of a byte on disk and returns the block index of the containing block.
+    /// If `addr` is invalid, an invalid block index will be returned.
+    block_index to_block(raw_address addr) const noexcept {
+        if (!addr) {
+            return block_index();
+        }
+        u64 index = addr.value() >> m_block_size_log;
+        return block_index(index);
+    }
+
+    /// Takes the raw address of a byte on disk and returns the offset of the byte in it's containing block.
+    /// Returns 0 if the the address is invalid.
+    u32 to_offset(raw_address addr) const noexcept {
+        if (!addr) {
+            return 0;
+        }
+        return u32(addr.value()) & m_offset_mask;
+    }
+
+    /// Converts the block count to a number of bytes.
+    u64 to_byte_size(u64 block_count) const noexcept {
+        return block_count << m_block_size_log;
     }
 
     engine(const engine&) = delete;

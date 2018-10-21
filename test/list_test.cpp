@@ -289,7 +289,7 @@ TEST_CASE("invalid cursor behaviour", "[list]") {
 
     auto checks = [&](auto&& c) {
         REQUIRE(!c);
-        REQUIRE(c.invalid());
+        REQUIRE(c.at_end());
         REQUIRE(!c.erased());
 
         REQUIRE_THROWS_AS(c.get(), bad_cursor);
@@ -376,7 +376,7 @@ TEST_CASE("Iterating and deleting using list cursors", "[list]") {
 
         SECTION("back again produces invalid cursor") {
             c.move_prev();
-            REQUIRE(c.invalid());
+            REQUIRE(c.at_end());
             REQUIRE(!c.erased());
         }
 

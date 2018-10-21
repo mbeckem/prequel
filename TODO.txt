@@ -4,5 +4,6 @@ Open Tasks
 - Async prefetch for block reads. Engine should have function for reading that returns a future.
   Real I/O should be done in a worker thread.
 - Better programming model for anchor creation/destruction, for example static create(...) destroy(...) fn.
-- Implement mmap engine
 - Implement transactional engine with write ahead log
+
+- Implement Hashtable, Queue and Priority Queue

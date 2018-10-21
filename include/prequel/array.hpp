@@ -1,7 +1,7 @@
-#ifndef PREQUEL_STREAM_HPP
-#define PREQUEL_STREAM_HPP
+#ifndef PREQUEL_ARRAY_HPP
+#define PREQUEL_ARRAY_HPP
 
-#include <prequel/raw_stream.hpp>
+#include <prequel/raw_array.hpp>
 #include <prequel/serialization.hpp>
 
 namespace prequel {
@@ -12,28 +12,31 @@ namespace prequel {
  * A stream stores a sequence of fixed-size values in contiguous storage on disk.
  * The stream can reserve capacity ahead of time to prepare for future insertions,
  * very similar to `std::vector<T>`.
- *
  */
 template<typename T>
-class stream {
+class array {
 public:
     using value_type = T;
 
 public:
     class anchor {
-        raw_stream::anchor stream;
+        raw_array::anchor array;
 
         static constexpr auto get_binary_format() {
-            return make_binary_format(&anchor::stream);
+            return make_binary_format(&anchor::array);
         }
 
-        friend class stream;
+        friend class array;
         friend class binary_format_access;
     };
 
 public:
-    explicit stream(anchor_handle<anchor> _anchor, allocator& alloc)
-        : inner(std::move(_anchor).template member<&anchor::stream>(), value_size(), alloc)
+    /**
+     * Accesses an array rooted at the given anchor.
+     * alloc` must be equivalent every time the raw array is loaded.
+     */
+    explicit array(anchor_handle<anchor> _anchor, allocator& alloc)
+        : inner(std::move(_anchor).template member<&anchor::array>(), value_size(), alloc)
     {}
 
 public:
@@ -182,12 +185,12 @@ public:
     /**
      * Returns the raw, byte oriented inner stream.
      */
-    const raw_stream& raw() const { return inner; }
+    const raw_array& raw() const { return inner; }
 
 private:
-    raw_stream inner;
+    raw_array inner;
 };
 
 } // namespace prequel
 
-#endif // PREQUEL_STREAM_HPP
+#endif // PREQUEL_ARRAY_HPP
