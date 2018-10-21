@@ -12,181 +12,174 @@ using namespace prequel;
 
 static constexpr u32 block_size = 512;
 
-using stream_t = array<i32>;
+using array_t = array<i32>;
 
-TEST_CASE("stream basics", "[stream]") {
+TEST_CASE("array basics", "[array]") {
     test_file file(block_size);
-    file.open();
 
     default_allocator::anchor alloc_anchor;
     default_allocator alloc(make_anchor_handle(alloc_anchor), file.get_engine());
-    stream_t::anchor stream_anchor;
-    stream_t stream(make_anchor_handle(stream_anchor), alloc);
+    array_t::anchor array_anchor;
+    array_t array(make_anchor_handle(array_anchor), alloc);
 
-    SECTION("stream wastes no space") {
-        REQUIRE(stream.block_capacity() == block_size / serialized_size<i32>());
+    SECTION("array wastes no space") {
+        REQUIRE(array.block_capacity() == block_size / serialized_size<i32>());
     }
 
-    SECTION("empty stream") {
-        REQUIRE(stream.size() == 0);
-        REQUIRE(stream.capacity() == 0);
-        REQUIRE(stream.empty());
-        REQUIRE_THROWS_AS(stream.get(0), bad_argument);
-        REQUIRE_THROWS_AS(stream.set(0, 1), bad_argument);
+    SECTION("empty array") {
+        REQUIRE(array.size() == 0);
+        REQUIRE(array.capacity() == 0);
+        REQUIRE(array.empty());
+        REQUIRE_THROWS_AS(array.get(0), bad_argument);
+        REQUIRE_THROWS_AS(array.set(0, 1), bad_argument);
     }
 
-    SECTION("stream grows when inserting") {
+    SECTION("array grows when inserting") {
         for (int i = 0; i < 1000; ++i)
-            stream.push_back(i);
+            array.push_back(i);
 
-        REQUIRE(stream.size() == 1000);
-        REQUIRE(stream.capacity() >= 1000);
+        REQUIRE(array.size() == 1000);
+        REQUIRE(array.capacity() >= 1000);
 
         for (i32 i = 0; i < 1000; ++i) {
-            if (i != stream[i])
-                FAIL("Unexpected value " << stream[i] << ", expected " << i);
+            if (i != array[i])
+                FAIL("Unexpected value " << array[i] << ", expected " << i);
         }
 
         for (int i = 0; i < 500; ++i)
-            stream.pop_back();
+            array.pop_back();
 
-        REQUIRE(stream[stream.size() - 1] == 499);
+        REQUIRE(array[array.size() - 1] == 499);
     }
 
-    SECTION("stream reserve") {
-        stream.reserve(5555);
-        REQUIRE(stream.size() == 0);
-        REQUIRE(stream.capacity() >= 5555);
+    SECTION("array reserve") {
+        array.reserve(5555);
+        REQUIRE(array.size() == 0);
+        REQUIRE(array.capacity() >= 5555);
 
-        const u64 cap = stream.capacity();
+        const u64 cap = array.capacity();
 
-        stream.reserve(5555);
-        REQUIRE(cap == stream.capacity());
+        array.reserve(5555);
+        REQUIRE(cap == array.capacity());
 
-        stream.reserve(0);
-        REQUIRE(cap == stream.capacity());
+        array.reserve(0);
+        REQUIRE(cap == array.capacity());
     }
 
-    SECTION("mutate stream") {
-        stream.reserve(5000);
+    SECTION("mutate array") {
+        array.reserve(5000);
         for (i32 i = 0; i < 5000; ++i)
-            stream.push_back(i);
+            array.push_back(i);
 
         for (i32 i = 0; i < 5000; ++i)
-            stream.set(i, stream.get(i) * 2);
+            array.set(i, array.get(i) * 2);
 
         for (i32 i = 0; i < 5000; ++i) {
             i32 expected = i * 2;
-            if (stream[i] != expected)
-                FAIL("Unexpected value " << stream[i] << ", expected " << expected);
+            if (array[i] != expected)
+                FAIL("Unexpected value " << array[i] << ", expected " << expected);
         };
     }
 
     SECTION("resizing") {
-        REQUIRE(stream.empty());
+        REQUIRE(array.empty());
 
-        stream.resize(12345, 1122334455);
+        array.resize(12345, 1122334455);
 
-        REQUIRE(stream.size() == 12345);
-        for (i32 i = 0, e = stream.size(); i != e; ++i) {
-            if (stream[i] != 1122334455)
-                FAIL("Unexpected value: " << stream[i]);
+        REQUIRE(array.size() == 12345);
+        for (i32 i = 0, e = array.size(); i != e; ++i) {
+            if (array[i] != 1122334455)
+                FAIL("Unexpected value: " << array[i]);
         }
 
-        stream.resize(123);
-        REQUIRE(stream.size() == 123);
-        REQUIRE(stream.capacity() >= 123);
+        array.resize(123);
+        REQUIRE(array.size() == 123);
+        REQUIRE(array.capacity() >= 123);
 
-        stream.resize(123456);
-        REQUIRE(stream.size() == 123456);
-        REQUIRE(stream.capacity() >= 123456);
+        array.resize(123456);
+        REQUIRE(array.size() == 123456);
+        REQUIRE(array.capacity() >= 123456);
         for (u64 i = 0; i < 123; ++i) {
-            if (stream[i] != 1122334455)
-                FAIL("Unexpected value: " << stream[i]);
+            if (array[i] != 1122334455)
+                FAIL("Unexpected value: " << array[i]);
         }
 
         for (u64 i = 123; i < 123456; ++i) {
-            if (stream[i] != 0)
-                FAIL("Unexpected value: " << stream[i]);
+            if (array[i] != 0)
+                FAIL("Unexpected value: " << array[i]);
         }
     }
 }
 
-TEST_CASE("stream state is persistent", "[stream]") {
+TEST_CASE("array state is persistent", "[array]") {
     test_file file(block_size);
 
     default_allocator::anchor alloc_anchor;
-    stream_t::anchor stream_anchor;
+    array_t::anchor array_anchor;
 
-    file.open();
     {
         default_allocator alloc(make_anchor_handle(alloc_anchor), file.get_engine());
-        stream_t stream(make_anchor_handle(stream_anchor), alloc);
+        array_t array(make_anchor_handle(array_anchor), alloc);
 
-        stream.reserve(100000);
+        array.reserve(100000);
         for (int i = 0; i < 100000; ++i)
-            stream.push_back(i);
+            array.push_back(i);
     }
-    file.close();
 
-    file.open();
     {
         default_allocator alloc(make_anchor_handle(alloc_anchor), file.get_engine());
-        stream_t stream(make_anchor_handle(stream_anchor), alloc);
+        array_t array(make_anchor_handle(array_anchor), alloc);
 
-        REQUIRE(stream.size() == 100000);
+        REQUIRE(array.size() == 100000);
         for (int i = 0; i < 100000; ++i) {
-            if (stream[i] != i)
-                FAIL("Unexpected value " << stream[i] << ", expected " << i);
+            if (array[i] != i)
+                FAIL("Unexpected value " << array[i] << ", expected " << i);
         }
     }
-    file.close();
 }
 
-TEST_CASE("customizable stream growth", "[stream]") {
+TEST_CASE("customizable array growth", "[array]") {
     test_file file(block_size);
-    file.open();
     {
         default_allocator::anchor alloc_anchor;
         default_allocator alloc(make_anchor_handle(alloc_anchor), file.get_engine());
-        stream_t::anchor stream_anchor;
-        stream_t stream(make_anchor_handle(stream_anchor), alloc);
+        array_t::anchor array_anchor;
+        array_t array(make_anchor_handle(array_anchor), alloc);
 
-        REQUIRE(std::holds_alternative<exponential_growth>(stream.growth()));
+        REQUIRE(std::holds_alternative<exponential_growth>(array.growth()));
 
         SECTION("exponential") {
-            stream.resize(1);
-            REQUIRE(stream.blocks() == 1);
+            array.resize(1);
+            REQUIRE(array.blocks() == 1);
 
-            stream.resize(stream.block_capacity() * 10);
-            REQUIRE(stream.blocks() == 16);
+            array.resize(array.block_capacity() * 10);
+            REQUIRE(array.blocks() == 16);
 
-            stream.resize(stream.block_capacity() * 127);
-            REQUIRE(stream.blocks() == 128);
-            REQUIRE(stream.capacity() == stream.blocks() * stream.block_capacity());
+            array.resize(array.block_capacity() * 127);
+            REQUIRE(array.blocks() == 128);
+            REQUIRE(array.capacity() == array.blocks() * array.block_capacity());
         }
 
         SECTION("linear") {
-            stream.growth(linear_growth(5));
+            array.growth(linear_growth(5));
 
-            stream.resize(0);
-            REQUIRE(stream.blocks() == 0);
+            array.resize(0);
+            REQUIRE(array.blocks() == 0);
 
-            stream.resize(1);
-            REQUIRE(stream.blocks() == 5);
-            REQUIRE(stream.capacity() == stream.block_capacity() * 5);
+            array.resize(1);
+            REQUIRE(array.blocks() == 5);
+            REQUIRE(array.capacity() == array.block_capacity() * 5);
 
-            stream.resize(24 * stream.block_capacity());
-            REQUIRE(stream.blocks() == 25);
+            array.resize(24 * array.block_capacity());
+            REQUIRE(array.blocks() == 25);
 
-            stream.growth(linear_growth(1));
-            stream.resize(101 * stream.block_capacity());
-            REQUIRE(stream.blocks() == 101);
+            array.growth(linear_growth(1));
+            array.resize(101 * array.block_capacity());
+            REQUIRE(array.blocks() == 101);
 
-            stream.growth(linear_growth(12345));
-            stream.resize(101 * stream.block_capacity() + 1);
-            REQUIRE(stream.blocks() == (12345 + 101));
+            array.growth(linear_growth(12345));
+            array.resize(101 * array.block_capacity() + 1);
+            REQUIRE(array.blocks() == (12345 + 101));
         }
     }
-    file.close();
 }

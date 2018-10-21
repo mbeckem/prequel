@@ -58,7 +58,6 @@ TEST_CASE("raw list", "[list]") {
     static const u32 block_size = 64;
 
     test_file file(block_size);
-    file.open();
 
     node_allocator::anchor alloc_anchor;
     node_allocator alloc(make_anchor_handle(alloc_anchor), file.get_engine());
@@ -146,7 +145,6 @@ TEST_CASE("front and back insertion produce dense nodes", "[list]") {
     using value_t = i32;
 
     test_file file(64);
-    file.open();
 
     node_allocator::anchor node_anchor;
     node_allocator alloc(make_anchor_handle(node_anchor), file.get_engine());
@@ -209,7 +207,6 @@ TEST_CASE("basic cursor usage iteration", "[list]") {
     using value_t = i32;
 
     test_file file(64);
-    file.open();
 
     node_allocator::anchor node_anchor;
     node_allocator alloc(make_anchor_handle(node_anchor), file.get_engine());
@@ -279,7 +276,6 @@ TEST_CASE("invalid cursor behaviour", "[list]") {
     using value_t = i32;
 
     test_file file(64);
-    file.open();
 
     node_allocator::anchor node_anchor;
     node_allocator alloc(make_anchor_handle(node_anchor), file.get_engine());
@@ -338,7 +334,6 @@ struct point_t {
 
 TEST_CASE("Iterating and deleting using list cursors", "[list]") {
     test_file file(64);
-    file.open();
 
     node_allocator::anchor node_anchor;
     node_allocator alloc(make_anchor_handle(node_anchor), file.get_engine());
@@ -446,7 +441,6 @@ TEST_CASE("Iterating and deleting using list cursors", "[list]") {
 
 TEST_CASE("List destruction -> Cursor invalidation", "[list]") {
     test_file file(64);
-    file.open();
 
     list<i32>::cursor pos;
 
@@ -467,7 +461,6 @@ TEST_CASE("List destruction -> Cursor invalidation", "[list]") {
 
 TEST_CASE("List cursors to deleted elements change state", "[list]") {
     test_file file(64);
-    file.open();
 
     node_allocator::anchor alloc_anchor;
     node_allocator alloc(make_anchor_handle(alloc_anchor), file.get_engine());
@@ -489,7 +482,6 @@ TEST_CASE("List cursors to deleted elements change state", "[list]") {
 
 TEST_CASE("List cursors are stable", "[list]") {
     test_file file(64);
-    file.open();
 
     node_allocator::anchor alloc_anchor;
     node_allocator alloc(make_anchor_handle(alloc_anchor), file.get_engine());

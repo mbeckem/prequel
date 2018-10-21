@@ -9,7 +9,6 @@ using namespace prequel;
 
 TEST_CASE("node allocator", "[node-allocator]") {
     test_file file(512);
-    file.open();
 
     {
         node_allocator::anchor anchor;

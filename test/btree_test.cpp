@@ -111,7 +111,6 @@ void simple_tree_test(TestFunction&& test) {
         CAPTURE(block_size);
 
         test_file file(block_size);
-        file.open();
 
         node_allocator::anchor alloc_anchor;
         node_allocator alloc(make_anchor_handle(alloc_anchor), file.get_engine());
@@ -164,7 +163,6 @@ TEST_CASE("raw btree", "[btree]") {
     };
 
     test_file file(block_size);
-    file.open();
 
     node_allocator::anchor alloc_anchor;
     node_allocator alloc(make_anchor_handle(alloc_anchor), file.get_engine());
@@ -650,7 +648,6 @@ TEST_CASE("btree fuzzy tests", "[btree][.slow]") {
     using tree_t = btree<u64>;
 
     test_file file(4096);
-    file.open();
 
     node_allocator::anchor alloc_anchor;
     node_allocator alloc(make_anchor_handle(alloc_anchor), file.get_engine());

@@ -12,7 +12,6 @@ using free_list_t = detail::free_list;
 
 TEST_CASE("freelist", "[freelist]") {
     test_file file(block_size);
-    file.open();
 
     REQUIRE(file.get_engine().size() == 0);
 

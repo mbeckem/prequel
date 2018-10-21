@@ -20,7 +20,6 @@ TEST_CASE("stack", "[stack]") {
     using stack_t = stack<i32>;
 
     test_file file(block_size);
-    file.open();
 
     node_allocator::anchor alloc_anchor;
     node_allocator alloc(make_anchor_handle(alloc_anchor), file.get_engine());
@@ -51,9 +50,7 @@ TEST_CASE("stack", "[stack]") {
 
         // stack.raw().dump(std::cout);
     }
-    file.close();
 
-    file.open();
     {
         stack_t stack(make_anchor_handle(stack_anchor), alloc);
 

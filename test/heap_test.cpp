@@ -13,7 +13,6 @@ static constexpr u32 block_size = 512;
 
 TEST_CASE("heap of small objects", "[heap]") {
     test_file file(block_size);
-    file.open();
 
     default_allocator::anchor alloc_anchor;
     default_allocator alloc(make_anchor_handle(alloc_anchor), file.get_engine());
@@ -108,7 +107,6 @@ TEST_CASE("heap of small objects", "[heap]") {
 
 TEST_CASE("heap supports large objects", "[heap]") {
     test_file file(block_size);
-    file.open();
 
     default_allocator::anchor alloc_anchor;
     default_allocator alloc(make_anchor_handle(alloc_anchor), file.get_engine());

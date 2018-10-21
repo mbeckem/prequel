@@ -13,7 +13,6 @@ static constexpr u32 block_size = 4096;
 
 TEST_CASE("extent", "[extent]") {
     test_file file(4096);
-    file.open();
 
     default_allocator::anchor alloc_anchor;
     std::vector<extent::anchor> extent_anchors(20);

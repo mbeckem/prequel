@@ -4,6 +4,7 @@
 #include <prequel/file_engine.hpp>
 #include <prequel/handle.hpp>
 #include <prequel/mmap_engine.hpp>
+#include <prequel/memory_engine.hpp>
 #include <prequel/vfs.hpp>
 
 #include <prequel/detail/deferred.hpp>
@@ -31,30 +32,16 @@ inline std::unique_ptr<engine> get_test_engine(file& f, u32 block_size) {
     if constexpr (mmap_test) {
         return std::make_unique<mmap_engine>(f, block_size);
     } else {
-        return std::make_unique<file_engine>(f, block_size, 4);
+        return std::make_unique<file_engine>(f, block_size, 16 * 1024);
     }
 }
 
+// TODO: Configuration option for file engine or mmap engine.
 class test_file : boost::noncopyable {
 public:
     explicit test_file(u32 block_size)
-        : m_file(get_test_file())
-        , m_block_size(block_size)
+        : m_engine(std::make_unique<memory_engine>(block_size))
     {}
-
-    void open() {
-        if (m_engine)
-            throw std::logic_error("already open");
-
-        m_engine = get_test_engine(*m_file, m_block_size);
-    }
-
-    void close() {
-        if (m_engine) {
-            m_engine->flush();
-            m_engine.reset();
-        }
-    }
 
     engine& get_engine() {
         if (!m_engine)
@@ -63,9 +50,7 @@ public:
     }
 
 private:
-    std::unique_ptr<file> m_file;
     std::unique_ptr<engine> m_engine;
-    u32 m_block_size = 0;
 };
 
 } // namespace prequel

@@ -31,6 +31,7 @@ set(PUBLIC_HEADERS
     ${HEADER_ROOT}/list.hpp
     ${HEADER_ROOT}/map.hpp
     ${HEADER_ROOT}/math.hpp
+    ${HEADER_ROOT}/memory_engine.hpp
     ${HEADER_ROOT}/mmap_engine.hpp
     ${HEADER_ROOT}/node_allocator.hpp
     ${HEADER_ROOT}/raw_array.hpp
@@ -68,6 +69,7 @@ set(SOURCES
      formatting.cpp
      heap.cpp
      id_generator.cpp
+     memory_engine.cpp
      mmap_engine.cpp
      node_allocator.cpp
      raw_array.cpp

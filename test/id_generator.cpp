@@ -11,7 +11,6 @@ static constexpr u32 block_size = 512;
 
 TEST_CASE("ID generator", "[id_generator]") {
     test_file file(block_size);
-    file.open();
 
     node_allocator::anchor anchor;
     node_allocator node_alloc(make_anchor_handle(anchor), file.get_engine());
@@ -59,5 +58,4 @@ TEST_CASE("ID generator", "[id_generator]") {
             REQUIRE(gen.max() == 0);
         }
     }
-    file.close();
 }
