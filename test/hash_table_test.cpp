@@ -238,4 +238,34 @@ TEST_CASE("compatible hash functions", "[hash-table]") {
     REQUIRE(found_value == search);
 }
 
+TEST_CASE("duplicated insertions fail", "[hash-table]") {
+    test_file file(256);
+
+    default_allocator::anchor alloc_anchor;
+    default_allocator alloc(make_anchor_handle(alloc_anchor), file.get_engine());
+
+    hash_table<u64>::anchor anchor;
+    hash_table<u64> table(make_anchor_handle(anchor), alloc);
+
+    for (u64 i = 0; i < 10000; ++i) {
+        CAPTURE(i);
+
+        bool inserted = table.insert(i);
+        if (!inserted)
+            FAIL();
+    }
+
+    REQUIRE(table.size() == 10000);
+
+    for (u64 i = 0; i < 10000; ++i) {
+        CAPTURE(i);
+
+        bool inserted = table.insert(i);
+        if (inserted)
+            FAIL("Must not insert a duplicate value.");
+    }
+
+    REQUIRE(table.size() == 10000);
+}
+
 // TODO Test node visitation.

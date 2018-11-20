@@ -1,5 +1,6 @@
 #include <prequel/btree.hpp>
 #include <prequel/default_file_format.hpp>
+#include <prequel/hash_table.hpp>
 
 #include <clipp.h>
 #include <fmt/format.h>
@@ -31,8 +32,8 @@ struct options {
     u32 cache_size_megabytes = 1;
 
     struct init_t {
-        enum which_t { small, large };
-        which_t which = small;
+        enum which_t { small_tree, large_tree, small_hash, large_hash };
+        which_t which = small_tree;
     } init;
 
     struct insert_t {
@@ -92,13 +93,28 @@ static_assert(serialized_size<large_value>() == 128);
 using small_value_tree = btree<i64>;
 using large_value_tree = btree<large_value, large_value::key_extract>;
 
+using small_value_hash = hash_table<i64>;
+using large_value_hash = hash_table<large_value, large_value::key_extract>;
+
+template<typename Container>
+constexpr bool is_tree() {
+    return std::is_same_v<Container, small_value_tree> || std::is_same_v<Container, large_value_tree>;
+}
+
+template<typename Container>
+constexpr bool is_hash() {
+    return std::is_same_v<Container, small_value_hash> || std::is_same_v<Container, large_value_hash>;
+}
+
 // This value is stored inside the first block on disk.
 // The state must be initialized first (it has to contain
 // either a small tree or large tree in order to be useful).
 struct anchor {
-    std::variant<std::monostate, small_value_tree::anchor, large_value_tree::anchor> tree;
+    std::variant<std::monostate, small_value_tree::anchor, large_value_tree::anchor,
+                 small_value_hash::anchor, large_value_hash::anchor>
+        container;
 
-    static constexpr auto get_binary_format() { return make_binary_format(&anchor::tree); }
+    static constexpr auto get_binary_format() { return make_binary_format(&anchor::container); }
 };
 
 options parse_options(int argc, char** argv) {
@@ -107,47 +123,62 @@ options parse_options(int argc, char** argv) {
     options opts;
     bool show_help = false;
 
-    auto general = "General options:"
-                   % ((option("-h", "--help").set(show_help)) % "Show help",
-                      (required("-f", "--file") & value("file", opts.file)) % "Input file",
-                      (required("-b", "--block-size") & value("B", opts.block_size_bytes))
-                          % "Block size (in Byte)",
-                      (option("-m", "--cache-size") & value("MB", opts.cache_size_megabytes))
-                          % "Cache size (in Megabyte)",
-                      (option("--mmap").set(opts.mmap, true)
-                       % "Use mmap instead of normal file I/O (cache size will be ignored)."));
+    auto general_options =
+        "General options:"
+        % ((option("-h", "--help").set(show_help)) % "Show help",
+           (option("-m", "--cache-size") & value("MB", opts.cache_size_megabytes))
+               % "Cache size (in Megabyte)",
+           (option("--mmap").set(opts.mmap, true)
+            % "Use mmap instead of normal file I/O (cache size will be ignored)."));
 
-    auto cli =
-        (general,
-         ((command("init")
-               .set(opts.action, mode::init)
-               .set(opts.write_mode, true)
-               .set(opts.create_mode, true),
-           one_of(required("small").set(opts.init.which, options::init_t::small),
-                  required("large").set(opts.init.which, options::init_t::large)))
-              % "Initialize the tree datastructure with small or large values"
-          |
+    auto required_options = "Required options:"
+                            % ((required("-f", "--file") & value("file", opts.file)) % "Input file",
+                               (required("-b", "--block-size") & value("B", opts.block_size_bytes))
+                                   % "Block size (in Byte)");
 
-          command("stats").set(opts.action, mode::stats) % "Print tree statistics" |
+    auto cmd_init =
+        (command("init")
+             .set(opts.action, mode::init)
+             .set(opts.write_mode, true)
+             .set(opts.create_mode, true),
+         one_of(required("small-tree").set(opts.init.which, options::init_t::small_tree),
+                required("large-tree").set(opts.init.which, options::init_t::large_tree),
+                required("small-hash").set(opts.init.which, options::init_t::small_hash),
+                required("large-hash").set(opts.init.which, options::init_t::large_hash)))
+        % "Initialize a container";
 
-          command("dump").set(opts.action, mode::dump) % "Print the entire content of the tree" |
+    auto cmd_stats =
+        group(command("stats").set(opts.action, mode::stats)) % "Print container statistics";
 
-          command("validate").set(opts.action, mode::validate) % "Check the integrity of the tree" |
+    auto cmd_dump = group(command("dump").set(opts.action, mode::dump))
+                    % "Print the entire content of the container";
 
-          (command("insert").set(opts.action, mode::insert).set(opts.write_mode, true),
-           one_of(required("linear").set(opts.insert.which, options::insert_t::linear),
-                  required("random").set(opts.insert.which, options::insert_t::random)),
-           value("N").set(opts.insert.count))
-              % "Insert N elements into the tree, either random or in linear (ascending) order"
-          |
+    auto cmd_validate = group(command("validate").set(opts.action, mode::validate))
+                        % "Check the integrity of the container";
 
-          (command("bulk_load").set(opts.action, mode::bulk_load).set(opts.write_mode, true),
-           value("N").set(opts.bulk_load.count))
-              % "Insert N elements into an empty tree, in ascending linear order"
-          |
+    auto cmd_insert =
+        (command("insert").set(opts.action, mode::insert).set(opts.write_mode, true),
+         one_of(required("linear").set(opts.insert.which, options::insert_t::linear),
+                required("random").set(opts.insert.which, options::insert_t::random)),
+         value("N").set(opts.insert.count))
+        % "Insert N elements into the container, either random or in linear (ascending) order";
 
-          (command("query").set(opts.action, mode::query), value("N").set(opts.query.count))
-              % "Query for N random values in the tree (between min and max)"));
+    auto cmd_bulk_load =
+        (command("bulk_load").set(opts.action, mode::bulk_load).set(opts.write_mode, true),
+         value("N").set(opts.bulk_load.count))
+        % "Insert N elements into an empty container, in ascending linear order";
+
+    auto cmd_query =
+        (command("query").set(opts.action, mode::query), value("N").set(opts.query.count))
+        % "Query for N random values in the container (between min and max)";
+
+    std::vector<clipp::group> subcommands{cmd_init,   cmd_stats,     cmd_dump, cmd_validate,
+                                          cmd_insert, cmd_bulk_load, cmd_query};
+
+    clipp::group subcommands_group;
+    subcommands_group.exclusive(true);
+    for (auto& cmd : subcommands)
+        subcommands_group.push_back(cmd);
 
     auto print_usage = [&](bool include_help) {
         auto fmt = doc_formatting()
@@ -158,11 +189,25 @@ options parse_options(int argc, char** argv) {
                        .max_flags_per_param_in_usage(1);
 
         std::cout << "Usage:\n"
-                  << usage_lines(cli, argv[0], doc_formatting(fmt).start_column(4)) << "\n";
+                  << "    " << argv[0] << " REQUIRED_OPTIONS... [OPTIONS...] SUBCOMMAND ARGS..."
+                  << "\n"
+                  << "    " << argv[0] << " -h"
+                  << "\n";
         if (include_help) {
-            std::cout << "\n" << documentation(cli, fmt) << "\n";
+            std::cout << "\n"
+                      << documentation(required_options, fmt) << "\n\n"
+                      << documentation(general_options, fmt) << "\n\n";
+
+            std::cout << "Subcommands "
+                      << "\n"
+                      << "-----------"
+                      << "\n\n";
+            for (const auto& cmd : subcommands)
+                std::cout << documentation(cmd, fmt) << "\n\n";
         }
     };
+
+    auto cli = (required_options, general_options, subcommands_group);
 
     parsing_result result = parse(argc, argv, cli);
     if (show_help) {
@@ -181,16 +226,16 @@ options parse_options(int argc, char** argv) {
     return opts;
 }
 
-// Open the appropriate tree, then run the function.
+// Open the appropriate container, then run the function.
 template<typename Function>
-void tree_operation(anchor_handle<anchor> tree_anchor, allocator& alloc, Function&& fn) {
+void container_operation(anchor_handle<anchor> container_anchor, allocator& alloc, Function&& fn) {
     struct variant_visitor {
         anchor_flag* changed;
         allocator* alloc;
         Function* fn;
 
         void operator()(std::monostate) const {
-            throw std::runtime_error("Tree was not initialized.");
+            throw std::runtime_error("Container was not initialized.");
         }
 
         void operator()(small_value_tree::anchor& state) const {
@@ -202,18 +247,28 @@ void tree_operation(anchor_handle<anchor> tree_anchor, allocator& alloc, Functio
             large_value_tree tree(make_anchor_handle(state, *changed), *alloc);
             (*fn)(tree);
         }
+
+        void operator()(small_value_hash::anchor& state) const {
+            small_value_hash hash(make_anchor_handle(state, *changed), *alloc);
+            (*fn)(hash);
+        }
+
+        void operator()(large_value_hash::anchor& state) const {
+            large_value_hash hash(make_anchor_handle(state, *changed), *alloc);
+            (*fn)(hash);
+        }
     };
 
     anchor_flag changed;
-    auto current_state = tree_anchor.get<&anchor::tree>();
+    auto current_state = container_anchor.get<&anchor::container>();
     std::visit(variant_visitor{&changed, &alloc, &fn}, current_state);
     if (changed) {
-        tree_anchor.set<&anchor::tree>(current_state);
+        container_anchor.set<&anchor::container>(current_state);
     }
 }
 
-template<typename Tree>
-void tree_stats(Tree& tree) {
+template<typename... Args>
+void container_stats(btree<Args...>& tree) {
     std::cout << "Static properties:\n"
               << "  Value size:      " << tree.value_size() << "\n"
               << "  Key size:        " << tree.key_size() << "\n"
@@ -232,50 +287,83 @@ void tree_stats(Tree& tree) {
               << std::flush;
 }
 
+template<typename... Args>
+void container_stats(hash_table<Args...>& hash) {
+    std::cout << "Static properties:\n"
+              << "  Value size:        " << hash.value_size() << "\n"
+              << "  Key size:          " << hash.key_size() << "\n"
+              << "  Bucket capacity:   " << hash.bucket_capacity() << "\n"
+              << "\n"
+              << "Dynamic properties:\n"
+              << "  Size:              " << hash.size() << "\n"
+              << "  Primary buckets:   " << hash.primary_buckets() << "\n"
+              << "  Overflow buckets:  " << hash.overflow_buckets() << "\n"
+              << "  Allocated buckets: " << hash.allocated_buckets() << "\n"
+              << "  Byte size:         " << hash.byte_size() << "\n"
+              << "  Fill factor:       " << hash.fill_factor() << "\n"
+              << "  Overhead:          " << hash.overhead() << "\n"
+              << "\n"
+              << std::flush;
+}
+
 static std::mt19937 rng{std::random_device{}()};
 
-auto random_values(small_value_tree&) {
-    return []() { return std::uniform_int_distribution<i64>()(rng); };
-}
+template<typename Container>
+auto random_values(Container& container) {
+    using value_type = typename Container::value_type;
 
-auto random_values(large_value_tree&) {
-    return []() {
-        std::uniform_int_distribution<u64> dist;
+    unused(container);
 
-        large_value v;
-        v.key1 = dist(rng);
-        v.key2 = dist(rng);
-        return v;
-    };
-}
+    if constexpr (std::is_same_v<value_type, i64>) {
+        return []() { return std::uniform_int_distribution<i64>()(rng); };
+    } else if constexpr (std::is_same_v<value_type, large_value>) {
+        return []() {
+            std::uniform_int_distribution<u64> dist;
 
-auto linear_values(small_value_tree& tree) {
-    i64 v = 0;
-    if (!tree.empty()) {
-        v = tree.create_cursor(tree.seek_max).get() + 1;
+            large_value v;
+            v.key1 = dist(rng);
+            v.key2 = dist(rng);
+            return v;
+        };
+    } else {
+        static_assert(always_false<value_type>::value, "Not implemented.");
     }
-
-    return [v]() mutable { return v++; };
 }
 
-auto linear_values(large_value_tree& tree) {
-    std::pair<u64, u64> v{};
-    if (!tree.empty()) {
-        v = tree.derive_key(tree.create_cursor(tree.seek_max).get());
-    }
+template<typename Container>
+auto linear_values(Container& container) {
+    using value_type = typename Container::value_type;
 
-    return [v]() mutable {
-        v.second += 1;
-        if (v.second >= 100) {
-            v.first += 1;
-            v.second = 0;
+    static_assert(is_tree<Container>(), "Unsupported container.");
+
+    if constexpr (std::is_same_v<value_type, i64>) {
+        i64 v = 0;
+        if (!container.empty()) {
+            v = container.create_cursor(container.seek_max).get() + 1;
         }
 
-        large_value l;
-        l.key1 = v.first;
-        l.key2 = v.second;
-        return l;
-    };
+        return [v]() mutable { return v++; };
+    } else if constexpr (std::is_same_v<value_type, large_value>) {
+        std::pair<u64, u64> v{};
+        if (!container.empty()) {
+            v = container.derive_key(container.create_cursor(container.seek_max).get());
+        }
+
+        return [v]() mutable {
+            v.second += 1;
+            if (v.second >= 100) {
+                v.first += 1;
+                v.second = 0;
+            }
+
+            large_value l;
+            l.key1 = v.first;
+            l.key2 = v.second;
+            return l;
+        };
+    } else {
+        static_assert(always_false<value_type>::value, "Not implemented.");
+    }
 }
 
 u64 random_key(small_value_tree&, u64 min, u64 max) {
@@ -324,137 +412,183 @@ void measure(prequel::engine& engine, Func&& fn) {
     std::cout << std::flush;
 }
 
-template<typename Tree, typename ItemGenerator>
-void run_tree_insert(prequel::engine& engine, Tree& tree, ItemGenerator&& gen, u64 count) {
+template<typename Container, typename ItemGenerator>
+void run_container_insert(prequel::engine& engine, Container& container, ItemGenerator&& gen,
+                          u64 count) {
     measure(engine, [&]() {
         const u64 reporting_interval = std::max(count / 100, u64(1));
 
-        std::cout << "Beginning to insert " << count << " elements." << std::endl;
+        if constexpr (std::is_same_v<large_value_tree,
+                                     Container> || std::is_same_v<small_value_tree, Container>) {
+            std::cout << "Beginning to insert " << count << " elements." << std::endl;
 
-        auto cursor = tree.create_cursor();
-        for (u64 i = 0; i < count; ++i) {
-            auto item = gen();
-            cursor.insert_or_update(item);
+            auto cursor = container.create_cursor();
+            for (u64 i = 0; i < count; ++i) {
+                auto item = gen();
+                cursor.insert_or_update(item);
 
-            if ((i + 1) % reporting_interval == 0) {
-                std::cout << "Inserted " << (i + 1) << " elements." << std::endl;
+                if ((i + 1) % reporting_interval == 0) {
+                    std::cout << "Inserted " << (i + 1) << " elements." << std::endl;
+                }
             }
+            return count;
+        } else if constexpr (std::is_same_v<large_value_hash,
+                                            Container> || std::is_same_v<small_value_hash, Container>) {
+            std::cout << "Beginning to insert " << count << " elements." << std::endl;
+
+            for (u64 i = 0; i < count; ++i) {
+                auto item = gen();
+                container.insert_or_update(item);
+
+                if ((i + 1) % reporting_interval == 0) {
+                    std::cout << "Inserted " << (i + 1) << " elements." << std::endl;
+                }
+            }
+            return count;
+        } else {
+            static_assert(prequel::always_false<Container>::value, "Not implemented.");
         }
-        return count;
     });
 }
 
-template<typename Tree>
-void tree_insert(prequel::engine& engine, Tree& tree, options::insert_t::which_t mode, u64 count) {
+template<typename Container>
+void container_insert(prequel::engine& engine, Container& container,
+                      options::insert_t::which_t mode, u64 count) {
     switch (mode) {
     case options::insert_t::random:
-        run_tree_insert(engine, tree, random_values(tree), count);
+        run_container_insert(engine, container, random_values(container), count);
         break;
     case options::insert_t::linear:
-        run_tree_insert(engine, tree, linear_values(tree), count);
+        if constexpr (is_tree<Container>()) {
+            run_container_insert(engine, container, linear_values(container), count);
+        } else {
+            throw std::runtime_error("Only trees are supported for linear insertion benchmarks.");
+        }
         break;
     }
 }
 
-template<typename Tree>
-void tree_bulk_load(prequel::engine& engine, Tree& tree, u64 count) {
-    measure(engine, [&]() {
-        const u64 reporting_interval = std::max(count / 100, u64(1));
+template<typename Container>
+void container_bulk_load(prequel::engine& engine, Container& container, u64 count) {
+    if constexpr (is_tree<Container>()) {
+        measure(engine, [&]() {
+            const u64 reporting_interval = std::max(count / 100, u64(1));
 
-        auto gen = linear_values(tree);
+            auto gen = linear_values(container);
 
-        std::cout << "Beginning to insert " << count << " elements." << std::endl;
+            std::cout << "Beginning to insert " << count << " elements." << std::endl;
 
-        auto loader = tree.bulk_load();
-        for (u64 i = 0; i < count; ++i) {
-            auto item = gen();
-            loader.insert(item);
+            auto loader = container.bulk_load();
+            for (u64 i = 0; i < count; ++i) {
+                auto item = gen();
+                loader.insert(item);
 
-            if ((i + 1) % reporting_interval == 0) {
-                std::cout << "Inserted " << (i + 1) << " elements." << std::endl;
+                if ((i + 1) % reporting_interval == 0) {
+                    std::cout << "Inserted " << (i + 1) << " elements." << std::endl;
+                }
             }
-        }
-        loader.finish();
-        return count;
-    });
+            loader.finish();
+            return count;
+        });
+    } else {
+        unused(engine, container, count);
+        throw std::runtime_error("Only trees are supported for bulk insertion benchmarks.");
+    }
 }
 
-template<typename Tree>
-void tree_query(prequel::engine& engine, Tree& tree, u64 count) {
-    measure(engine, [&]() {
-        if (tree.empty()) {
-            throw std::runtime_error("The tree is empty.");
-        }
-
-        std::cout << "Beginning to query for " << count << " values." << std::endl;
-
-        const u64 reporting_interval = std::max(count / 100, u64(1));
-        u64 found = 0;
-
-        auto min_key = tree.derive_key(tree.create_cursor(tree.seek_min).get());
-        auto max_key = tree.derive_key(tree.create_cursor(tree.seek_max).get());
-
-        auto cursor = tree.create_cursor();
-        for (u64 i = 0; i < count; ++i) {
-            auto key = random_key(tree, min_key, max_key);
-            found += cursor.find(key);
-
-            if ((i + 1) % reporting_interval == 0) {
-                std::cout << "Queried for " << (i + 1) << " elements (" << found << " were found)."
-                          << std::endl;
+template<typename Container>
+void container_query(prequel::engine& engine, Container& container, u64 count) {
+    if constexpr (is_tree<Container>()) {
+        measure(engine, [&]() {
+            if (container.empty()) {
+                throw std::runtime_error("The container is empty.");
             }
-        }
 
-        return count;
-    });
+            std::cout << "Beginning to query for " << count << " values." << std::endl;
+
+            const u64 reporting_interval = std::max(count / 100, u64(1));
+            u64 found = 0;
+
+            auto min_key = container.derive_key(container.create_cursor(container.seek_min).get());
+            auto max_key = container.derive_key(container.create_cursor(container.seek_max).get());
+
+            auto cursor = container.create_cursor();
+            for (u64 i = 0; i < count; ++i) {
+                auto key = random_key(container, min_key, max_key);
+                found += cursor.find(key);
+
+                if ((i + 1) % reporting_interval == 0) {
+                    std::cout << "Queried for " << (i + 1) << " elements (" << found
+                              << " were found)." << std::endl;
+                }
+            }
+
+            return count;
+        });
+    } else {
+        unused(engine, container, count);
+        throw std::runtime_error("Query benchmark has not yet been implemented for hash tables.");
+    }
 }
 
-void run(prequel::engine& engine, anchor_handle<anchor> tree_anchor, allocator& alloc,
+void run(prequel::engine& engine, anchor_handle<anchor> container_anchor, allocator& alloc,
          const options& opts) {
     switch (opts.action) {
     case mode::init: {
-        auto tree_state = tree_anchor.get();
-        if (!std::holds_alternative<std::monostate>(tree_state.tree)) {
-            throw std::runtime_error("Tree is already initialized.");
+        auto container_state = container_anchor.get();
+        if (!std::holds_alternative<std::monostate>(container_state.container)) {
+            throw std::runtime_error("Container is already initialized.");
         }
 
         switch (opts.init.which) {
-        case options::init_t::small:
-            tree_state.tree = small_value_tree::anchor();
-            std::cout << "Initialized with small value size." << std::endl;
+        case options::init_t::small_tree:
+            container_state.container = small_value_tree::anchor();
+            std::cout << "Initialized tree with small value size." << std::endl;
             break;
-        case options::init_t::large:
-            tree_state.tree = large_value_tree::anchor();
-            std::cout << "Initialized with large value size." << std::endl;
+        case options::init_t::large_tree:
+            container_state.container = large_value_tree::anchor();
+            std::cout << "Initialized tree with large value size." << std::endl;
+            break;
+        case options::init_t::small_hash:
+            container_state.container = small_value_hash::anchor();
+            std::cout << "Initialized hash table with small value size." << std::endl;
+            break;
+        case options::init_t::large_hash:
+            container_state.container = large_value_hash::anchor();
+            std::cout << "Initialized hash table with large value size." << std::endl;
             break;
         }
-        tree_anchor.set(tree_state);
+        container_anchor.set(container_state);
         break;
     }
     case mode::stats:
-        tree_operation(tree_anchor, alloc, [&](auto& tree) { tree_stats(tree); });
+        container_operation(container_anchor, alloc,
+                            [&](auto& container) { container_stats(container); });
         break;
     case mode::dump:
-        tree_operation(tree_anchor, alloc, [&](auto& tree) {
-            tree.dump(std::cout);
+        container_operation(container_anchor, alloc, [&](auto& container) {
+            // FIXME implement dump for hash_table<T> so we can erase the raw()
+            container.raw().dump(std::cout);
             std::cout << std::flush;
         });
         break;
     case mode::validate:
-        tree_operation(tree_anchor, alloc, [&](auto& tree) { tree.validate(); });
+        container_operation(container_anchor, alloc, [&](auto& container) { container.validate(); });
         break;
     case mode::insert:
-        tree_operation(tree_anchor, alloc, [&](auto& tree) {
-            tree_insert(engine, tree, opts.insert.which, opts.insert.count);
+        container_operation(container_anchor, alloc, [&](auto& container) {
+            container_insert(engine, container, opts.insert.which, opts.insert.count);
         });
         break;
     case mode::bulk_load:
-        tree_operation(tree_anchor, alloc,
-                       [&](auto& tree) { tree_bulk_load(engine, tree, opts.bulk_load.count); });
+        container_operation(container_anchor, alloc, [&](auto& container) {
+            container_bulk_load(engine, container, opts.bulk_load.count);
+        });
         break;
     case mode::query:
-        tree_operation(tree_anchor, alloc,
-                       [&](auto& tree) { tree_query(engine, tree, opts.query.count); });
+        container_operation(container_anchor, alloc, [&](auto& container) {
+            container_query(engine, container, opts.query.count);
+        });
         break;
     }
 }

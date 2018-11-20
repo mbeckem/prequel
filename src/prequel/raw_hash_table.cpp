@@ -79,6 +79,8 @@ static constexpr std::array<u64, precomputed_bucket_ranges> bucket_range_size_su
  * Primary buckets are stored (nearly) next to each other in contiguous storage.
  * Overflow buckets are allocated on demand and linked into the list.
  *
+ * Important: Entries within a single bucket node are ordered by their hash value.
+ *
  * TODO: Overflow nodes should collapse in order to reclaim space.
  * (Note that space will already eventually be reclaimed by split or shrink operations).
  */
@@ -146,12 +148,17 @@ public:
         std::memmove(data, value, m_value_size);
     }
 
-    u32 insert(const byte* value) const {
+    u32 insert(u32 index, const byte* value) const {
         PREQUEL_ASSERT(!full(), "Node is full.");
+        PREQUEL_ASSERT(index < m_capacity, "Index is over capacity.");
+        PREQUEL_ASSERT(index <= get_size(), "Index is out of bounds.");
 
-        const u32 index = get_size();
-        set_value(index, value);
-        set_size(index + 1);
+        const u32 size = get_size();
+        byte* data = m_handle.block().writable_data();
+        std::memmove(data + offset_of_value(index + 1), data + offset_of_value(index),
+                     (size - index) * m_value_size);
+        std::memmove(data + offset_of_value(index), value, m_value_size);
+        set_size(size + 1);
         return index;
     }
 
@@ -337,7 +344,13 @@ private:
     template<typename KeyType, typename KeyHasher, typename KeyEquals>
     bool erase_impl(const KeyType& key, const KeyHasher& hasher, const KeyEquals& equals);
 
-    // Inserts the value when we already know that it's not a duplicate.
+    // Inserts the value at the appropriate position within the bucket or returns false
+    // if an equal value has been found (returns that values position in that case).
+    // Returns true if the insertion took place.
+    bool insert_into_bucket(const bucket_node& primary_bucket, const byte* value, const byte* key,
+                            u64 hash, bucket_node& found_node, u32& found_index);
+
+    // Helper function for grow + split, should eventually be replaced.
     void insert_into_bucket(const bucket_node& primary_bucket, const byte* value);
 
     // Iterate through the bucket and try to find the key.
@@ -347,6 +360,10 @@ private:
     template<typename KeyType, typename KeyEquals>
     bool find_in_bucket(const bucket_node& primary_bucket, const KeyType& key, u64 key_hash,
                         const KeyEquals& equals, bucket_node& found_node, u32& found_index) const;
+
+    template<typename KeyType, typename KeyEquals>
+    bool find_in_node(const bucket_node& node, const KeyType& search_key, u64 search_hash,
+                      const KeyEquals& equals, u32& position) const;
 
     bool grow();
     bool shrink();
@@ -381,6 +398,9 @@ private:
     u64 bucket_for_value(const byte* value) const;
     u64 bucket_for_key(const byte* key) const;
     u64 bucket_for_hash(u64 hash) const;
+
+    // Computes the hash of that value by deriving the key first, and then hashing the key.
+    u64 value_hash(const byte* value) const;
 
     // Compute the key's hash value, using the user-provided callback function.
     u64 key_hash(const byte* key) const;
@@ -506,16 +526,16 @@ bool raw_hash_table_impl::insert(const byte* value, bool overwrite) {
     {
         bucket_node found_node;
         u32 found_index = 0;
-        if (find_in_bucket(bucket, key.data(), hash, found_node, found_index)) {
+        if (!insert_into_bucket(bucket, value, key.data(), hash, found_node, found_index)) {
             if (overwrite) {
                 found_node.set_value(found_index, value);
+                return true;
             }
 
             return false;
         }
     }
 
-    insert_into_bucket(bucket, value);
     set_size(get_size() + 1);
 
     while (load() > max_fill_factor) {
@@ -714,7 +734,8 @@ void raw_hash_table_impl::dump(std::ostream& os) const {
         const u32 size = node.get_size();
         for (u32 i = 0; i < size; ++i) {
             const byte* value = node.get_value(i);
-            fmt::print(os, "    {:>4}: {}\n", i, format_hex(value, value_size()));
+            fmt::print(os, "    {:>4}: {} (Hash: {})\n", i, format_hex(value, value_size()),
+                       value_hash(value));
         }
         fmt::print(os, "\n");
     };
@@ -756,10 +777,21 @@ void raw_hash_table_impl::validate() const {
 
         while (1) {
             const u32 values = bucket.get_size();
+
+            const byte* last_value = nullptr;
             for (u32 value_index = 0; value_index < values; ++value_index) {
                 const byte* value = bucket.get_value(value_index);
                 if (bucket_for_value(value) != bucket_index)
                     PREQUEL_ERROR("Value is in wrong bucket.");
+
+                if (last_value) {
+                    u64 last_hash = value_hash(last_value);
+                    u64 hash = value_hash(value);
+                    if (hash < last_hash) {
+                        PREQUEL_ERROR("Values in a node must be sorted.");
+                    }
+                }
+                last_value = value;
             }
 
             seen_values += values;
@@ -854,27 +886,79 @@ bool raw_hash_table_impl::erase_impl(const KeyType& key, const KeyHasher& hasher
     return true;
 }
 
+bool raw_hash_table_impl::insert_into_bucket(const bucket_node& primary_bucket, const byte* value,
+                                             const byte* key, u64 hash, bucket_node& found_node,
+                                             u32& found_index) {
+    PREQUEL_ASSERT(primary_bucket, "Invalid primary bucket.");
+    PREQUEL_ASSERT(value, "Value is null.");
+    PREQUEL_ASSERT(key, "Key is null.");
+
+    auto key_equals = [&](const byte* lhs, const byte* rhs) { return key_equal(lhs, rhs); };
+
+    // We cache the first node that has enough space for the new value,
+    // even if we did not check all other nodes yet.
+    bool cached_insert_location = false;
+    bucket_node insert_node;
+    u32 insert_index = -1;
+
+    // Iterate over all nodes in the bucket.
+    bucket_node node = primary_bucket;
+    while (1) {
+        u32 position = 0;
+        if (find_in_node(node, key, hash, key_equals, position)) {
+            // Key exists at `position`.
+            found_node = node;
+            found_index = position;
+            return false;
+        }
+
+        // We can insert at `position` - if the node is not full.
+        // We have to check all other nodes first though, in case the key exists.
+        if (!node.full()) {
+            insert_node = node;
+            insert_index = position;
+            cached_insert_location = true;
+        }
+
+        block_index next = node.get_next();
+        if (!next)
+            break;
+
+        node = read_bucket(next);
+    }
+
+    // If we did not find a suitable insert location on the way,
+    // allocate a new overflow node and link it into the chain.
+    // `node` points to the current last node in the overflow chain.
+    if (!cached_insert_location) {
+        insert_node = allocate_overflow_bucket();
+        insert_index = 0;
+        node.set_next(insert_node.index());
+    }
+
+    insert_node.insert(insert_index, value);
+    return true;
+}
+
 /*
- * Optimization hint: we could keep the contents of a single bucket sorted, like in the btree.
- * Would improve search times with slightly higher insertion overhead as elements have to be moved.
+ * FIXME ineffecient because the calling code knows that the key is unique.
+ * Grow() and shink() need to be improved.
  */
 void raw_hash_table_impl::insert_into_bucket(const bucket_node& primary_bucket, const byte* value) {
     PREQUEL_ASSERT(primary_bucket, "Invalid primary bucket.");
     PREQUEL_ASSERT(value, "Value is null.");
 
-    bucket_node bucket = primary_bucket;
-    while (bucket.full()) {
-        block_index next = bucket.get_next();
-        if (!next) {
-            bucket_node overflow_bucket = allocate_overflow_bucket();
-            bucket.set_next(overflow_bucket.index());
-            bucket = std::move(overflow_bucket);
-            break;
-        }
+    key_buffer key;
+    derive_key(value, key.data());
 
-        bucket = read_bucket(next);
-    }
-    bucket.insert(value);
+    u64 hash = key_hash(key.data());
+
+    bucket_node found_node;
+    u32 found_index = 0;
+    bool inserted =
+        insert_into_bucket(primary_bucket, value, key.data(), hash, found_node, found_index);
+    PREQUEL_ASSERT(inserted, "Key must be unique.");
+    unused(inserted);
 }
 
 bool raw_hash_table_impl::find_in_bucket(const bucket_node& primary_bucket, const byte* search_key,
@@ -886,6 +970,57 @@ bool raw_hash_table_impl::find_in_bucket(const bucket_node& primary_bucket, cons
 }
 
 template<typename KeyType, typename KeyEquals>
+bool raw_hash_table_impl::find_in_node(const bucket_node& node, const KeyType& search_key,
+                                       u64 search_hash, const KeyEquals& equals,
+                                       u32& position) const {
+    PREQUEL_ASSERT(node, "Invalid node.");
+
+    const u32 size = node.get_size();
+    key_buffer other_key;
+
+    /*
+     * Binary search. Entries are sorted by hash.
+     */
+    auto iter = std::lower_bound(identity_iterator<u32>(0), identity_iterator<u32>(size),
+                                 search_hash, [&](u32 index, u64 search_hash) {
+                                     const byte* value = node.get_value(index);
+
+                                     derive_key(value, other_key.data());
+                                     const u64 other_hash = key_hash(other_key.data());
+                                     return other_hash < search_hash;
+                                 });
+
+    /*
+     * Iterate starting from the found position. Continue the search
+     * as long as we see the search hash (to handle collisions).
+     * Terminate when we reached the end (also returned on unsuccessful hash search above)
+     * or if we found the value.
+     */
+    u32 index = *iter;
+    while (index != size) {
+        const byte* value = node.get_value(index);
+        derive_key(value, other_key.data());
+
+        const u64 hash = key_hash(other_key.data());
+        if (hash != search_hash) {
+            PREQUEL_ASSERT(hash > search_hash, "Order invariant.");
+            position = index;
+            return false;
+        }
+
+        if (equals(search_key, other_key.data())) {
+            position = index;
+            return true;
+        }
+
+        ++index;
+    }
+
+    position = index;
+    return false;
+}
+
+template<typename KeyType, typename KeyEquals>
 bool raw_hash_table_impl::find_in_bucket(const bucket_node& primary_bucket,
                                          const KeyType& search_key, u64 search_hash,
                                          const KeyEquals& equals, bucket_node& found_node,
@@ -893,22 +1028,11 @@ bool raw_hash_table_impl::find_in_bucket(const bucket_node& primary_bucket,
     PREQUEL_ASSERT(primary_bucket, "Invalid primary bucket.");
 
     bucket_node bucket = primary_bucket;
-    key_buffer other_key;
     while (1) {
-        const u32 size = bucket.get_size();
-        for (u32 i = 0; i < size; ++i) {
-            const byte* other_value = bucket.get_value(i);
-            derive_key(other_value, other_key.data());
-
-            const u64 other_hash = key_hash(other_key.data());
-            if (search_hash != other_hash)
-                continue;
-
-            if (!equals(search_key, other_key.data()))
-                continue;
-
+        u32 index = 0;
+        if (find_in_node(bucket, search_key, search_hash, equals, index)) {
             found_node = std::move(bucket);
-            found_index = i;
+            found_index = index;
             return true;
         }
 
@@ -1186,6 +1310,13 @@ u64 raw_hash_table_impl::bucket_for_hash(u64 hash) const {
 
     PREQUEL_ASSERT(index < get_primary_buckets(), "Bucket index out of range.");
     return index;
+}
+
+u64 raw_hash_table_impl::value_hash(const byte* value) const {
+    PREQUEL_ASSERT(value, "Value is null.");
+    key_buffer key;
+    derive_key(value, key.data());
+    return key_hash(key.data());
 }
 
 u64 raw_hash_table_impl::key_hash(const byte* key) const {
