@@ -20,8 +20,7 @@ public:
 
         entry(Key key, Value value)
             : key(std::move(key))
-            , value(std::move(value))
-        {}
+            , value(std::move(value)) {}
 
         static constexpr auto get_binary_format() {
             return make_binary_format(&entry::key, &entry::value);
@@ -32,9 +31,7 @@ public:
 
 private:
     struct derive_key {
-        Key operator()(const entry& e) const {
-            return e.key;
-        }
+        Key operator()(const entry& e) const { return e.key; }
     };
 
     // Implemented as a btree.
@@ -44,9 +41,7 @@ public:
     class anchor {
         typename tree_type::anchor tree;
 
-        static constexpr auto get_binary_format() {
-            return make_binary_format(&anchor::tree);
-        }
+        static constexpr auto get_binary_format() { return make_binary_format(&anchor::tree); }
 
         friend map;
         friend binary_format_access;
@@ -54,12 +49,10 @@ public:
 
 public:
     explicit map(anchor_handle<anchor> anchor_, allocator& alloc_, KeyLess less_ = KeyLess())
-        : m_tree(std::move(anchor_).template member<&anchor::tree>(), alloc_, std::move(less_))
-    {}
+        : m_tree(std::move(anchor_).template member<&anchor::tree>(), alloc_, std::move(less_)) {}
 
     engine& get_engine() const { return m_tree.get_engine(); }
     allocator& get_allocator() const { return m_tree.get_allocator(); }
-
 
 private:
     tree_type m_tree;

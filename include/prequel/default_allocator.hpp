@@ -2,11 +2,11 @@
 #define PREQUEL_DEFAULT_ALLOCATOR2_HPP
 
 #include <prequel/allocator.hpp>
-#include <prequel/defs.hpp>
-#include <prequel/btree.hpp>
 #include <prequel/binary_format.hpp>
-#include <prequel/serialization.hpp>
+#include <prequel/btree.hpp>
+#include <prequel/defs.hpp>
 #include <prequel/detail/free_list.hpp>
+#include <prequel/serialization.hpp>
 
 #include <ostream>
 
@@ -16,14 +16,14 @@ class default_allocator : public allocator {
 private:
     // An extent represents a region of space within the file.
     struct extent_t {
-        block_index block;  ///< Index of the first block.
-        u64 size = 0;       ///< Number of blocks in this extent.
+        block_index block; ///< Index of the first block.
+        u64 size = 0;      ///< Number of blocks in this extent.
 
         extent_t() = default;
 
         extent_t(block_index block, u64 size)
-            : block(block), size(size)
-        {}
+            : block(block)
+            , size(size) {}
 
         static constexpr auto get_binary_format() {
             return make_binary_format(&extent_t::block, &extent_t::size);
@@ -33,9 +33,7 @@ private:
             return block == other.block && size == other.size;
         }
 
-        bool operator!=(const extent_t& other) const {
-            return !(*this == other);
-        }
+        bool operator!=(const extent_t& other) const { return !(*this == other); }
     };
 
     struct derive_block_key {
@@ -82,9 +80,8 @@ public:
         friend class default_allocator;
 
         static constexpr auto get_binary_format() {
-            return make_binary_format(&anchor::meta_freelist,
-                                      &anchor::meta_total, &anchor::meta_free,
-                                      &anchor::data_total, &anchor::data_free,
+            return make_binary_format(&anchor::meta_freelist, &anchor::meta_total,
+                                      &anchor::meta_free, &anchor::data_total, &anchor::data_free,
                                       &anchor::extents_by_position, &anchor::extents_by_size);
         }
     };
@@ -106,9 +103,9 @@ public:
 
     struct allocation_stats {
         u64 data_total = 0; ///< Total number of blocks managed by the allocator (used + free + meta).
-        u64 data_used = 0;  ///< Number of blocks allocated and not freed.
-        u64 data_free = 0;  ///< Number of free blocks.
-        u64 meta_data = 0;  ///< Number of blocks used for internal metadata.
+        u64 data_used = 0; ///< Number of blocks allocated and not freed.
+        u64 data_free = 0; ///< Number of free blocks.
+        u64 meta_data = 0; ///< Number of blocks used for internal metadata.
     };
 
     allocation_stats stats() const;

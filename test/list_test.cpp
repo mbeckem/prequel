@@ -51,7 +51,7 @@ void check_list_equals_container(List&& ls, Container&& c) {
         FAIL("Not enough values in list (saw " << index << " values)");
 }
 
-}
+} // namespace
 
 TEST_CASE("raw list", "[list]") {
     static const u32 value_size = 4;
@@ -95,14 +95,13 @@ TEST_CASE("raw list", "[list]") {
                     const byte* data_list = static_cast<const byte*>(cursor.get());
                     const byte* data_expected = values[index].data();
                     if (std::memcmp(data_list, data_expected, value_size) != 0) {
-                        FAIL("Unexpected data at index " << index
-                             << ", expected " << format_hex(data_expected, value_size)
+                        FAIL("Unexpected data at index "
+                             << index << ", expected " << format_hex(data_expected, value_size)
                              << ", but saw " << format_hex(data_list, value_size));
                     }
                 }
                 REQUIRE(index == values.size());
             };
-
 
             {
                 INFO("Step 1");
@@ -317,7 +316,9 @@ struct point_t {
     i32 y = 0;
 
     point_t() = default;
-    point_t(i32 x, i32 y): x(x), y(y) {}
+    point_t(i32 x, i32 y)
+        : x(x)
+        , y(y) {}
 
     static constexpr auto get_binary_format() {
         return make_binary_format(&point_t::x, &point_t::y);
@@ -330,7 +331,6 @@ struct point_t {
         return o << "(" << v.x << ", " << v.y << ")";
     }
 };
-
 
 TEST_CASE("Iterating and deleting using list cursors", "[list]") {
     test_file file(64);
@@ -401,9 +401,8 @@ TEST_CASE("Iterating and deleting using list cursors", "[list]") {
     }
 
     SECTION("remove forward") {
-        comp.erase(std::remove_if(comp.begin(), comp.end(), [](auto& v) {
-            return v.x == -1;
-        }), comp.end());
+        comp.erase(std::remove_if(comp.begin(), comp.end(), [](auto& v) { return v.x == -1; }),
+                   comp.end());
 
         i32 removals = 0;
         for (auto c = ls.create_cursor(ls.seek_first); c; c.move_next()) {
@@ -420,9 +419,8 @@ TEST_CASE("Iterating and deleting using list cursors", "[list]") {
     }
 
     SECTION("remove backward") {
-        comp.erase(std::remove_if(comp.begin(), comp.end(), [](auto& v) {
-            return v.x != -1;
-        }), comp.end());
+        comp.erase(std::remove_if(comp.begin(), comp.end(), [](auto& v) { return v.x != -1; }),
+                   comp.end());
 
         i32 removals = 0;
         for (auto c = ls.create_cursor(ls.seek_last); c; c.move_prev()) {
@@ -512,7 +510,7 @@ TEST_CASE("List cursors are stable", "[list]") {
     REQUIRE(cursors.size() == ls.size());
 
     for (auto& e : cursors) {
-        auto &c = e.cursor;
+        auto& c = e.cursor;
 
         if (!c)
             FAIL("Expected cursor for value " << e.value << " to be valid");
@@ -521,7 +519,8 @@ TEST_CASE("List cursors are stable", "[list]") {
             FAIL("Cursor for value " << e.value << " was mistakenly erased");
 
         if (c.get() != e.value)
-            FAIL("Expected cursor for value " << e.value << " to be unchanged, but saw value " << c.get());
+            FAIL("Expected cursor for value " << e.value << " to be unchanged, but saw value "
+                                              << c.get());
     }
 
     {
@@ -541,7 +540,8 @@ TEST_CASE("List cursors are stable", "[list]") {
             FAIL("Expected cursor for value " << e.value << " to be valid");
 
         if (c.get() != e.value)
-            FAIL("Expected cursor for value " << e.value << " to be unchanged, but saw value " << c.get());
+            FAIL("Expected cursor for value " << e.value << " to be unchanged, but saw value "
+                                              << c.get());
     }
 
     REQUIRE(ls.size() == (3 * cursors.size()));

@@ -18,7 +18,8 @@ public:
     using iterator = Iter;
 
     iterator_range(Iter a, Iter b)
-        : first(a), second(b) {}
+        : first(a)
+        , second(b) {}
 
     const Iter& begin() const { return first; }
     const Iter& end() const { return second; }
@@ -26,18 +27,17 @@ public:
 
 template<typename Iter>
 iterator_range<Iter> iter_range(Iter a, Iter b) {
-    return { std::move(a), std::move(b) };
+    return {std::move(a), std::move(b)};
 }
 
 template<typename Iter>
 iterator_range<Iter> iter_range(std::pair<Iter, Iter> p) {
-    return { std::move(p.first), std::move(p.second) };
+    return {std::move(p.first), std::move(p.second)};
 }
-
 
 template<typename Iter>
 iterator_range<Iter> iter_range(std::tuple<Iter, Iter> p) {
-    return { std::move(std::get<0>(p)), std::move(std::get<1>(p)) };
+    return {std::move(std::get<0>(p)), std::move(std::get<1>(p))};
 }
 
 template<typename Tuple, typename Visitor, size_t... I>
@@ -64,7 +64,8 @@ public:
 public:
     identity_iterator() = default;
 
-    identity_iterator(Integer value): m_value(std::move(value)) {}
+    identity_iterator(Integer value)
+        : m_value(std::move(value)) {}
 
     identity_iterator operator++(int) {
         identity_iterator ret = *this;
@@ -108,17 +109,13 @@ public:
 
     Integer operator*() const { return m_value; }
 
-    Integer operator[](const Integer& value) const {
-        return m_value + value;
-    }
+    Integer operator[](const Integer& value) const { return m_value + value; }
 
-    Integer operator-(const identity_iterator& other) const {
-        return m_value - other.m_value;
-    }
+    Integer operator-(const identity_iterator& other) const { return m_value - other.m_value; }
 
 #define PREQUEL_DETAIL_IDENTITY_ITERATOR_TRIVIAL_COMPARE(token) \
     bool operator token(const identity_iterator& other) const { \
-        return m_value token other.m_value; \
+        return m_value token other.m_value;                     \
     }
 
     PREQUEL_DETAIL_IDENTITY_ITERATOR_TRIVIAL_COMPARE(==);

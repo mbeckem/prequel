@@ -4,10 +4,10 @@
 #include <iostream>
 #include <memory>
 
-using prequel::u8;
 using prequel::u16;
 using prequel::u32;
 using prequel::u64;
+using prequel::u8;
 
 // A serialized type that has the same layout (when serialized) as the
 // standard Sqlite3 header.
@@ -55,36 +55,24 @@ struct sqlite_header_t {
 
     static constexpr auto get_binary_format() {
         return prequel::make_binary_format(
-            &sqlite_header_t::magic,
-            &sqlite_header_t::page_size,
-            &sqlite_header_t::write_version,
-            &sqlite_header_t::read_version,
-            &sqlite_header_t::reserved_at_end,
+            &sqlite_header_t::magic, &sqlite_header_t::page_size, &sqlite_header_t::write_version,
+            &sqlite_header_t::read_version, &sqlite_header_t::reserved_at_end,
 
             &sqlite_header_t::max_embedded_payload_fraction,
-            &sqlite_header_t::min_embedded_payload_fraction,
-            &sqlite_header_t::leaf_payload_fraction,
+            &sqlite_header_t::min_embedded_payload_fraction, &sqlite_header_t::leaf_payload_fraction,
 
-            &sqlite_header_t::file_change_counter,
-            &sqlite_header_t::file_size,
+            &sqlite_header_t::file_change_counter, &sqlite_header_t::file_size,
 
-            &sqlite_header_t::first_freelist_page,
-            &sqlite_header_t::freelist_pages,
+            &sqlite_header_t::first_freelist_page, &sqlite_header_t::freelist_pages,
 
-            &sqlite_header_t::schema_cookie,
-            &sqlite_header_t::schema_format,
+            &sqlite_header_t::schema_cookie, &sqlite_header_t::schema_format,
 
-            &sqlite_header_t::default_page_cache_size,
-            &sqlite_header_t::largest_btree_root_page,
-            &sqlite_header_t::text_encoding,
-            &sqlite_header_t::user_version,
-            &sqlite_header_t::incremental_vacuum,
-            &sqlite_header_t::application_id,
+            &sqlite_header_t::default_page_cache_size, &sqlite_header_t::largest_btree_root_page,
+            &sqlite_header_t::text_encoding, &sqlite_header_t::user_version,
+            &sqlite_header_t::incremental_vacuum, &sqlite_header_t::application_id,
             &sqlite_header_t::reserved,
 
-            &sqlite_header_t::version_valid_for,
-            &sqlite_header_t::sqlite_version_number
-        );
+            &sqlite_header_t::version_valid_for, &sqlite_header_t::sqlite_version_number);
     }
 };
 
@@ -114,7 +102,6 @@ int main() {
     serialize(&hdr, &buffer, sizeof(buffer));
 
     std::cout << "The default sqlite header is:\n"
-              << prequel::format_hex(buffer.data(), sizeof(buffer), 16)
-              << std::endl;
+              << prequel::format_hex(buffer.data(), sizeof(buffer), 16) << std::endl;
     return 0;
 }

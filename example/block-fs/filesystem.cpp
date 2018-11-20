@@ -40,8 +40,7 @@ filesystem::filesystem(prequel::file_engine& eng)
     , m_master(read_master_block_content(m_master_handle))
     // Access datastructures from disk.
     , m_alloc(make_anchor_handle(m_master.alloc, m_master_changed), m_engine)
-    , m_root(make_anchor_handle(m_master.root, m_master_changed), m_alloc)
-{
+    , m_root(make_anchor_handle(m_master.root, m_master_changed), m_alloc) {
     std::cout << "Allocator state at startup:\n";
     m_alloc.dump(std::cout);
 }
@@ -49,7 +48,8 @@ filesystem::filesystem(prequel::file_engine& eng)
 filesystem::~filesystem() {
     try {
         flush();
-    } catch (...) {}
+    } catch (...) {
+    }
 
     std::cout << "Allocator state at exit:\n";
     m_alloc.dump(std::cout);
@@ -265,8 +265,7 @@ void filesystem::adapt_capacity(prequel::extent& content, u64 required_bytes) {
         content.resize(new_blocks);
 
         // Zero newly allocated storage.
-        zero(m_engine,
-             m_engine.to_address(content.data() + old_blocks),
+        zero(m_engine, m_engine.to_address(content.data() + old_blocks),
              (new_blocks - old_blocks) * block_size);
 
         return;

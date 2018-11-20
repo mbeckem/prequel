@@ -1,10 +1,10 @@
 #ifndef PREQUEL_BTREE_CURSOR_HPP
 #define PREQUEL_BTREE_CURSOR_HPP
 
-#include <prequel/defs.hpp>
 #include <prequel/btree/base.hpp>
-#include <prequel/btree/leaf_node.hpp>
 #include <prequel/btree/internal_node.hpp>
+#include <prequel/btree/leaf_node.hpp>
+#include <prequel/defs.hpp>
 
 #include <boost/intrusive/list_hook.hpp>
 
@@ -26,9 +26,9 @@ private:
     };
 
     enum flags_t {
-        INVALID = 1 << 0,       ///< When the cursor is at the end or was otherwise invalidated.
-        DELETED = 1 << 1,       ///< When the current element was deleted.
-        INPROGRESS = 1 << 2,    ///< When an operation is not yet complete.
+        INVALID = 1 << 0,    ///< When the cursor is at the end or was otherwise invalidated.
+        DELETED = 1 << 1,    ///< When the current element was deleted.
+        INPROGRESS = 1 << 2, ///< When an operation is not yet complete.
     };
 
     btree_impl::tree* m_tree = nullptr;

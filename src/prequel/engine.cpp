@@ -42,9 +42,7 @@ public:
     block_handle_manager() = default;
 
     ~block_handle_manager() {
-        m_freelist.clear_and_dispose([](block_handle_internal* handle) {
-            delete handle;
-        });
+        m_freelist.clear_and_dispose([](block_handle_internal* handle) { delete handle; });
     }
 
     block_handle_manager(const block_handle_manager&) = delete;
@@ -112,22 +110,14 @@ private:
 
     using set_t = boost::intrusive::set<
         block_handle_internal,
-        boost::intrusive::member_hook<
-            block_handle_internal,
-            boost::intrusive::set_member_hook<>,
-            &block_handle_internal::index_hook
-        >,
-        boost::intrusive::key_of_value<block_handle_index>
-    >;
+        boost::intrusive::member_hook<block_handle_internal, boost::intrusive::set_member_hook<>,
+                                      &block_handle_internal::index_hook>,
+        boost::intrusive::key_of_value<block_handle_index>>;
 
     using freelist_t = boost::intrusive::list<
         block_handle_internal,
-        boost::intrusive::member_hook<
-            block_handle_internal,
-            boost::intrusive::list_member_hook<>,
-            &block_handle_internal::freelist_hook
-        >
-    >;
+        boost::intrusive::member_hook<block_handle_internal, boost::intrusive::list_member_hook<>,
+                                      &block_handle_internal::freelist_hook>>;
 
 private:
     set_t m_handles;
@@ -138,8 +128,7 @@ private:
 
 engine::engine(u32 block_size)
     : m_block_size(block_size)
-    , m_handle_manager(new detail::block_handle_manager())
-{
+    , m_handle_manager(new detail::block_handle_manager()) {
     if (!is_pow2(block_size)) {
         PREQUEL_THROW(bad_argument(fmt::format("Block size is not a power of two: {}.", block_size)));
     }
@@ -153,7 +142,9 @@ engine::~engine() {
     }
 }
 
-u64 engine::size() const { return do_size(); }
+u64 engine::size() const {
+    return do_size();
+}
 
 void engine::grow(u64 n) {
     if (n > 0) {
@@ -186,15 +177,15 @@ block_handle engine::overwrite(block_index index, const byte* data, size_t size)
     if (size < m_block_size) {
         PREQUEL_THROW(bad_argument(
             fmt::format("Buffer not large enough ({} byte given but blocks are {} byte large).",
-                        size, m_block_size)
-        ));
+                        size, m_block_size)));
     }
     return internal_populate_handle(index, initialize_data_t{data});
 }
 
 template<typename Initializer>
 block_handle engine::internal_populate_handle(block_index index, Initializer&& init) {
-    static constexpr bool overwrite = !std::is_same_v<remove_cvref_t<Initializer>, initialize_block_t>;
+    static constexpr bool overwrite =
+        !std::is_same_v<remove_cvref_t<Initializer>, initialize_block_t>;
     PREQUEL_ASSERT(index.valid(), "Invalid index.");
 
     auto& manager = handle_manager();
@@ -215,16 +206,12 @@ block_handle engine::internal_populate_handle(block_index index, Initializer&& i
 
     // Prepare a handle for the new block.
     auto handle = manager.allocate();
-    detail::deferred cleanup_handle = [&]{
-        manager.free(handle);
-    };
+    detail::deferred cleanup_handle = [&] { manager.free(handle); };
 
     // Read the block from disk. Don't initialize the contents
     // if we're about to overwrite them anyway.
     pin_result pinned = do_pin(index, !overwrite);
-    detail::deferred cleanup_pin = [&]{
-        do_unpin(index, pinned.cookie);
-    };
+    detail::deferred cleanup_pin = [&] { do_unpin(index, pinned.cookie); };
 
     // Initialize the block contents.
     if constexpr (overwrite) {

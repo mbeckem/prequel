@@ -13,7 +13,6 @@ using namespace prequel;
 namespace {
 
 constexpr u32 block_size = 256;
-
 }
 
 TEST_CASE("stack", "[stack]") {
@@ -56,7 +55,7 @@ TEST_CASE("stack", "[stack]") {
 
         REQUIRE(stack.size() == max);
 
-        for (int i = max; i-- > 0; ) {
+        for (int i = max; i-- > 0;) {
             int t = stack.top();
             stack.pop();
             if (i != t) {

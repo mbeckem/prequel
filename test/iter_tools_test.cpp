@@ -10,9 +10,7 @@ using namespace prequel::detail;
 
 TEST_CASE("tuple for each", "[iter_tools]") {
     std::stringstream stream;
-    auto visitor = [&](const auto& e) {
-        stream << e << ".";
-    };
+    auto visitor = [&](const auto& e) { stream << e << "."; };
 
     SECTION("empty") {
         tuple_for_each(std::tuple<>(), visitor);
@@ -27,9 +25,7 @@ TEST_CASE("tuple for each", "[iter_tools]") {
 template<typename... T>
 static constexpr int add(std::tuple<T...> v) {
     int result = 0;
-    tuple_for_each(v, [&](auto n) {
-        result += n;
-    });
+    tuple_for_each(v, [&](auto n) { result += n; });
     return result;
 }
 

@@ -2,8 +2,8 @@
 #define PREQUEL_RAW_HASH_TABLE_HPP
 
 #include <prequel/allocator.hpp>
-#include <prequel/array.hpp>
 #include <prequel/anchor_handle.hpp>
+#include <prequel/array.hpp>
 #include <prequel/binary_format.hpp>
 #include <prequel/defs.hpp>
 #include <prequel/engine.hpp>
@@ -45,13 +45,9 @@ class raw_hash_table_anchor {
 
     static constexpr auto get_binary_format() {
         return make_binary_format(
-            &raw_hash_table_anchor::step,
-            &raw_hash_table_anchor::size,
-            &raw_hash_table_anchor::primary_buckets,
-            &raw_hash_table_anchor::overflow_buckets,
-            &raw_hash_table_anchor::level,
-            &raw_hash_table_anchor::bucket_ranges
-        );
+            &raw_hash_table_anchor::step, &raw_hash_table_anchor::size,
+            &raw_hash_table_anchor::primary_buckets, &raw_hash_table_anchor::overflow_buckets,
+            &raw_hash_table_anchor::level, &raw_hash_table_anchor::bucket_ranges);
     }
 
     friend binary_format_access;
@@ -103,7 +99,8 @@ public:
     using anchor = detail::raw_hash_table_anchor;
 
 public:
-    raw_hash_table(anchor_handle<anchor> anc, const raw_hash_table_options& options, allocator& alloc);
+    raw_hash_table(anchor_handle<anchor> anc, const raw_hash_table_options& options,
+                   allocator& alloc);
     ~raw_hash_table();
 
     raw_hash_table(raw_hash_table&& other) noexcept;
@@ -194,9 +191,10 @@ public:
     /// Like erase() and find_compatible().
     /// TODO: This would eventually go away when we have cursors here,
     /// find_compatible would return a cursor and one could call erase there..
-    bool erase_compatible(const void* compatible_key,
-                          const std::function<u64(const void*)>& compatible_hash,
-                          const std::function<bool(const void*, const byte*)>& compatible_equals) const;
+    bool
+    erase_compatible(const void* compatible_key,
+                     const std::function<u64(const void*)>& compatible_hash,
+                     const std::function<bool(const void*, const byte*)>& compatible_equals) const;
 
     /// Iterates over the values of this table.
     /// The `iter_func` function will be called for every value of the table,

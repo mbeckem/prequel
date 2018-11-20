@@ -34,9 +34,7 @@ public:
     class anchor {
         raw_btree::anchor tree;
 
-        static constexpr auto get_binary_format() {
-            return make_binary_format(&anchor::tree);
-        }
+        static constexpr auto get_binary_format() { return make_binary_format(&anchor::tree); }
 
         friend btree;
         friend binary_format_access;
@@ -147,7 +145,8 @@ public:
     private:
         friend class btree;
 
-        cursor(raw_btree::cursor&& inner): inner(std::move(inner)) {}
+        cursor(raw_btree::cursor&& inner)
+            : inner(std::move(inner)) {}
 
     private:
         raw_btree::cursor inner;
@@ -160,7 +159,8 @@ public:
     private:
         friend class btree;
 
-        loader(raw_btree::loader&& inner): inner(std::move(inner)) {}
+        loader(raw_btree::loader&& inner)
+            : inner(std::move(inner)) {}
 
     public:
         loader() = delete;
@@ -211,8 +211,7 @@ public:
 
         insert_result(cursor position, bool inserted)
             : position(std::move(position))
-            , inserted(inserted)
-        {}
+            , inserted(inserted) {}
     };
 
 public:
@@ -223,18 +222,16 @@ public:
     /// Constructs the tree rooted at the existing anchor.
     /// The options must be equivalent every time the tree is opened;
     /// they are not persisted to disk.
-    explicit btree(anchor_handle<anchor> anchor_, allocator& alloc_, DeriveKey derive_key = DeriveKey(), KeyLess less = KeyLess())
+    explicit btree(anchor_handle<anchor> anchor_, allocator& alloc_,
+                   DeriveKey derive_key = DeriveKey(), KeyLess less = KeyLess())
         : m_state(std::make_unique<state_t>(std::move(derive_key), std::move(less)))
-        , m_inner(std::move(anchor_).template member<&anchor::tree>(), make_options(), alloc_)
-    {}
+        , m_inner(std::move(anchor_).template member<&anchor::tree>(), make_options(), alloc_) {}
 
     engine& get_engine() const { return m_inner.get_engine(); }
     allocator& get_allocator() const { return m_inner.get_allocator(); }
 
     /// Derives the key from the given value by applying the DeriveKey function.
-    key_type derive_key(const value_type& value) const {
-        return m_state->derive(value);
-    }
+    key_type derive_key(const value_type& value) const { return m_state->derive(value); }
 
     /// Compares the two keys and returns true iff `lhs < rhs`, as specified
     /// by the KeyLess function.
@@ -247,9 +244,7 @@ public:
     /// tree's comparison function) into the tree.
     ///
     /// \note Only empty trees can be bulk-loaded.
-    loader bulk_load() {
-        return loader(m_inner.bulk_load());
-    }
+    loader bulk_load() { return loader(m_inner.bulk_load()); }
 
     /// \}
 
@@ -382,7 +377,9 @@ public:
 
         // For leaf nodes.
         u32 value_count() const { return m_inner.value_count(); }
-        value_type value(u32 index) const { return deserialized_value<value_type>(m_inner.value(index)); }
+        value_type value(u32 index) const {
+            return deserialized_value<value_type>(m_inner.value(index));
+        }
 
     private:
         friend class btree;
@@ -447,16 +444,11 @@ private:
 
         state_t(DeriveKey&& derive_key, KeyLess&& less)
             : m_derive(std::move(derive_key))
-            , m_less(std::move(less))
-        {}
+            , m_less(std::move(less)) {}
 
-        bool less(const key_type& a, const key_type& b) const {
-            return m_less(a, b);
-        }
+        bool less(const key_type& a, const key_type& b) const { return m_less(a, b); }
 
-        key_type derive(const value_type& v) const {
-            return m_derive(v);
-        }
+        key_type derive(const value_type& v) const { return m_derive(v); }
     };
 
 private:
@@ -467,18 +459,17 @@ private:
 template<typename T, typename DeriveKey, typename KeyLess>
 void btree<T, DeriveKey, KeyLess>::dump(std::ostream& os) {
     fmt::print(os,
-       "Btree:\n"
-       "  Value size: {}\n"
-       "  Key size: {}\n"
-       "  Internal node capacity: {}\n"
-       "  Leaf node capacity: {}\n"
-       "  Height: {}\n"
-       "  Size: {}\n"
-       "  Internal nodes: {}\n"
-       "  Leaf nodes: {}\n",
-       value_size(), key_size(),
-       internal_node_capacity(), leaf_node_capacity(),
-       height(), size(), internal_nodes(), leaf_nodes());
+               "Btree:\n"
+               "  Value size: {}\n"
+               "  Key size: {}\n"
+               "  Internal node capacity: {}\n"
+               "  Leaf node capacity: {}\n"
+               "  Height: {}\n"
+               "  Size: {}\n"
+               "  Internal nodes: {}\n"
+               "  Leaf nodes: {}\n",
+               value_size(), key_size(), internal_node_capacity(), leaf_node_capacity(), height(),
+               size(), internal_nodes(), leaf_nodes());
 
     if (!empty())
         os << "\n";
@@ -490,13 +481,11 @@ void btree<T, DeriveKey, KeyLess>::dump(std::ostream& os) {
                        "  Parent: @{}\n"
                        "  Level: {}\n"
                        "  Children: {}\n",
-                       node.address(), node.parent_address(),
-                       node.level(), node.child_count());
+                       node.address(), node.parent_address(), node.level(), node.child_count());
 
             const u32 child_count = node.child_count();
             for (u32 i = 0; i < child_count - 1; ++i) {
-                fmt::print(os, "  {}: @{} (<= {})\n",
-                           i, node.child(i), node.key(i));
+                fmt::print(os, "  {}: @{} (<= {})\n", i, node.child(i), node.key(i));
             }
             fmt::print(os, "  {}: @{}\n", child_count - 1, node.child(child_count - 1));
         } else {

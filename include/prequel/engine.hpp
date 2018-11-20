@@ -38,9 +38,7 @@ public:
     block_handle_base(const block_handle_base&) = delete;
     block_handle_base& operator=(const block_handle_base&) = delete;
 
-    void inc_ref() noexcept {
-        ++m_refcount;
-    }
+    void inc_ref() noexcept { ++m_refcount; }
 
     void dec_ref() noexcept; // "delete this" is possible
 
@@ -86,22 +84,19 @@ public:
     /// The handle object takes ownership of the pointer.
     /// \pre `base != nullptr`.
     explicit block_handle(detail::block_handle_base* base)
-        : m_impl(base)
-    {
+        : m_impl(base) {
         PREQUEL_ASSERT(base, "Null implementation.");
         m_impl->inc_ref();
     }
 
     block_handle(const block_handle& other)
-        : m_impl(other.m_impl)
-    {
+        : m_impl(other.m_impl) {
         if (m_impl)
             m_impl->inc_ref();
     }
 
     block_handle(block_handle&& other) noexcept
-        : m_impl(std::exchange(other.m_impl, nullptr))
-    {}
+        : m_impl(std::exchange(other.m_impl, nullptr)) {}
 
     ~block_handle() {
         if (m_impl)
@@ -190,8 +185,7 @@ public:
     /// Deserialize a value of type T at the given offset.
     template<typename T>
     void get(u32 offset, T& value) const {
-        PREQUEL_ASSERT(check_range(offset, serialized_size<T>()),
-                     "Reading out of bounds.");
+        PREQUEL_ASSERT(check_range(offset, serialized_size<T>()), "Reading out of bounds.");
 
         deserialize(value, data() + offset);
     }
@@ -207,8 +201,7 @@ public:
     /// Serialize a value and put it at the given offset.
     template<typename T>
     void set(u32 offset, const T& value) const {
-        PREQUEL_ASSERT(check_range(offset, serialized_size<T>()),
-                     "Writing out of bounds.");
+        PREQUEL_ASSERT(check_range(offset, serialized_size<T>()), "Writing out of bounds.");
         serialize(value, writable_data() + offset);
     }
 
@@ -225,9 +218,7 @@ public:
     }
 
 private:
-    void check_valid() const {
-        PREQUEL_ASSERT(valid(), "Invalid instance.");
-    }
+    void check_valid() const { PREQUEL_ASSERT(valid(), "Invalid instance."); }
 
     bool check_range(u32 offset, u32 size) const {
         check_valid();
@@ -286,9 +277,7 @@ public:
 
     /// Returns the address to the first byte of the given block.
     /// Returns the invalid address if the block index is invalid.
-    raw_address to_address(block_index index) const noexcept {
-        return to_address(index, 0);
-    }
+    raw_address to_address(block_index index) const noexcept { return to_address(index, 0); }
 
     /// Returns the address to the given byte offset in the given block.
     /// Returns the invalid address if the block index is invalid.
@@ -322,9 +311,7 @@ public:
     }
 
     /// Converts the block count to a number of bytes.
-    u64 to_byte_size(u64 block_count) const noexcept {
-        return block_count << m_block_size_log;
-    }
+    u64 to_byte_size(u64 block_count) const noexcept { return block_count << m_block_size_log; }
 
     engine(const engine&) = delete;
     engine& operator=(const engine&) = delete;
@@ -337,18 +324,14 @@ private:
 
     // Initialize with zero, without reading from storage.
     struct initialize_zero_t {
-        void apply(byte* block, u32 block_size) {
-            std::memset(block, 0, block_size);
-        }
+        void apply(byte* block, u32 block_size) { std::memset(block, 0, block_size); }
     };
 
     // Initialize with the given data array, without reading from storage.
     struct initialize_data_t {
         const byte* data;
 
-        void apply(byte* block, u32 block_size) {
-            std::memmove(block, data, block_size);
-        }
+        void apply(byte* block, u32 block_size) { std::memmove(block, data, block_size); }
     };
 
     template<typename Initializer>

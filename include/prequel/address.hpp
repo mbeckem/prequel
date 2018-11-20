@@ -4,10 +4,10 @@
 #include <prequel/assert.hpp>
 #include <prequel/block_index.hpp>
 #include <prequel/defs.hpp>
+#include <prequel/detail/operators.hpp>
 #include <prequel/math.hpp>
 #include <prequel/serialization.hpp>
 #include <prequel/type_traits.hpp>
-#include <prequel/detail/operators.hpp>
 
 #include <iosfwd>
 #include <limits>
@@ -29,16 +29,15 @@ template<typename To, typename From>
 address<To> address_cast(const address<From>& addr);
 
 /// Addresses an arbitrary byte offset in external memory.
-class raw_address
-        : detail::make_comparable<raw_address>
-        , detail::make_addable<raw_address, u64>
-        , detail::make_subtractable<raw_address, u64>
-{
+class raw_address : detail::make_comparable<raw_address>,
+                    detail::make_addable<raw_address, u64>,
+                    detail::make_subtractable<raw_address, u64> {
 public:
     static constexpr u64 invalid_value = u64(-1);
 
 public:
-    raw_address(): m_value(invalid_value) {}
+    raw_address()
+        : m_value(invalid_value) {}
 
     explicit raw_address(u64 value)
         : m_value(value) {}
@@ -74,9 +73,7 @@ public:
 
     friend std::ostream& operator<<(std::ostream& o, const raw_address& addr);
 
-    static constexpr auto get_binary_format() {
-        return make_binary_format(&raw_address::m_value);
-    }
+    static constexpr auto get_binary_format() { return make_binary_format(&raw_address::m_value); }
 
 private:
     u64 m_value;
@@ -93,11 +90,9 @@ address<T> raw_address_cast(const raw_address& addr);
 /// Addresses a value of type `T` in external memory.
 /// The address points to the serialized representation of an instance of type `T`.
 template<typename T>
-class address
-        : detail::make_comparable<address<T>>
-        , detail::make_addable<address<T>, u64>
-        , detail::make_subtractable<address<T>, u64>
-{
+class address : detail::make_comparable<address<T>>,
+                detail::make_addable<address<T>, u64>,
+                detail::make_subtractable<address<T>, u64> {
 public:
     using element_type = T;
 
@@ -106,8 +101,7 @@ public:
 
 public:
     explicit address(const raw_address& addr)
-        : m_raw(addr)
-    {}
+        : m_raw(addr) {}
 
 public:
     bool valid() const { return m_raw.valid(); }
@@ -192,13 +186,9 @@ public:
         return lhs.m_raw == rhs.m_raw;
     }
 
-    friend bool operator<(const address& lhs, const address& rhs) {
-        return lhs.m_raw < rhs.m_raw;
-    }
+    friend bool operator<(const address& lhs, const address& rhs) { return lhs.m_raw < rhs.m_raw; }
 
-    static constexpr auto get_binary_format() {
-        return make_binary_format(&address::m_raw);
-    }
+    static constexpr auto get_binary_format() { return make_binary_format(&address::m_raw); }
 
 private:
     raw_address m_raw;
@@ -240,7 +230,6 @@ inline u64 distance(const raw_address& a, const raw_address& b) {
     PREQUEL_ASSERT(b, "To address is invalid.");
     return a <= b ? b.value() - a.value() : a.value() - b.value();
 }
-
 
 /**
  * Returns the absolute distance (in elements) of `a` and `b`, i.e. `abs(a - b)`

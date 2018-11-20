@@ -1,8 +1,8 @@
 #ifndef FIXED_STRING_HPP
 #define FIXED_STRING_HPP
 
-#include <prequel/defs.hpp>
 #include <prequel/binary_format.hpp>
+#include <prequel/defs.hpp>
 
 #include <algorithm>
 #include <array>
@@ -20,9 +20,7 @@ public:
     static constexpr uint32_t max_size = N;
 
 public:
-    fixed_string() {
-        std::memset(m_data, 0, max_size);
-    }
+    fixed_string() { std::memset(m_data, 0, max_size); }
 
     explicit fixed_string(std::string_view str) {
         if (str.size() > max_size)
@@ -45,7 +43,7 @@ public:
         return prequel::make_binary_format(&fixed_string::m_data);
     }
 
-    friend bool operator<(const fixed_string& lhs, const fixed_string& rhs)  {
+    friend bool operator<(const fixed_string& lhs, const fixed_string& rhs) {
         return std::lexicographical_compare(lhs.begin(), lhs.end(), rhs.begin(), rhs.end());
     }
 

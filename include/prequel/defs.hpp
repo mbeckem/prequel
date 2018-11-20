@@ -23,14 +23,13 @@ using i64 = std::int64_t;
 using byte = unsigned char;
 
 using std::ptrdiff_t;
-using std::uintptr_t;
 using std::size_t;
+using std::uintptr_t;
 
 /*
  * Guards against weird platforms.
  */
-static_assert(CHAR_BIT == 8,
-              "Bytes with a size other than 8 bits are not supported.");
+static_assert(CHAR_BIT == 8, "Bytes with a size other than 8 bits are not supported.");
 static_assert(std::is_same_v<char, u8> || std::is_same_v<unsigned char, u8>,
               "uint8_t must be either char or unsigned char.");
 static_assert(std::is_same_v<char, i8> || std::is_same_v<signed char, i8>,

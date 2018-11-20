@@ -1,9 +1,9 @@
 #include <prequel/heap.hpp>
 
 #include <prequel/assert.hpp>
+#include <prequel/detail/deferred.hpp>
 #include <prequel/engine.hpp>
 #include <prequel/serialization.hpp>
-#include <prequel/detail/deferred.hpp>
 
 #include <optional>
 
@@ -21,8 +21,7 @@ public:
 
     slot(u32 offset, u32 size)
         : m_offset(offset)
-        , m_size(size)
-    {
+        , m_size(size) {
         PREQUEL_ASSERT(offset > 0, "Invalid offset.");
     }
 
@@ -38,9 +37,7 @@ public:
         return m_size;
     }
 
-    void reset() {
-        *this = slot();
-    }
+    void reset() { *this = slot(); }
 
 private:
     friend binary_format_access;
@@ -50,8 +47,8 @@ private:
     }
 
 private:
-    u32 m_offset = 0;   // offset from the block start (0 means invalid)
-    u32 m_size = 0;     // size of the value, in bytes
+    u32 m_offset = 0; // offset from the block start (0 means invalid)
+    u32 m_size = 0;   // size of the value, in bytes
 };
 
 struct page_header {
@@ -73,16 +70,14 @@ struct page_header {
     u32 free_fragmented = 0;
 
     static constexpr auto get_binary_format() {
-        return make_binary_format(&page_header::slot_count,
-                                  &page_header::free_ptr,
+        return make_binary_format(&page_header::slot_count, &page_header::free_ptr,
                                   &page_header::free_fragmented);
     }
 };
 
 // This is important for slot alignment. Other parts of the code rely on the fact
 // that slot addresses are always a multiple of 4.
-static_assert(serialized_size<page_header>() % 4 == 0,
-              "Header size is a multiple of 4.");
+static_assert(serialized_size<page_header>() % 4 == 0, "Header size is a multiple of 4.");
 
 } // namespace
 
@@ -133,8 +128,7 @@ heap_reference heap_reference::make_large_object(raw_address addr) {
 class heap::page_handle {
 public:
     page_handle(block_handle block)
-        : m_block(std::move(block))
-    {
+        : m_block(std::move(block)) {
         PREQUEL_ASSERT(m_block.valid(), "Invalid block.");
 
         if (m_block.block_size() <= 128)
@@ -150,8 +144,8 @@ public:
     // The number of bytes available by decrementing the free pointer.
     u32 unfragmented_free_bytes() const {
         const page_header header = get_header();
-        const u32 front_used = serialized_size<page_header>()
-                + header.slot_count * serialized_size<slot>();
+        const u32 front_used =
+            serialized_size<page_header>() + header.slot_count * serialized_size<slot>();
         PREQUEL_ASSERT(header.free_ptr >= front_used, "Corrupted free pointer.");
         return header.free_ptr - front_used;
     }
@@ -160,10 +154,9 @@ public:
     u32 free_bytes() const {
         const page_header header = get_header();
         const u32 free = unfragmented_free_bytes() + header.free_fragmented;
-        PREQUEL_ASSERT(free <= m_block.block_size()
-                     - serialized_size<page_header>()
-                     - header.slot_count * serialized_size<slot>(),
-                     "Corrupted free counter.");
+        PREQUEL_ASSERT(free <= m_block.block_size() - serialized_size<page_header>()
+                                   - header.slot_count * serialized_size<slot>(),
+                       "Corrupted free counter.");
         return free;
     }
 
@@ -206,21 +199,13 @@ public:
         }
     }
 
-    page_header get_header() const {
-        return m_block.get<page_header>(0);
-    }
+    page_header get_header() const { return m_block.get<page_header>(0); }
 
-    void set_header(const page_header& header) {
-        m_block.set<page_header>(0, header);
-    }
+    void set_header(const page_header& header) { m_block.set<page_header>(0, header); }
 
-    slot get_slot(u32 slot_index) const {
-        return m_block.get<slot>(slot_to_offset(slot_index));
-    }
+    slot get_slot(u32 slot_index) const { return m_block.get<slot>(slot_to_offset(slot_index)); }
 
-    void set_slot(u32 slot_index, const slot& slt) {
-        m_block.set(slot_to_offset(slot_index), slt);
-    }
+    void set_slot(u32 slot_index, const slot& slt) { m_block.set(slot_to_offset(slot_index), slt); }
 
     const block_handle& block() const { return m_block; }
 
@@ -230,11 +215,10 @@ public:
     }
 
     static constexpr u32 offset_to_slot(u32 offset) {
-        PREQUEL_ASSERT(offset >= serialized_size<page_header>(),
-                     "Offset lies in page header.");
+        PREQUEL_ASSERT(offset >= serialized_size<page_header>(), "Offset lies in page header.");
         offset -= serialized_size<page_header>();
         PREQUEL_ASSERT(offset % serialized_size<slot>() == 0,
-                     "Offset is not a multiple of the slot size.");
+                       "Offset is not a multiple of the slot size.");
         return offset / serialized_size<slot>();
     }
 
@@ -245,13 +229,11 @@ private:
 heap::heap(anchor_handle<anchor> _anchor, allocator& _alloc)
     : m_anchor(std::move(_anchor))
     , m_page_map(m_anchor.member<&anchor::page_map>(), _alloc)
-    , m_free_map(m_anchor.member<&anchor::free_map>(), _alloc)
-{
+    , m_free_map(m_anchor.member<&anchor::free_map>(), _alloc) {
     m_block_size = get_engine().block_size();
     if (m_block_size < page_entry::min_block_size) {
-        PREQUEL_THROW(bad_argument(
-            fmt::format("Invalid block size (must be at least {} bytes).",
-                         page_entry::min_block_size)));
+        PREQUEL_THROW(bad_argument(fmt::format("Invalid block size (must be at least {} bytes).",
+                                               page_entry::min_block_size)));
     }
 
     // All objects larger than this will be allocated with a block sequence on their own.
@@ -262,9 +244,7 @@ heap::heap(anchor_handle<anchor> _anchor, allocator& _alloc)
 }
 
 u64 heap::byte_size() const {
-    return m_page_map.byte_size()
-            + m_free_map.byte_size()
-            + heap_size();
+    return m_page_map.byte_size() + m_free_map.byte_size() + heap_size();
 }
 
 u64 heap::heap_size() const {
@@ -327,7 +307,6 @@ heap_reference heap::allocate_impl(const byte* object, u32 object_size) {
     return ref;
 }
 
-
 void heap::free(heap_reference ref) {
     if (!ref.valid()) {
         return;
@@ -360,7 +339,6 @@ u32 heap::size(heap_reference ref) const {
             result = size;
         }
     };
-
 
     visitor v;
     visit_object(ref, v);
@@ -438,7 +416,8 @@ void heap::dump(std::ostream& os) const {
 
         for (auto c = m_page_map.create_cursor(m_page_map.seek_min); c; c.move_next()) {
             page_entry entry = c.get();
-            fmt::print(os, "  Start: {}, Size: {}, Large object: {}\n", entry.block(), entry.block_count(), entry.large_object());
+            fmt::print(os, "  Start: {}, Size: {}, Large object: {}\n", entry.block(),
+                       entry.block_count(), entry.large_object());
         }
     }
 
@@ -487,8 +466,8 @@ void heap::validate() const {
             }
         } else {
             ++computed_object_count;
-            computed_object_size += size(heap_reference::make_large_object(
-                get_engine().to_address(entry.block())));
+            computed_object_size +=
+                size(heap_reference::make_large_object(get_engine().to_address(entry.block())));
         }
     }
 
@@ -538,7 +517,8 @@ void heap::visit_object(heap_reference ref, ObjectVisitor&& visitor) const {
     {
         auto cursor = m_page_map.find(block);
         if (!cursor) {
-            PREQUEL_THROW(bad_argument("Corrupted reference, the storage is not in use by this heap."));
+            PREQUEL_THROW(
+                bad_argument("Corrupted reference, the storage is not in use by this heap."));
         }
         if (cursor.get().large_object() != ref.is_large_object()) {
             PREQUEL_THROW(bad_argument("Corrupted reference, the storage type is unexpected."));
@@ -581,16 +561,12 @@ raw_address heap::allocate_large_object(const byte* object, u32 object_size) {
 
     // Allocate a sequence of blocks for the new object.
     const block_index block = allocate_blocks(required_blocks);
-    detail::deferred block_guard = [&]{
-        free_blocks(block, required_blocks);
-    };
+    detail::deferred block_guard = [&] { free_blocks(block, required_blocks); };
 
     // Insert the page into the index.
     auto page_insert_result = m_page_map.insert(page_entry(block, true, required_blocks));
     PREQUEL_ASSERT(page_insert_result.inserted, "The block index was not unique.");
-    detail::deferred page_guard = [&]{
-        page_insert_result.position.erase();
-    };
+    detail::deferred page_guard = [&] { page_insert_result.position.erase(); };
 
     // Write the header at the start of the first block.
     const address<header> header_address(get_engine().to_address(block));
@@ -623,7 +599,8 @@ void heap::free_large_object(raw_address addr) {
     // Must be consistent
     const page_entry entry = cursor.get();
     if (!entry.large_object()) {
-        PREQUEL_THROW(bad_argument("Corrupted reference does not match the storage's index entry."));
+        PREQUEL_THROW(
+            bad_argument("Corrupted reference does not match the storage's index entry."));
     }
 
     free_blocks(block, entry.block_count());
@@ -645,7 +622,8 @@ raw_address heap::allocate_small_object(const byte* object, u32 object_size) {
         // Form a pointer to the new object. Pointers point to the raw address of their slot,
         // this enables the "real" object data to be moved in page compactions without making
         // existing pointers invalid.
-        return get_engine().to_address(page.block().index()) + page_handle::slot_to_offset(slot_index);
+        return get_engine().to_address(page.block().index())
+               + page_handle::slot_to_offset(slot_index);
     };
 
     // Try to allocate the new object on an existing page with sufficient free space.
@@ -656,18 +634,16 @@ raw_address heap::allocate_small_object(const byte* object, u32 object_size) {
         const free_map_entry search_key(block_index(), object_size);
         if (auto free_entry_pos = m_free_map.lower_bound(search_key); free_entry_pos) {
             PREQUEL_ASSERT(free_entry_pos.get().available >= object_size,
-                         "Invalid free entry for the requested byte size.");
+                           "Invalid free entry for the requested byte size.");
 
             const block_index block = free_entry_pos.get().block;
             page_handle page = get_engine().read(block);
             PREQUEL_ASSERT(page.effective_free_bytes() == free_entry_pos.get().available,
-                         "Inconsistent count of available bytes.");
+                           "Inconsistent count of available bytes.");
 
             // Allocate a new slot for the object.
             const u32 slot_index = page_allocate(page, object_size);
-            detail::deferred slot_guard = [&]{
-                page_free(page, slot_index);
-            };
+            detail::deferred slot_guard = [&] { page_free(page, slot_index); };
 
             const raw_address slot_address = init_at_slot(page, slot_index);
 
@@ -683,9 +659,7 @@ raw_address heap::allocate_small_object(const byte* object, u32 object_size) {
 
     // Allocate a new page for the object.
     const block_index block = allocate_blocks(1);
-    detail::deferred block_guard = [&]{
-        free_blocks(block, 1);
-    };
+    detail::deferred block_guard = [&] { free_blocks(block, 1); };
 
     page_handle page = get_engine().overwrite_zero(block);
     page.init();
@@ -693,15 +667,11 @@ raw_address heap::allocate_small_object(const byte* object, u32 object_size) {
     // Insert the page into the index.
     auto page_insert_result = m_page_map.insert(page_entry(block, false, 1));
     PREQUEL_ASSERT(page_insert_result.inserted, "The block index was not unique.");
-    detail::deferred page_guard = [&]{
-        page_insert_result.position.erase();
-    };
+    detail::deferred page_guard = [&] { page_insert_result.position.erase(); };
 
     // Allocate a new slot for the object.
     const u32 slot_index = page_allocate(page, object_size);
-    detail::deferred slot_guard = [&]{
-        page_free(page, slot_index);
-    };
+    detail::deferred slot_guard = [&] { page_free(page, slot_index); };
 
     const raw_address slot_address = init_at_slot(page, slot_index);
 
@@ -731,7 +701,8 @@ void heap::free_small_object(raw_address slot_address) {
     // Must be consistent
     const page_entry entry = cursor.get();
     if (entry.large_object()) {
-        PREQUEL_THROW(bad_argument("Corrupted reference does not match the storage's index entry."));
+        PREQUEL_THROW(
+            bad_argument("Corrupted reference does not match the storage's index entry."));
     }
 
     // FIXME remove the free map implementation because it "allocates-on-free", which is just terrible.
@@ -761,8 +732,7 @@ void heap::free_small_object(raw_address slot_address) {
  * The page must have enough memory for both the slot and the object.
  */
 u32 heap::page_allocate(page_handle& page, u32 object_size) {
-    PREQUEL_ASSERT(page.effective_free_bytes() >= object_size,
-                 "Page must have enough free space.");
+    PREQUEL_ASSERT(page.effective_free_bytes() >= object_size, "Page must have enough free space.");
 
     // We need more storage than the object itself if we have to allocate a new slot.
     const std::optional<u32> existing_free_slot = page.find_free_slot();
@@ -770,7 +740,7 @@ u32 heap::page_allocate(page_handle& page, u32 object_size) {
     if (required_size > page.unfragmented_free_bytes()) {
         page_compact(page);
         PREQUEL_ASSERT(required_size <= page.unfragmented_free_bytes(),
-                     "Not enough memory freed by page compaction.");
+                       "Not enough memory freed by page compaction.");
     }
 
     // Allocate a new slot at the end of the slots array or reuse the existing free slot.
@@ -779,7 +749,7 @@ u32 heap::page_allocate(page_handle& page, u32 object_size) {
             return *existing_free_slot;
 
         PREQUEL_ASSERT(page.unfragmented_free_bytes() >= serialized_size<slot>(),
-                     "Not enough free space for the new slot.");
+                       "Not enough free space for the new slot.");
         page_header header = page.get_header();
 
         // Initialize the new slot to empty.
@@ -848,12 +818,14 @@ void heap::page_compact(page_handle& page) {
 void heap::page_free(page_handle& page, u32 slot_index) {
     page_header header = page.get_header();
     if (slot_index >= header.slot_count) {
-        PREQUEL_THROW(bad_argument("Invalid object address (possible double free or data corruption)."));
+        PREQUEL_THROW(
+            bad_argument("Invalid object address (possible double free or data corruption)."));
     }
 
     slot slt = page.get_slot(slot_index);
     if (!slt.valid()) {
-        PREQUEL_THROW(bad_argument("Invalid object address (possible double free or data corruption)."));
+        PREQUEL_THROW(
+            bad_argument("Invalid object address (possible double free or data corruption)."));
     }
 
     if (slt.offset() == header.free_ptr) {

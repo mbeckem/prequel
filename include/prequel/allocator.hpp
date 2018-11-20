@@ -11,8 +11,7 @@ namespace prequel {
 class allocator {
 public:
     explicit allocator(engine& e)
-        : m_engine(&e)
-    {}
+        : m_engine(&e) {}
 
     virtual ~allocator() = default;
 
@@ -31,8 +30,9 @@ public:
         if (size == 0)
             PREQUEL_THROW(bad_argument("Requested size cannot be zero."));
         auto result = do_allocate(size);
-        PREQUEL_ASSERT(result, "do_allocate() returned an invalid block index. "
-                             "Throw an exception instead.");
+        PREQUEL_ASSERT(result,
+                       "do_allocate() returned an invalid block index. "
+                       "Throw an exception instead.");
         return result;
     }
 
@@ -71,8 +71,9 @@ public:
         }
 
         auto result = do_reallocate(block, size, new_size);
-        PREQUEL_ASSERT(result, "do_reallocate() returned an invalid block index. "
-                               "Throw an exception instead.");
+        PREQUEL_ASSERT(result,
+                       "do_reallocate() returned an invalid block index. "
+                       "Throw an exception instead.");
         return result;
     }
 
@@ -96,7 +97,7 @@ protected:
     virtual block_index do_allocate(u64 size) = 0;
 
     /// Implements the reallocation function. `block` is valid and `size` and `new_size` are not zero.
-    virtual block_index do_reallocate(block_index block, u64 size, u64 new_size) = 0 ;
+    virtual block_index do_reallocate(block_index block, u64 size, u64 new_size) = 0;
 
     /// Implements the free function. `block` is valid and `size` is not zero.
     virtual void do_free(block_index block, u64 size) = 0;
@@ -111,15 +112,14 @@ class uses_allocator {
 public:
     explicit uses_allocator(allocator& alloc)
         : m_allocator(&alloc)
-        , m_engine(&alloc.get_engine())
-    {}
+        , m_engine(&alloc.get_engine()) {}
 
     explicit uses_allocator(allocator& alloc, u32 required_blocksize)
         : m_allocator(&alloc)
-        , m_engine(&alloc.get_engine())
-    {
+        , m_engine(&alloc.get_engine()) {
         PREQUEL_CHECK(is_pow2(required_blocksize), "The required blocksize must be a power of 2.");
-        PREQUEL_CHECK(alloc.block_size() >= required_blocksize, "The allocator's blocksize is incompatible.");
+        PREQUEL_CHECK(alloc.block_size() >= required_blocksize,
+                      "The allocator's blocksize is incompatible.");
     }
 
     allocator& get_allocator() const { return *m_allocator; }

@@ -19,9 +19,7 @@ TEST_CASE("extent", "[extent]") {
 
     default_allocator alloc(make_anchor_handle(alloc_anchor), file.get_engine());
 
-    auto extent_anchor = [&](u32 index) {
-        return make_anchor_handle(extent_anchors[index]);
-    };
+    auto extent_anchor = [&](u32 index) { return make_anchor_handle(extent_anchors[index]); };
 
     SECTION("basic usage") {
         extent e1(extent_anchor(0), alloc);

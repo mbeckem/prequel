@@ -49,18 +49,13 @@ using raw_list_anchor = detail::raw_list_anchor;
  * The size of values can be determined at runtime (e.g. through user input)
  * but must remain constant during the use of an array.
  */
-class raw_list
-{
+class raw_list {
 public:
     using anchor = raw_list_anchor;
     using cursor = raw_list_cursor;
 
 public:
-    enum cursor_seek_t {
-        seek_none = 0,
-        seek_first = 1,
-        seek_last = 2
-    };
+    enum cursor_seek_t { seek_none = 0, seek_first = 1, seek_last = 2 };
 
 public:
     /**
@@ -168,13 +163,15 @@ public:
     /// The function will be invoked for every node until it returns false, at which point the iteration
     /// through the list will stop.
     /// The list must not be modified during this operation.
-    void visit(bool (*visit_fn)(const node_view& node, void* user_data), void* user_data = nullptr) const;
+    void visit(bool (*visit_fn)(const node_view& node, void* user_data),
+               void* user_data = nullptr) const;
 
     template<typename Func>
     void visit(Func&& fn) const {
         using func_t = std::remove_reference_t<Func>;
 
-        bool (*visit_fn)(const node_view&, void*) = [](const node_view& node, void* user_data) -> bool {
+        bool (*visit_fn)(const node_view&, void*) = [](const node_view& node,
+                                                       void* user_data) -> bool {
             func_t* fn = reinterpret_cast<func_t*>(user_data);
             return (*fn)(node);
         };

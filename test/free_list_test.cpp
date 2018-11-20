@@ -30,7 +30,7 @@ TEST_CASE("freelist", "[freelist]") {
         list.push(block_index(i));
     }
 
-    for (u32 i = 1024; i-- > 0; ) {
+    for (u32 i = 1024; i-- > 0;) {
         auto addr = list.pop();
         auto expected = block_index(i);
         if (addr != expected)

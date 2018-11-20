@@ -29,8 +29,7 @@ struct file_engine_stats {
     u64 cache_hits = 0;
 };
 
-class file_engine : public engine
-{
+class file_engine : public engine {
 public:
     /// Constructs a new file engine.
     ///

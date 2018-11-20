@@ -4,8 +4,8 @@
 #include <prequel/allocator.hpp>
 #include <prequel/btree.hpp>
 #include <prequel/defs.hpp>
-#include <prequel/engine.hpp>
 #include <prequel/detail/operators.hpp>
+#include <prequel/engine.hpp>
 
 #include <vector>
 
@@ -64,7 +64,8 @@ public:
 private:
     friend heap;
 
-    explicit heap_reference(u64 value): m_value(value) {}
+    explicit heap_reference(u64 value)
+        : m_value(value) {}
 
     // pre: valid()
     bool is_small_object() const;
@@ -119,29 +120,21 @@ private:
         page_entry(block_index index, bool large, u32 block_count) {
             PREQUEL_ASSERT(index, "Invalid block.");
             PREQUEL_ASSERT((index.value() & metadata_mask) == 0,
-                         "Block index has invalid bits (block size too small).");
+                           "Block index has invalid bits (block size too small).");
             m_value |= large ? large_object_bit : 0;
             m_value |= index.value();
             m_block_count = block_count;
         }
 
-        block_index block() const  {
-            return block_index(m_value & ~metadata_mask);
-        }
+        block_index block() const { return block_index(m_value & ~metadata_mask); }
 
-        u32 block_count() const {
-            return m_block_count;
-        }
+        u32 block_count() const { return m_block_count; }
 
-        bool large_object() const {
-            return (m_value & large_object_bit) != 0;
-        }
+        bool large_object() const { return (m_value & large_object_bit) != 0; }
 
         /// Entries are indexed by their address.
         struct derive_key {
-            block_index operator()(const page_entry& entry) const {
-                return entry.block();
-            }
+            block_index operator()(const page_entry& entry) const { return entry.block(); }
         };
 
         static constexpr auto get_binary_format() {
@@ -159,7 +152,8 @@ private:
 
         free_map_entry() = default;
         free_map_entry(block_index block, u32 available)
-            : block(block), available(available) {}
+            : block(block)
+            , available(available) {}
 
         /// Entries are ordered by the amount of bytes available.
         /// Ties are broken by comparing the block address.
@@ -196,9 +190,8 @@ public:
         u64 blocks_count = 0;
 
         static constexpr auto get_binary_format() {
-            return make_binary_format(&anchor::page_map, &anchor::free_map,
-                                      &anchor::objects_size, &anchor::objects_count,
-                                      &anchor::blocks_count);
+            return make_binary_format(&anchor::page_map, &anchor::free_map, &anchor::objects_size,
+                                      &anchor::objects_count, &anchor::blocks_count);
         }
 
         friend heap;

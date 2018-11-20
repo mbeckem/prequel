@@ -5,4 +5,3 @@
 #include <iostream>
 
 using namespace prequel;
-

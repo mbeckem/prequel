@@ -35,10 +35,9 @@ public:
     raw_stack_node(block_handle block, u32 value_size, u32 capacity)
         : m_handle(std::move(block), 0)
         , m_value_size(value_size)
-        , m_capacity(capacity)
-    {
+        , m_capacity(capacity) {
         PREQUEL_ASSERT(m_capacity == compute_capacity(this->block().block_size(), m_value_size),
-                     "Inconsistent precomputed capacity.");
+                       "Inconsistent precomputed capacity.");
     }
 
     const block_handle& block() const { return m_handle.block(); }
@@ -161,8 +160,7 @@ raw_stack_impl::raw_stack_impl(anchor_handle<anchor> anchor_, u32 value_size, al
     : uses_allocator(alloc_)
     , m_anchor(std::move(anchor_))
     , m_value_size(value_size)
-    , m_node_capacity(raw_stack_node::compute_capacity(get_engine().block_size(), m_value_size))
-{
+    , m_node_capacity(raw_stack_node::compute_capacity(get_engine().block_size(), m_value_size)) {
     if (m_node_capacity == 0)
         PREQUEL_THROW(bad_argument("Block size is too small to fit a single value."));
 
@@ -174,8 +172,7 @@ raw_stack_impl::raw_stack_impl(anchor_handle<anchor> anchor_, u32 value_size, al
     }
 }
 
-raw_stack_impl::~raw_stack_impl() {
-}
+raw_stack_impl::~raw_stack_impl() {}
 
 void raw_stack_impl::top(byte* value) const {
     if (!value)
@@ -201,7 +198,6 @@ void raw_stack_impl::push(const byte* value) {
         set_top_node(node.index());
         return node;
     };
-
 
     // Make a new node if the last node in the buffer is full and make sure
     // that the capacity is limited at 2. Note that because of the pop() behaviour,
@@ -266,7 +262,7 @@ void raw_stack_impl::clear() {
 }
 
 void raw_stack_impl::reset() {
-    for (block_index index = top_node(); index; ) {
+    for (block_index index = top_node(); index;) {
         raw_stack_node node = read_node(index);
         index = node.get_prev();
         free_node(node.index());
@@ -279,8 +275,7 @@ void raw_stack_impl::reset() {
 }
 
 void raw_stack_impl::validate() const {
-#define ERROR(...) PREQUEL_THROW(\
-    corruption_error(fmt::format("validate: " __VA_ARGS__)));
+#define ERROR(...) PREQUEL_THROW(corruption_error(fmt::format("validate: " __VA_ARGS__)));
 
     u64 total_values = 0;
     u64 total_nodes = 0;
@@ -291,7 +286,7 @@ void raw_stack_impl::validate() const {
     if (!empty() && !top_node())
         ERROR("Non-empty stack has an invalid top node.");
 
-    for (block_index index = top_node(); index; ) {
+    for (block_index index = top_node(); index;) {
         raw_stack_node node = read_node(index);
 
         if (node.get_size() > m_node_capacity)
@@ -315,34 +310,28 @@ void raw_stack_impl::validate() const {
 
 void raw_stack_impl::dump(std::ostream& os) const {
     fmt::print(os,
-        "Raw stack:\n"
-        "  Value size: {}\n"
-        "  Block size: {}\n"
-        "  Node Capacity: {}\n"
-        "  Size: {}\n"
-        "  Nodes: {}\n",
-        value_size(),
-        get_engine().block_size(),
-        node_capacity(),
-        size(),
-        nodes());
+               "Raw stack:\n"
+               "  Value size: {}\n"
+               "  Block size: {}\n"
+               "  Node Capacity: {}\n"
+               "  Size: {}\n"
+               "  Nodes: {}\n",
+               value_size(), get_engine().block_size(), node_capacity(), size(), nodes());
 
     if (!empty())
         os << "\n";
 
-    for (block_index index = top_node(); index; ) {
+    for (block_index index = top_node(); index;) {
         raw_stack_node node = read_node(index);
 
         fmt::print(os,
                    "  Node @{}:\n"
                    "    Previous: @{}\n"
                    "    Size: {}\n",
-                   node.index(),
-                   node.get_prev(),
-                   node.get_size());
+                   node.index(), node.get_prev(), node.get_size());
 
         const u32 size = node.get_size();
-        for (u32 i = size; i-- > 0; ) {
+        for (u32 i = size; i-- > 0;) {
             const byte* data = static_cast<const byte*>(node.get(i));
             fmt::print(os, "    {:>4}: {}\n", i, format_hex(data, value_size()));
         }
@@ -379,22 +368,18 @@ void raw_stack_impl::check_buffer_invariants() const {
     }
 
     if (nodes() == 1) {
-        PREQUEL_ASSERT(m_buf[0] && m_buf[0].index() == top_node(),
-                "Must buffer the last node.");
-        PREQUEL_ASSERT(m_buf.size() == 1,
-                     "Must not buffer any other node.");
+        PREQUEL_ASSERT(m_buf[0] && m_buf[0].index() == top_node(), "Must buffer the last node.");
+        PREQUEL_ASSERT(m_buf.size() == 1, "Must not buffer any other node.");
         return;
     }
 
     PREQUEL_ASSERT(m_buf.size() == 2, "Must buffer two nodes.");
-    PREQUEL_ASSERT(m_buf[1] && m_buf[1].index() == top_node(),
-            "Must buffer the last node.");
+    PREQUEL_ASSERT(m_buf[1] && m_buf[1].index() == top_node(), "Must buffer the last node.");
     PREQUEL_ASSERT(m_buf[0] && m_buf[0].index() == m_buf[1].get_prev(),
-            "Must buffer the second to last node.");
+                   "Must buffer the second to last node.");
     PREQUEL_ASSERT(m_buf[0].index() == m_buf[1].get_prev(),
-            "Last node must point to second to last node");
-    PREQUEL_ASSERT(!m_buf[0].empty(),
-            "The first buffered block cannot be empty.");
+                   "Last node must point to second to last node");
+    PREQUEL_ASSERT(!m_buf[0].empty(), "The first buffered block cannot be empty.");
 #endif
 }
 
@@ -407,14 +392,12 @@ void raw_stack_impl::check_buffer_invariants() const {
 // --------------------------------
 
 raw_stack::raw_stack(anchor_handle<anchor> anchor_, u32 value_size, allocator& alloc_)
-    : m_impl(std::make_unique<detail::raw_stack_impl>(std::move(anchor_), value_size, alloc_))
-{}
+    : m_impl(std::make_unique<detail::raw_stack_impl>(std::move(anchor_), value_size, alloc_)) {}
 
 raw_stack::~raw_stack() {}
 
 raw_stack::raw_stack(raw_stack&& other) noexcept
-    : m_impl(std::move(other.m_impl))
-{}
+    : m_impl(std::move(other.m_impl)) {}
 
 raw_stack& raw_stack::operator=(raw_stack&& other) noexcept {
     if (this != &other) {
@@ -423,13 +406,27 @@ raw_stack& raw_stack::operator=(raw_stack&& other) noexcept {
     return *this;
 }
 
-engine& raw_stack::get_engine() const { return impl().get_engine(); }
-allocator& raw_stack::get_allocator() const { return impl().get_allocator(); }
-u32 raw_stack::value_size() const { return impl().value_size(); }
-u32 raw_stack::node_capacity() const { return impl().node_capacity(); }
-bool raw_stack::empty() const { return impl().empty(); }
-u64 raw_stack::size() const { return impl().size(); }
-u64 raw_stack::nodes() const { return impl().nodes(); }
+engine& raw_stack::get_engine() const {
+    return impl().get_engine();
+}
+allocator& raw_stack::get_allocator() const {
+    return impl().get_allocator();
+}
+u32 raw_stack::value_size() const {
+    return impl().value_size();
+}
+u32 raw_stack::node_capacity() const {
+    return impl().node_capacity();
+}
+bool raw_stack::empty() const {
+    return impl().empty();
+}
+u64 raw_stack::size() const {
+    return impl().size();
+}
+u64 raw_stack::nodes() const {
+    return impl().nodes();
+}
 
 double raw_stack::fill_factor() const {
     return empty() ? 0 : double(size()) / (nodes() * node_capacity());
@@ -443,14 +440,28 @@ double raw_stack::overhead() const {
     return empty() ? 1.0 : double(byte_size()) / (size() * value_size());
 }
 
-void raw_stack::top(byte* value) const { impl().top(value); }
-void raw_stack::push(const byte* value) { impl().push(value); }
-void raw_stack::pop() { impl().pop(); }
-void raw_stack::clear() { impl().clear(); }
-void raw_stack::reset() { impl().reset(); }
+void raw_stack::top(byte* value) const {
+    impl().top(value);
+}
+void raw_stack::push(const byte* value) {
+    impl().push(value);
+}
+void raw_stack::pop() {
+    impl().pop();
+}
+void raw_stack::clear() {
+    impl().clear();
+}
+void raw_stack::reset() {
+    impl().reset();
+}
 
-void raw_stack::validate() const { impl().validate(); }
-void raw_stack::dump(std::ostream& os) const { impl().dump(os); }
+void raw_stack::validate() const {
+    impl().validate();
+}
+void raw_stack::dump(std::ostream& os) const {
+    impl().dump(os);
+}
 
 detail::raw_stack_impl& raw_stack::impl() const {
     if (!m_impl)

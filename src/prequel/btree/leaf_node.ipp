@@ -11,8 +11,7 @@ inline void leaf_node::insert_nonfull(u32 index, const byte* value) const {
 
     u32 size = get_size();
     byte* data = m_handle.block().writable_data();
-    std::memmove(data + offset_of_value(index + 1),
-                 data + offset_of_value(index),
+    std::memmove(data + offset_of_value(index + 1), data + offset_of_value(index),
                  (size - index) * m_value_size);
     std::memmove(data + offset_of_value(index), value, m_value_size);
     set_size(size + 1);
@@ -29,7 +28,8 @@ inline void leaf_node::append_nonfull(const byte* values, u32 count) const {
     set_size(old_size + count);
 }
 
-inline void leaf_node::insert_full(u32 index, const byte* value, u32 mid, const leaf_node& new_leaf) const {
+inline void
+leaf_node::insert_full(u32 index, const byte* value, u32 mid, const leaf_node& new_leaf) const {
     PREQUEL_ASSERT(mid <= m_max_children, "Mid out of bounds.");
     PREQUEL_ASSERT(m_value_size == new_leaf.m_value_size, "Value size missmatch.");
     PREQUEL_ASSERT(m_max_children == new_leaf.m_max_children, "Capacity missmatch.");
@@ -49,14 +49,13 @@ inline void leaf_node::remove(u32 index) const {
 
     u32 size = get_size();
     byte* data = m_handle.block().writable_data();
-    std::memmove(data + offset_of_value(index),
-                 data + offset_of_value(index + 1),
+    std::memmove(data + offset_of_value(index), data + offset_of_value(index + 1),
                  (size - index - 1) * m_value_size);
     set_size(size - 1);
 }
 
 inline void leaf_node::append_from_right(const leaf_node& neighbor) const {
-    PREQUEL_ASSERT(get_size() + neighbor.get_size() <= m_max_children,  "Too many values.");
+    PREQUEL_ASSERT(get_size() + neighbor.get_size() <= m_max_children, "Too many values.");
     PREQUEL_ASSERT(value_size() == neighbor.value_size(), "Value size missmatch.");
 
     u32 size = get_size();
@@ -65,14 +64,13 @@ inline void leaf_node::append_from_right(const leaf_node& neighbor) const {
     byte* data = m_handle.block().writable_data();
     const byte* neighbor_data = neighbor.m_handle.block().data();
 
-    std::memmove(data + offset_of_value(size),
-                 neighbor_data + offset_of_value(0),
+    std::memmove(data + offset_of_value(size), neighbor_data + offset_of_value(0),
                  neighbor_size * value_size());
     set_size(size + neighbor_size);
 }
 
 inline void leaf_node::prepend_from_left(const leaf_node& neighbor) const {
-    PREQUEL_ASSERT(get_size() + neighbor.get_size() <= m_max_children,  "Too many values.");
+    PREQUEL_ASSERT(get_size() + neighbor.get_size() <= m_max_children, "Too many values.");
     PREQUEL_ASSERT(value_size() == neighbor.value_size(), "Value size missmatch.");
 
     u32 size = get_size();
@@ -81,18 +79,15 @@ inline void leaf_node::prepend_from_left(const leaf_node& neighbor) const {
     byte* data = m_handle.block().writable_data();
     const byte* neighbor_data = neighbor.m_handle.block().data();
 
-    std::memmove(data + offset_of_value(neighbor_size),
-                 data + offset_of_value(0),
+    std::memmove(data + offset_of_value(neighbor_size), data + offset_of_value(0),
                  size * value_size());
-    std::memmove(data + offset_of_value(0),
-                 neighbor_data + offset_of_value(0),
+    std::memmove(data + offset_of_value(0), neighbor_data + offset_of_value(0),
                  neighbor_size * value_size());
     set_size(size + neighbor_size);
 }
 
-inline void leaf_node::sequence_insert(u32 value_size, byte* left, byte* right, u32 count,
-                                       u32 mid, u32 insert_index, const byte* value)
-{
+inline void leaf_node::sequence_insert(u32 value_size, byte* left, byte* right, u32 count, u32 mid,
+                                       u32 insert_index, const byte* value) {
     PREQUEL_ASSERT(mid > 0 && mid <= count, "index can't be used as mid");
     PREQUEL_ASSERT(insert_index <= count, "index out of bounds");
 
@@ -112,7 +107,8 @@ inline void leaf_node::sequence_insert(u32 value_size, byte* left, byte* right, 
 
         move(left, mid, right, 0, right_insert_index);
         move(value, 0, right, right_insert_index, 1);
-        move(left, mid + right_insert_index, right, right_insert_index + 1, count - mid - right_insert_index);
+        move(left, mid + right_insert_index, right, right_insert_index + 1,
+             count - mid - right_insert_index);
     }
 }
 

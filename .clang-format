@@ -11,8 +11,8 @@ AllowShortIfStatementsOnASingleLine: 'false'
 AllowShortLoopsOnASingleLine: 'false'
 AlwaysBreakBeforeMultilineStrings: 'true'
 AlwaysBreakTemplateDeclarations: 'true'
-BinPackArguments: 'false'
-BinPackParameters: 'false'
+BinPackArguments: 'true'
+BinPackParameters: 'true'
 BreakBeforeBinaryOperators: NonAssignment
 BreakBeforeBraces: Attach
 BreakBeforeInheritanceComma: 'false'
@@ -34,6 +34,7 @@ NamespaceIndentation: None
 PointerAlignment: Left
 ReflowComments: 'false'
 SortIncludes: 'true'
+SortUsingDeclarations: 'false'
 SpaceAfterCStyleCast: 'true'
 SpaceAfterTemplateKeyword: 'false'
 SpaceBeforeAssignmentOperators: 'true'
@@ -47,4 +48,11 @@ Standard: Cpp11
 TabWidth: '4'
 UseTab: Never
 
+
+PenaltyBreakAssignment: 10
+PenaltyBreakBeforeFirstCallParameter: 20
+PenaltyBreakComment: 10
+PenaltyBreakString: 100
+PenaltyExcessCharacter: 20
+PenaltyReturnTypeOnItsOwnLine: 5
 ...

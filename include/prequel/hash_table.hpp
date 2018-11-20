@@ -2,21 +2,17 @@
 #define PREQUEL_HASH_TABLE_HPP
 
 #include <prequel/binary_format.hpp>
-#include <prequel/identity_key.hpp>
 #include <prequel/hash.hpp>
-#include <prequel/serialization.hpp>
+#include <prequel/identity_key.hpp>
 #include <prequel/raw_hash_table.hpp>
+#include <prequel/serialization.hpp>
 
 #include <memory>
 
 namespace prequel {
 
-template<
-    typename Value,
-    typename DeriveKey = identity_t,
-    typename KeyHash = fnv_hasher,
-    typename KeyEqual = std::equal_to<>
->
+template<typename Value, typename DeriveKey = identity_t, typename KeyHash = fnv_hasher,
+         typename KeyEqual = std::equal_to<>>
 class hash_table {
 public:
     /// Typedef for the value type.
@@ -30,9 +26,7 @@ public:
     class anchor {
         raw_hash_table::anchor table;
 
-        static constexpr auto get_binary_format() {
-            return make_binary_format(&anchor::table);
-        }
+        static constexpr auto get_binary_format() { return make_binary_format(&anchor::table); }
 
         friend hash_table;
         friend binary_format_access;
@@ -59,8 +53,7 @@ public:
         friend hash_table;
 
         node_view(const raw_hash_table::node_view& inner)
-            : m_inner(inner)
-        {}
+            : m_inner(inner) {}
 
         node_view(const node_view&) = delete;
         node_view& operator==(const node_view&) = delete;
@@ -71,15 +64,11 @@ public:
 
 public:
     explicit hash_table(anchor_handle<anchor> anchor_, allocator& alloc_,
-                        DeriveKey derive_key = DeriveKey(),
-                        KeyHash key_hash = KeyHash(),
+                        DeriveKey derive_key = DeriveKey(), KeyHash key_hash = KeyHash(),
                         KeyEqual key_equal = KeyEqual())
-        : m_state(std::make_unique<state_t>(
-                      std::move(derive_key),
-                      std::move(key_hash),
-                      std::move(key_equal)))
-        , m_inner(std::move(anchor_).template member<&anchor::table>(), make_options(), alloc_)
-    {}
+        : m_state(std::make_unique<state_t>(std::move(derive_key), std::move(key_hash),
+                                            std::move(key_equal)))
+        , m_inner(std::move(anchor_).template member<&anchor::table>(), make_options(), alloc_) {}
 
     engine& get_engine() const { return m_inner.get_engine(); }
     allocator& get_allocator() const { return m_inner.get_allocator(); }
@@ -139,16 +128,14 @@ public:
     }
 
     template<typename CompatibleKeyType, typename CompatibleKeyHash, typename CompatibleKeyEquals>
-    bool find_compatible(const CompatibleKeyType& key,
-                         const CompatibleKeyHash& hash,
-                         const CompatibleKeyEquals& equals,
-                         value_type& value) const
-    {
+    bool find_compatible(const CompatibleKeyType& key, const CompatibleKeyHash& hash,
+                         const CompatibleKeyEquals& equals, value_type& value) const {
         serialized_buffer<value_type> value_buffer;
 
         auto wrapped_hasher = wrap_hash<CompatibleKeyType>(hash);
         auto wrapped_equals = wrap_equals<CompatibleKeyType>(equals);
-        if (m_inner.find_compatible(std::addressof(key), std::ref(wrapped_hasher), std::ref(wrapped_equals), value_buffer.data())) {
+        if (m_inner.find_compatible(std::addressof(key), std::ref(wrapped_hasher),
+                                    std::ref(wrapped_equals), value_buffer.data())) {
             value = deserialized_value<value_type>(value_buffer.data());
             return true;
         }
@@ -180,13 +167,12 @@ public:
     }
 
     template<typename CompatibleKeyType, typename CompatibleKeyHash, typename CompatibleKeyEquals>
-    bool erase_compatible(const CompatibleKeyType& key,
-                          const CompatibleKeyHash& hash,
-                          const CompatibleKeyEquals& equals) const
-    {
+    bool erase_compatible(const CompatibleKeyType& key, const CompatibleKeyHash& hash,
+                          const CompatibleKeyEquals& equals) const {
         auto wrapped_hasher = wrap_hash<CompatibleKeyType>(hash);
         auto wrapped_equals = wrap_equals<CompatibleKeyType>(equals);
-        return m_inner.erase_compatible(std::addressof(key), std::ref(wrapped_hasher), std::ref(wrapped_equals));
+        return m_inner.erase_compatible(std::addressof(key), std::ref(wrapped_hasher),
+                                        std::ref(wrapped_equals));
     }
 
     template<typename IterFunc>
@@ -199,9 +185,8 @@ public:
 
     template<typename VisitFunc>
     void visit(VisitFunc&& fn) const {
-        m_inner.visit([&](const raw_hash_table::node_view& raw_view) {
-            return fn(node_view(raw_view));
-        });
+        m_inner.visit(
+            [&](const raw_hash_table::node_view& raw_view) { return fn(node_view(raw_view)); });
     }
 
     /// Removes all data from this table. After this operation completes, the table
@@ -232,12 +217,13 @@ private:
         state_t(DeriveKey&& derive_key, KeyHash&& key_hash, KeyEqual&& key_equal)
             : m_derive_key(std::move(derive_key))
             , m_key_hash(std::move(key_hash))
-            , m_key_equal(std::move(key_equal))
-        {}
+            , m_key_equal(std::move(key_equal)) {}
 
         key_type derive_key(const value_type& v) const { return m_derive_key(v); }
         u64 key_hash(const key_type& k) const { return m_key_hash(k); }
-        bool key_equal(const key_type& lhs, const key_type& rhs) const { return m_key_equal(lhs, rhs); }
+        bool key_equal(const key_type& lhs, const key_type& rhs) const {
+            return m_key_equal(lhs, rhs);
+        }
     };
 
     template<typename CompatibleKeyType, typename CompatibleKeyHash>
@@ -245,8 +231,7 @@ private:
         const CompatibleKeyHash& hash;
 
         compatible_hash_wrapper(const CompatibleKeyHash& hash)
-            : hash(hash)
-        {}
+            : hash(hash) {}
 
         u64 operator()(const void* raw_key) const {
             const CompatibleKeyType& key = *static_cast<const CompatibleKeyType*>(raw_key);
@@ -259,8 +244,7 @@ private:
         const CompatibleKeyEquals& equals;
 
         compatible_equals_wrapper(const CompatibleKeyEquals& equals)
-            : equals(equals)
-        {}
+            : equals(equals) {}
 
         bool operator()(const void* raw_lhs_key, const byte* raw_rhs_key) const {
             const CompatibleKeyType& lhs = *static_cast<const CompatibleKeyType*>(raw_lhs_key);
@@ -303,7 +287,8 @@ private:
         return state->key_hash(key);
     }
 
-    static bool key_equal(const byte* left_key_buffer, const byte* right_key_buffer, void* user_data) {
+    static bool
+    key_equal(const byte* left_key_buffer, const byte* right_key_buffer, void* user_data) {
         const state_t* state = static_cast<state_t*>(user_data);
         key_type lhs = deserialized_value<key_type>(left_key_buffer);
         key_type rhs = deserialized_value<key_type>(right_key_buffer);

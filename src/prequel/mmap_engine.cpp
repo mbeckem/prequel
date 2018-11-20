@@ -75,8 +75,7 @@ private:
 
 mmap_engine_impl::mmap_engine_impl(file& fd, u32 block_size)
     : m_file(&fd)
-    , m_block_size(block_size)
-{
+    , m_block_size(block_size) {
     if (mmap_chunk_size % m_block_size != 0) {
         PREQUEL_THROW(bad_argument("mmap chunk size must be a multiple of the block size."));
     }
@@ -87,13 +86,15 @@ mmap_engine_impl::mmap_engine_impl(file& fd, u32 block_size)
 mmap_engine_impl::~mmap_engine_impl() {
     try {
         flush();
-    } catch (...) {}
+    } catch (...) {
+    }
 
     try {
         vfs& v = m_file->get_vfs();
         for (void* mapping : m_mappings)
             v.memory_unmap(mapping, mmap_chunk_size);
-    } catch (...) {}
+    } catch (...) {
+    }
 }
 
 void mmap_engine_impl::grow(u64 n) {
@@ -122,8 +123,7 @@ byte* mmap_engine_impl::access_block(u64 block_index) const {
     if (byte_offset >= m_mapped_size || (m_block_size > m_mapped_size - byte_offset)) {
         PREQUEL_THROW(io_error(
             fmt::format("Failed to access a block in `{}` at index {}, beyond the end of file.",
-                        m_file->name(), block_index)
-        ));
+                        m_file->name(), block_index)));
     }
 
     u64 index_of_chunk = byte_offset / mmap_chunk_size;
@@ -157,15 +157,22 @@ void mmap_engine_impl::update_mappings(u64 file_size) {
 
 mmap_engine::mmap_engine(file& fd, u32 block_size)
     : engine(block_size)
-    , m_impl(std::make_unique<detail::mmap_engine_impl>(fd, block_size))
-{}
+    , m_impl(std::make_unique<detail::mmap_engine_impl>(fd, block_size)) {}
 
 mmap_engine::~mmap_engine() {}
 
-file& mmap_engine::fd() const { return impl().fd(); }
-u64 mmap_engine::do_size() const { return impl().size(); }
-void mmap_engine::do_grow(u64 n) { impl().grow(n); }
-void mmap_engine::do_flush() { impl().flush(); }
+file& mmap_engine::fd() const {
+    return impl().fd();
+}
+u64 mmap_engine::do_size() const {
+    return impl().size();
+}
+void mmap_engine::do_grow(u64 n) {
+    impl().grow(n);
+}
+void mmap_engine::do_flush() {
+    impl().flush();
+}
 
 engine::pin_result mmap_engine::do_pin(block_index index, bool initialize) {
     unused(initialize);

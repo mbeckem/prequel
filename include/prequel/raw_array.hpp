@@ -39,8 +39,7 @@ using raw_array_anchor = detail::raw_array_anchor;
 /// The stream allocates new blocks in chunks of the given size.
 struct linear_growth {
     linear_growth(u64 chunk_size = 1)
-        : m_chunk_size(chunk_size)
-    {
+        : m_chunk_size(chunk_size) {
         PREQUEL_ASSERT(chunk_size >= 1, "Invalid chunk size.");
     }
 

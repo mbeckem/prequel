@@ -138,15 +138,14 @@ static void copy_forward(engine& e, raw_address src, raw_address dest, u64 size)
             src_handle = e.read(index(src));
         }
 
-        u32 chunk = std::min(block_size - offset(src),
-                             block_size - offset(dest));
+        u32 chunk = std::min(block_size - offset(src), block_size - offset(dest));
         if (chunk > size)
             chunk = size;
 
         PREQUEL_ASSERT(dest_handle.index() == index(dest), "Correct destination block.");
         PREQUEL_ASSERT(src_handle.index() == index(src), "Correct source block.");
-        std::memmove(dest_handle.writable_data() + offset(dest),
-                     src_handle.data() + offset(src), chunk);
+        std::memmove(dest_handle.writable_data() + offset(dest), src_handle.data() + offset(src),
+                     chunk);
         src += chunk;
         dest += chunk;
         size -= chunk;
@@ -166,14 +165,14 @@ static void copy_backward(engine& e, raw_address src, raw_address dest, u64 size
     while (size > 0) {
         if (!dest_handle || offset(dest) == 0) {
             if (can_overwrite && offset(dest) == 0 && size >= block_size) {
-                dest_handle = e.overwrite_zero(index(dest-1));
+                dest_handle = e.overwrite_zero(index(dest - 1));
             } else {
-                dest_handle = e.read(index(dest-1));
+                dest_handle = e.read(index(dest - 1));
             }
         }
 
         if (!src_handle || offset(src) == 0) {
-            src_handle = e.read(index(src-1));
+            src_handle = e.read(index(src - 1));
         }
 
         u32 chunk = std::min(offset(src) ? offset(src) : block_size,
@@ -187,8 +186,8 @@ static void copy_backward(engine& e, raw_address src, raw_address dest, u64 size
 
         PREQUEL_ASSERT(dest_handle.index() == index(dest), "Correct destination block.");
         PREQUEL_ASSERT(src_handle.index() == index(src), "Correct source block.");
-        std::memmove(dest_handle.writable_data() + offset(dest),
-                     src_handle.data() + offset(src), chunk);
+        std::memmove(dest_handle.writable_data() + offset(dest), src_handle.data() + offset(src),
+                     chunk);
     }
 }
 

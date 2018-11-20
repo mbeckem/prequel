@@ -27,8 +27,7 @@ public:
         : m_anchor(std::move(_anchor))
         , m_extent(m_anchor.member<&anchor::storage>(), alloc)
         , m_value_size(value_size)
-        , m_block_capacity(calc_block_capacity(m_extent.block_size(), m_value_size))
-    {
+        , m_block_capacity(calc_block_capacity(m_extent.block_size(), m_value_size)) {
         if (m_block_capacity == 0)
             PREQUEL_THROW(bad_argument("Block size too small to fit a single value."));
     }
@@ -56,7 +55,9 @@ public:
     u64 blocks() const { return m_extent.size(); }
     double fill_factor() const { return capacity() == 0 ? 0 : double(size()) / double(capacity()); }
     u64 byte_size() const { return blocks() * block_size(); }
-    double overhead() const { return capacity() == 0 ? 1.0 : double(byte_size()) / double(size() * value_size()); }
+    double overhead() const {
+        return capacity() == 0 ? 1.0 : double(byte_size()) / double(size() * value_size());
+    }
 
     void get(u64 index, byte* value) {
         check_index(index);
@@ -116,9 +117,7 @@ public:
         m_anchor.set<&anchor::size>(sz - 1);
     }
 
-    void clear() {
-        resize(0, nullptr);
-    }
+    void clear() { resize(0, nullptr); }
 
     void reset() {
         m_extent.reset();
@@ -177,13 +176,9 @@ private:
     u64 block_index(u64 index) const { return index / m_block_capacity; }
     u32 block_offset(u64 index) const { return index % m_block_capacity; }
 
-    block_handle create(u64 blk_index) const {
-        return m_extent.overwrite_zero(blk_index);
-    }
+    block_handle create(u64 blk_index) const { return m_extent.overwrite_zero(blk_index); }
 
-    block_handle read(u64 blk_index) const {
-        return m_extent.read(blk_index);
-    }
+    block_handle read(u64 blk_index) const { return m_extent.read(blk_index); }
 
     // Adjust the minimum size (in blocks) according to the growth strategy.
     u64 new_size(u64 minimum) const {
@@ -195,9 +190,7 @@ private:
                 return ceil_div(minimum, g.chunk_size()) * g.chunk_size();
             }
 
-            u64 operator()(const exponential_growth&) {
-                return round_towards_pow2(minimum);
-            }
+            u64 operator()(const exponential_growth&) { return round_towards_pow2(minimum); }
         };
 
         visitor_t v{minimum};
@@ -225,8 +218,7 @@ private:
 } // namespace detail
 
 raw_array::raw_array(anchor_handle<anchor> _anchor, u32 value_size, allocator& alloc)
-    : m_impl(std::make_unique<detail::raw_array_impl>(std::move(_anchor), value_size, alloc))
-{}
+    : m_impl(std::make_unique<detail::raw_array_impl>(std::move(_anchor), value_size, alloc)) {}
 
 raw_array::~raw_array() {}
 
@@ -239,34 +231,82 @@ raw_array& raw_array::operator=(raw_array&& other) noexcept {
     return *this;
 }
 
-allocator& raw_array::get_allocator() const { return impl().get_allocator(); }
-engine& raw_array::get_engine() const { return impl().get_engine(); }
+allocator& raw_array::get_allocator() const {
+    return impl().get_allocator();
+}
+engine& raw_array::get_engine() const {
+    return impl().get_engine();
+}
 
-u32 raw_array::value_size() const { return impl().value_size(); }
-u32 raw_array::block_capacity() const { return impl().block_capacity(); }
+u32 raw_array::value_size() const {
+    return impl().value_size();
+}
+u32 raw_array::block_capacity() const {
+    return impl().block_capacity();
+}
 
-bool raw_array::empty() const { return impl().empty(); }
-u64 raw_array::size() const { return impl().size(); }
-u64 raw_array::capacity() const { return impl().capacity(); }
-u64 raw_array::blocks() const { return impl().blocks(); }
-double raw_array::fill_factor() const { return impl().fill_factor(); }
-u64 raw_array::byte_size() const { return impl().byte_size(); }
-double raw_array::overhead() const { return impl().overhead(); }
+bool raw_array::empty() const {
+    return impl().empty();
+}
+u64 raw_array::size() const {
+    return impl().size();
+}
+u64 raw_array::capacity() const {
+    return impl().capacity();
+}
+u64 raw_array::blocks() const {
+    return impl().blocks();
+}
+double raw_array::fill_factor() const {
+    return impl().fill_factor();
+}
+u64 raw_array::byte_size() const {
+    return impl().byte_size();
+}
+double raw_array::overhead() const {
+    return impl().overhead();
+}
 
-void raw_array::get(u64 index, byte* value) const { impl().get(index, value); }
-void raw_array::set(u64 index, const byte* value) { impl().set(index, value); }
-void raw_array::reset() { impl().reset(); }
-void raw_array::clear() { impl().clear(); }
-void raw_array::resize(u64 n, const byte* value) { impl().resize(n, value); }
-void raw_array::reserve(u64 n) { impl().reserve(n); }
-void raw_array::reserve_additional(u64 n) { impl().reserve(checked_add(n, size())); }
-void raw_array::shrink() { impl().shrink(false); }
-void raw_array::shrink_to_fit() { impl().shrink(true); }
-void raw_array::growth(const growth_strategy& g) { impl().growth(g); }
-growth_strategy raw_array::growth() const { return impl().growth(); }
+void raw_array::get(u64 index, byte* value) const {
+    impl().get(index, value);
+}
+void raw_array::set(u64 index, const byte* value) {
+    impl().set(index, value);
+}
+void raw_array::reset() {
+    impl().reset();
+}
+void raw_array::clear() {
+    impl().clear();
+}
+void raw_array::resize(u64 n, const byte* value) {
+    impl().resize(n, value);
+}
+void raw_array::reserve(u64 n) {
+    impl().reserve(n);
+}
+void raw_array::reserve_additional(u64 n) {
+    impl().reserve(checked_add(n, size()));
+}
+void raw_array::shrink() {
+    impl().shrink(false);
+}
+void raw_array::shrink_to_fit() {
+    impl().shrink(true);
+}
+void raw_array::growth(const growth_strategy& g) {
+    impl().growth(g);
+}
+growth_strategy raw_array::growth() const {
+    return impl().growth();
+}
 
-void raw_array::push_back(const byte* value) { impl().push_back(value); }
-void raw_array::pop_back() { impl().pop_back(); }
+void raw_array::push_back(const byte* value) {
+    impl().push_back(value);
+}
+void raw_array::pop_back() {
+    impl().pop_back();
+}
 
 detail::raw_array_impl& raw_array::impl() const {
     if (!m_impl)

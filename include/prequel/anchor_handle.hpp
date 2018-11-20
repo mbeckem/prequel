@@ -1,8 +1,8 @@
 #ifndef PREQUEL_ANCHOR_HANDLE_HPP
 #define PREQUEL_ANCHOR_HANDLE_HPP
 
-#include <prequel/defs.hpp>
 #include <prequel/assert.hpp>
+#include <prequel/defs.hpp>
 #include <prequel/type_traits.hpp>
 
 #include <memory>
@@ -41,12 +41,14 @@ public:
     anchor_handle() = default;
 
     /// Constructs an anchor handle that does not point to a dirty flag.
-    explicit anchor_handle(Anchor& anchor): anchor_handle(anchor, nullptr) {}
+    explicit anchor_handle(Anchor& anchor)
+        : anchor_handle(anchor, nullptr) {}
 
     /// Constructs an anchor handle that references a dirty flag.
     /// The flag will be set to "changed" when the anchor was modified through
     /// the anchor or one of its aliasing children.
-    explicit anchor_handle(Anchor& anchor, anchor_flag& changed): anchor_handle(anchor, &changed) {}
+    explicit anchor_handle(Anchor& anchor, anchor_flag& changed)
+        : anchor_handle(anchor, &changed) {}
 
     explicit anchor_handle(Anchor& anchor, anchor_flag* changed);
 
@@ -76,8 +78,8 @@ public:
     /// Sets the anchor's member value specified by the given member data pointer.
     template<auto MemberPtr>
     void set(const member_type_t<decltype(MemberPtr)>& value) const {
-       static_assert(std::is_same_v<object_type_t<decltype(MemberPtr)>, Anchor>,
-                     "The member pointer must belong to this type.");
+        static_assert(std::is_same_v<object_type_t<decltype(MemberPtr)>, Anchor>,
+                      "The member pointer must belong to this type.");
         check_valid();
         m_anchor->*MemberPtr = value;
         set_changed();
@@ -141,9 +143,7 @@ anchor_handle<Anchor> make_anchor_handle(Anchor& anchor, anchor_flag* changed) {
 template<typename Anchor>
 anchor_handle<Anchor>::anchor_handle(Anchor& anchor, anchor_flag* changed)
     : m_anchor(std::addressof(anchor))
-    , m_flag(changed)
-{
-}
+    , m_flag(changed) {}
 
 } // namespace prequel
 

@@ -16,10 +16,10 @@ static constexpr u32 block_size = 512;
 
 // TODO: Error messages, other operations.
 TEST_CASE("hash table basic operations", "[hash-table]") {
-    u32 block_sizes[] = { 128, 512, 4096 };
+    u32 block_sizes[] = {128, 512, 4096};
 
-    static constexpr u32 key_size = 4;      // i32
-    static constexpr u32 value_size = 8;    // i32 + i32
+    static constexpr u32 key_size = 4;   // i32
+    static constexpr u32 value_size = 8; // i32 + i32
 
     raw_hash_table_options options;
     options.value_size = value_size;
@@ -136,12 +136,12 @@ TEST_CASE("hash table works well for integer keys", "[hash-table]") {
         i64 value = 0;
 
         entry() = default;
-        entry(i64 key, i64 value): key(key), value(value) {}
+        entry(i64 key, i64 value)
+            : key(key)
+            , value(value) {}
 
         struct derive_key {
-            i64 operator()(const entry& e) const {
-                return e.key;
-            }
+            i64 operator()(const entry& e) const { return e.key; }
         };
 
         static constexpr auto get_binary_format() {
@@ -227,15 +227,12 @@ TEST_CASE("compatible hash functions", "[hash-table]") {
     u64 found_value = 0;
     bool found = table.find_compatible(
         compatible,
-        [&](const auto& key_array) {
-            return fnv_1a(key_array.data(), key_array.size());
-        },
+        [&](const auto& key_array) { return fnv_1a(key_array.data(), key_array.size()); },
         [&](const auto& key_array, u64 rhs) {
             u64 lhs = deserialized_value<u64>(key_array.data());
             return lhs == rhs;
         },
-        found_value
-    );
+        found_value);
 
     REQUIRE(found);
     REQUIRE(found_value == search);

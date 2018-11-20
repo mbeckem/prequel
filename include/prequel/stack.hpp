@@ -18,9 +18,7 @@ public:
     class anchor {
         raw_stack::anchor stack;
 
-        static constexpr auto get_binary_format() {
-            return make_binary_format(&anchor::stack);
-        }
+        static constexpr auto get_binary_format() { return make_binary_format(&anchor::stack); }
 
         friend binary_format_access;
         friend class stack;
@@ -32,8 +30,7 @@ public:
      * `value_size` and `alloc` must be equivalent every time the stack is loaded.
      */
     stack(anchor_handle<anchor> _anchor, allocator& _alloc)
-        : m_inner(std::move(_anchor).template member<&anchor::stack>(), value_size(), _alloc)
-    {}
+        : m_inner(std::move(_anchor).template member<&anchor::stack>(), value_size(), _alloc) {}
 
 public:
     engine& get_engine() const { return m_inner.get_engine(); }
@@ -58,7 +55,7 @@ public:
     /**
      * Returns the nuber of values on the stack.
      */
-    u64 size() const  { return m_inner.size(); }
+    u64 size() const { return m_inner.size(); }
 
     /**
      * Returns the number of nodes currenty allocated by the stack.

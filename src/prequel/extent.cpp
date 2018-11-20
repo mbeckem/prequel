@@ -13,8 +13,7 @@ public:
     extent_impl(anchor_handle<anchor> _anchor, allocator& _alloc)
         : uses_allocator(_alloc)
         , m_anchor(std::move(_anchor))
-        , m_block_size(_alloc.block_size())
-    {}
+        , m_block_size(_alloc.block_size()) {}
 
     ~extent_impl() = default;
 
@@ -33,13 +32,9 @@ public:
         return data() + index;
     }
 
-    block_handle read(u64 index) const {
-        return get_engine().read(get(index));
-    }
+    block_handle read(u64 index) const { return get_engine().read(get(index)); }
 
-    block_handle overwrite_zero(u64 index) const {
-        return get_engine().overwrite_zero(get(index));
-    }
+    block_handle overwrite_zero(u64 index) const { return get_engine().overwrite_zero(get(index)); }
 
     block_handle overwrite(u64 index, const byte* data, size_t data_size) const {
         return get_engine().overwrite(get(index), data, data_size);
@@ -84,8 +79,7 @@ private:
 // --------------------------------
 
 extent::extent(anchor_handle<anchor> _anchor, allocator& alloc)
-    : m_impl(std::make_unique<detail::extent_impl>(std::move(_anchor), alloc))
-{}
+    : m_impl(std::make_unique<detail::extent_impl>(std::move(_anchor), alloc)) {}
 
 extent::~extent() {}
 
@@ -98,22 +92,50 @@ extent& extent::operator=(extent&& other) noexcept {
     return *this;
 }
 
-engine& extent::get_engine() const { return impl().get_engine(); }
-allocator& extent::get_allocator() const { return impl().get_allocator(); }
-u32 extent::block_size() const { return impl().block_size(); }
+engine& extent::get_engine() const {
+    return impl().get_engine();
+}
+allocator& extent::get_allocator() const {
+    return impl().get_allocator();
+}
+u32 extent::block_size() const {
+    return impl().block_size();
+}
 
-bool extent::empty() const { return impl().empty(); }
-u64 extent::size() const { return impl().size(); }
-u64 extent::byte_size() const { return size() * block_size(); }
+bool extent::empty() const {
+    return impl().empty();
+}
+u64 extent::size() const {
+    return impl().size();
+}
+u64 extent::byte_size() const {
+    return size() * block_size();
+}
 
-block_index extent::data() const { return impl().data(); }
-block_index extent::get(u64 index) const { return impl().get(index); }
-block_handle extent::read(u64 index) const { return impl().read(index); }
-block_handle extent::overwrite_zero(u64 index) const { return impl().overwrite_zero(index); }
-block_handle extent::overwrite(u64 index, const byte* data, size_t data_size) const { return impl().overwrite(index, data, data_size); }
-void extent::clear() { impl().clear(); }
-void extent::reset() { impl().clear(); }
-void extent::resize(u64 new_size) { impl().resize(new_size); }
+block_index extent::data() const {
+    return impl().data();
+}
+block_index extent::get(u64 index) const {
+    return impl().get(index);
+}
+block_handle extent::read(u64 index) const {
+    return impl().read(index);
+}
+block_handle extent::overwrite_zero(u64 index) const {
+    return impl().overwrite_zero(index);
+}
+block_handle extent::overwrite(u64 index, const byte* data, size_t data_size) const {
+    return impl().overwrite(index, data, data_size);
+}
+void extent::clear() {
+    impl().clear();
+}
+void extent::reset() {
+    impl().clear();
+}
+void extent::resize(u64 new_size) {
+    impl().resize(new_size);
+}
 
 detail::extent_impl& extent::impl() const {
     PREQUEL_ASSERT(m_impl, "Invalid list.");

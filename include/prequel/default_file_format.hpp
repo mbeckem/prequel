@@ -1,13 +1,13 @@
 #ifndef PREQUEL_DEFAULT_FILE_FORMAT_HPP
 #define PREQUEL_DEFAULT_FILE_FORMAT_HPP
 
-#include <prequel/defs.hpp>
-#include <prequel/vfs.hpp>
 #include <prequel/default_allocator.hpp>
+#include <prequel/defs.hpp>
 #include <prequel/exception.hpp>
 #include <prequel/file_engine.hpp>
 #include <prequel/handle.hpp>
 #include <prequel/mmap_engine.hpp>
+#include <prequel/vfs.hpp>
 
 #include <fmt/format.h>
 
@@ -51,7 +51,9 @@ public:
 
     engine& get_engine() const { return *m_engine; }
     default_allocator& get_allocator() const { return *m_allocator; }
-    anchor_handle<UserData> get_user_data() const { return m_anchor_handle.template member<&anchor::user>(); }
+    anchor_handle<UserData> get_user_data() const {
+        return m_anchor_handle.template member<&anchor::user>();
+    }
 
     void flush() {
         if (m_anchor->changed) {
@@ -69,15 +71,14 @@ private:
 private:
     file* m_file = nullptr;
     std::unique_ptr<engine> m_engine;
-    handle<anchor> m_handle;                        ///< Keeps the main block in memory.
-    std::unique_ptr<anchor_data> m_anchor;          ///< In-Memory representation (+ changed flag) of the anchor.
-    anchor_handle<anchor> m_anchor_handle;          ///< Anchor handle to pass around, points to m_anchor->data.
+    handle<anchor> m_handle;               ///< Keeps the main block in memory.
+    std::unique_ptr<anchor_data> m_anchor; ///< In-Memory representation (+ changed flag) of the anchor.
+    anchor_handle<anchor> m_anchor_handle; ///< Anchor handle to pass around, points to m_anchor->data.
     std::unique_ptr<default_allocator> m_allocator; ///< Main allocator used by the file.
 };
 
 template<typename Anchor>
-inline default_file_format<Anchor> default_file_format<Anchor>::mmap(file& f, u32 block_size)
-{
+inline default_file_format<Anchor> default_file_format<Anchor>::mmap(file& f, u32 block_size) {
     if (f.file_size() % block_size != 0) {
         PREQUEL_THROW(bad_argument("File size is not a multiple of the block size."));
     }
@@ -91,12 +92,10 @@ inline default_file_format<Anchor> default_file_format<Anchor>::mmap(file& f, u3
 
 template<typename Anchor>
 inline default_file_format<Anchor>::default_file_format(file& f, u32 block_size)
-    : default_file_format(f, block_size, default_cache_size)
-{}
+    : default_file_format(f, block_size, default_cache_size) {}
 
 template<typename Anchor>
-inline default_file_format<Anchor>::default_file_format(file& f, u32 block_size, u32 cache_size)
-{
+inline default_file_format<Anchor>::default_file_format(file& f, u32 block_size, u32 cache_size) {
     if (f.file_size() % block_size != 0) {
         PREQUEL_THROW(bad_argument("File size is not a multiple of the block size."));
     }
@@ -112,8 +111,7 @@ inline default_file_format<Anchor>::default_file_format(default_file_format&& ot
     , m_handle(std::move(other.m_handle))
     , m_anchor(std::move(other.m_anchor))
     , m_anchor_handle(std::move(other.m_anchor_handle))
-    , m_allocator(std::move(other.m_allocator))
-{}
+    , m_allocator(std::move(other.m_allocator)) {}
 
 template<typename Anchor>
 inline default_file_format<Anchor>::~default_file_format() {
@@ -121,8 +119,9 @@ inline default_file_format<Anchor>::~default_file_format() {
         return; // Moved
 
     try {
-       flush();
-    } catch (...) {}
+        flush();
+    } catch (...) {
+    }
 }
 
 template<typename Anchor>
@@ -144,14 +143,15 @@ inline void default_file_format<Anchor>::init() {
     // TODO: More (e.g. version, checksum).
     if (m_anchor->data.block_size != m_engine->block_size()) {
         std::string message = fmt::format(
-                    "File was opened with invalid block size ({}), "
-                    "its original block size is {}.",
-                    m_engine->block_size(), m_anchor->data.block_size);
+            "File was opened with invalid block size ({}), "
+            "its original block size is {}.",
+            m_engine->block_size(), m_anchor->data.block_size);
         PREQUEL_THROW(corruption_error(std::move(message)));
     }
 
     m_anchor_handle = make_anchor_handle(m_anchor->data, m_anchor->changed);
-    m_allocator = std::make_unique<default_allocator>(m_anchor_handle.template member<&anchor::alloc>(), *m_engine);
+    m_allocator = std::make_unique<default_allocator>(
+        m_anchor_handle.template member<&anchor::alloc>(), *m_engine);
     m_allocator->can_grow(true);
 }
 

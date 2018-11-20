@@ -11,9 +11,7 @@ namespace detail {
 namespace {
 
 struct free_deleter {
-    void operator()(void* data) const {
-        return std::free(data);
-    }
+    void operator()(void* data) const { return std::free(data); }
 };
 
 using buffer_ptr = std::unique_ptr<byte, free_deleter>;
@@ -49,17 +47,14 @@ private:
 };
 
 memory_engine_impl::memory_engine_impl(u32 block_size)
-    : m_block_size(block_size)
-{}
+    : m_block_size(block_size) {}
 
-memory_engine_impl::~memory_engine_impl() {
-}
+memory_engine_impl::~memory_engine_impl() {}
 
 byte* memory_engine_impl::access(u64 index) {
     if (index >= m_blocks.size()) {
         PREQUEL_THROW(io_error(
-            fmt::format("Failed to access a block at index {}, beyond the end of file.", index)
-        ));
+            fmt::format("Failed to access a block at index {}, beyond the end of file.", index)));
     }
 
     return m_blocks[index].get();
@@ -79,13 +74,16 @@ void memory_engine_impl::grow(u64 n) {
 
 memory_engine::memory_engine(u32 block_size)
     : engine(block_size)
-    , m_impl(new detail::memory_engine_impl(block_size))
-{}
+    , m_impl(new detail::memory_engine_impl(block_size)) {}
 
 memory_engine::~memory_engine() {}
 
-u64 memory_engine::do_size() const { return impl().size(); }
-void memory_engine::do_grow(u64 n) { impl().grow(n); }
+u64 memory_engine::do_size() const {
+    return impl().size();
+}
+void memory_engine::do_grow(u64 n) {
+    impl().grow(n);
+}
 
 void memory_engine::do_flush() {}
 

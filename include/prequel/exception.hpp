@@ -13,8 +13,7 @@
 /**
  * Expands to the current source location (file, line, function).
  */
-#define PREQUEL_SOURCE_LOCATION \
-    (::prequel::source_location(__FILE__, __LINE__, __func__))
+#define PREQUEL_SOURCE_LOCATION (::prequel::source_location(__FILE__, __LINE__, __func__))
 
 /**
  * Augments an @ref prequel::exception with the current source location.
@@ -25,7 +24,7 @@
 /**
  * Throw the given @ref prequel::exception with added source location information.
  */
-#define PREQUEL_THROW(e) throw (PREQUEL_AUGMENT_EXCEPTION(e))
+#define PREQUEL_THROW(e) throw(PREQUEL_AUGMENT_EXCEPTION(e))
 
 /**
  * Throw a new @ref prequel::exception `e` with added source location information
@@ -45,8 +44,9 @@ public:
     source_location() = default;
 
     source_location(const char* file, int line, const char* function)
-        : m_file(file), m_line(line), m_function(function)
-    {}
+        : m_file(file)
+        , m_line(line)
+        , m_function(function) {}
 
     const char* file() const { return m_file; }
     int line() const { return m_line; }

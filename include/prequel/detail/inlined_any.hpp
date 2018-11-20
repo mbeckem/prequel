@@ -24,9 +24,7 @@ struct inlined_any_vtable {
 
 template<typename T>
 struct inlined_any_vtable_impl {
-    static void destroy(void* ptr) noexcept {
-        static_cast<T*>(ptr)->~T();
-    }
+    static void destroy(void* ptr) noexcept { static_cast<T*>(ptr)->~T(); }
 
     static void copy_construct(const void* from, void* to) {
         new (to) T(*static_cast<const T*>(from));
@@ -38,12 +36,9 @@ struct inlined_any_vtable_impl {
 };
 
 template<typename T>
-inlined_any_vtable inlined_vtable_for = {
-    typeid(T),
-    inlined_any_vtable_impl<T>::destroy,
-    inlined_any_vtable_impl<T>::copy_construct,
-    inlined_any_vtable_impl<T>::move_construct
-};
+inlined_any_vtable inlined_vtable_for = {typeid(T), inlined_any_vtable_impl<T>::destroy,
+                                         inlined_any_vtable_impl<T>::copy_construct,
+                                         inlined_any_vtable_impl<T>::move_construct};
 
 template<size_t Size>
 class inlined_any : inlined_any_base {
@@ -67,9 +62,7 @@ public:
             move_construct(other.m_vtable, &other.m_storage);
     }
 
-    ~inlined_any() {
-        reset();
-    }
+    ~inlined_any() { reset(); }
 
     /// Replaces the contained object with the provided value.
     template<typename T, DisableSelf<detail::inlined_any_base, T>* = nullptr>
@@ -113,24 +106,26 @@ public:
     }
 
     /// Returns true if this instance contains an object.
-    bool has_value() const {
-        return m_vtable;
-    }
+    bool has_value() const { return m_vtable; }
 
     /// Returns the typeinfo of the contained object, or `typeid(void)`
     /// if there is no object.
-    const std::type_info& type() const {
-        return m_vtable ? m_vtable->type : typeid(void);
+    const std::type_info& type() const { return m_vtable ? m_vtable->type : typeid(void); }
+
+    template<typename T>
+    std::decay_t<T>& get() & {
+        return inner_ref<std::decay_t<T>>(*this);
     }
 
     template<typename T>
-    std::decay_t<T>& get() & { return inner_ref<std::decay_t<T>>(*this); }
+    const std::decay_t<T>& get() const& {
+        return inner_ref<std::decay_t<T>>(*this);
+    }
 
     template<typename T>
-    const std::decay_t<T>& get() const& { return inner_ref<std::decay_t<T>>(*this); }
-
-    template<typename T>
-    std::decay_t<T>&& get() && { return std::move(inner_ref<std::decay_t<T>>(*this)); }
+    std::decay_t<T>&& get() && {
+        return std::move(inner_ref<std::decay_t<T>>(*this));
+    }
 
 private:
     template<typename T, typename... Args>
@@ -171,8 +166,8 @@ private:
     template<typename T, typename Any>
     static auto* inner(Any& self) {
         return (self.has_value() && self.m_vtable->type == typeid(T))
-                ? const_pointer_cast<T>(const_pointer_cast<void>(&self.m_storage))
-                : nullptr;
+                   ? const_pointer_cast<T>(const_pointer_cast<void>(&self.m_storage))
+                   : nullptr;
     }
 
     template<typename T, typename Any>
@@ -190,6 +185,6 @@ private:
 };
 
 } // namespace detail
-} // namespace name
+} // namespace prequel
 
 #endif // PREQUEL_DETAIL_INLINED_ANY_HPP

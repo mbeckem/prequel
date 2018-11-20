@@ -1,11 +1,11 @@
 #ifndef PREQUEL_TYPES_HPP
 #define PREQUEL_TYPES_HPP
 
-#include <prequel/defs.hpp>
 #include <prequel/binary_format.hpp>
 #include <prequel/btree.hpp>
-#include <prequel/extent.hpp>
 #include <prequel/default_allocator.hpp>
+#include <prequel/defs.hpp>
+#include <prequel/extent.hpp>
 #include <prequel/file_engine.hpp>
 
 #include <optional>
@@ -16,10 +16,10 @@ namespace blockfs {
 
 using prequel::byte;
 
-using prequel::u8;
 using prequel::u16;
 using prequel::u32;
 using prequel::u64;
+using prequel::u8;
 
 static constexpr u32 block_size = 4096;
 
@@ -34,9 +34,7 @@ private:
     char m_data[max_size];
 
 public:
-    fixed_string() {
-        std::memset(m_data, 0, max_size);
-    }
+    fixed_string() { std::memset(m_data, 0, max_size); }
 
     explicit fixed_string(std::string_view str) {
         if (str.size() > max_size)
@@ -60,7 +58,7 @@ public:
         return prequel::make_binary_format(&fixed_string::m_data);
     }
 
-    friend bool operator<(const fixed_string& lhs, const fixed_string& rhs)  {
+    friend bool operator<(const fixed_string& lhs, const fixed_string& rhs) {
         return std::lexicographical_compare(lhs.begin(), lhs.end(), rhs.begin(), rhs.end());
     }
 
@@ -74,17 +72,16 @@ public:
 };
 
 struct file_metadata {
-    fixed_string name;      // Name of the file (max 32 chars)
-    u32 permissions = 0;    // Access flags etc
-    u64 mtime = 0;          // Last modification time (file content)
-    u64 ctime = 0;          // Last change (file metadata)
-    u64 size = 0;           // In bytes
+    fixed_string name;   // Name of the file (max 32 chars)
+    u32 permissions = 0; // Access flags etc
+    u64 mtime = 0;       // Last modification time (file content)
+    u64 ctime = 0;       // Last change (file metadata)
+    u64 size = 0;        // In bytes
 
     static constexpr auto get_binary_format() {
-        return prequel::make_binary_format(
-                    &file_metadata::name, &file_metadata::permissions,
-                    &file_metadata::mtime, &file_metadata::ctime,
-                    &file_metadata::size);
+        return prequel::make_binary_format(&file_metadata::name, &file_metadata::permissions,
+                                           &file_metadata::mtime, &file_metadata::ctime,
+                                           &file_metadata::size);
     }
 };
 
@@ -94,16 +91,12 @@ struct file_entry {
     prequel::extent::anchor content; // File storage
 
     static constexpr auto get_binary_format() {
-        return prequel::make_binary_format(
-            &file_entry::metadata, &file_entry::content
-        );
+        return prequel::make_binary_format(&file_entry::metadata, &file_entry::content);
     }
 
     // Files are indexed by name.
     struct extract_key {
-        fixed_string operator()(const file_entry& entry) const {
-            return entry.metadata.name;
-        }
+        fixed_string operator()(const file_entry& entry) const { return entry.metadata.name; }
     };
 };
 
@@ -112,20 +105,17 @@ using directory = prequel::btree<file_entry, file_entry::extract_key>;
 
 // The format of the first block of the filesystem.
 struct master_block {
-    fixed_string magic{};                   // Magic string that identifies this FS
-    u64 partition_size = 0;                 // Size of the partition, in bytes
+    fixed_string magic{};                     // Magic string that identifies this FS
+    u64 partition_size = 0;                   // Size of the partition, in bytes
     prequel::default_allocator::anchor alloc; // Allocates from the rest of the file
-    directory::anchor root;                 // Root directory tree
+    directory::anchor root;                   // Root directory tree
 
     static constexpr auto get_binary_format() {
-        return prequel::make_binary_format(
-                &master_block::magic, &master_block::partition_size,
-                &master_block::alloc, &master_block::root);
+        return prequel::make_binary_format(&master_block::magic, &master_block::partition_size,
+                                           &master_block::alloc, &master_block::root);
     }
 
-    static fixed_string magic_value() {
-        return fixed_string("PREQUEL_BLOCK_FS_EXAMPLE_1");
-    }
+    static fixed_string magic_value() { return fixed_string("PREQUEL_BLOCK_FS_EXAMPLE_1"); }
 };
 
 // Thrown by filesystem operations
@@ -136,22 +126,24 @@ struct filesystem_exception : std::runtime_error {
 struct path_exception : filesystem_exception {
     path_exception(const std::string& message, const std::string& path)
         : filesystem_exception(message)
-        , path(path)
-    {}
+        , path(path) {}
 
     std::string path;
 };
 
 struct invalid_file_name : path_exception {
-    invalid_file_name(const std::string& path): path_exception("Invalid filename", path) {}
+    invalid_file_name(const std::string& path)
+        : path_exception("Invalid filename", path) {}
 };
 
 struct file_not_found : path_exception {
-    file_not_found(const std::string& path): path_exception("File not found", path) {}
+    file_not_found(const std::string& path)
+        : path_exception("File not found", path) {}
 };
 
 struct invalid_file_offset : path_exception {
-    invalid_file_offset(const std::string& path): path_exception("Invalid file ofset", path) {}
+    invalid_file_offset(const std::string& path)
+        : path_exception("Invalid file ofset", path) {}
 };
 
 class filesystem {

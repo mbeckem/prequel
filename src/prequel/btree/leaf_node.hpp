@@ -18,11 +18,9 @@ class leaf_node {
 private:
     // Note: no next/prev pointers, no type tag, no depth info.
     struct header {
-        u32 size = 0;   // Number of values in this node <= capacity.
+        u32 size = 0; // Number of values in this node <= capacity.
 
-        static constexpr auto get_binary_format() {
-            return make_binary_format(&header::size);
-        }
+        static constexpr auto get_binary_format() { return make_binary_format(&header::size); }
     };
 
 public:
@@ -31,8 +29,7 @@ public:
     leaf_node(block_handle block, u32 value_size, u32 max_children)
         : m_handle(std::move(block), 0)
         , m_value_size(value_size)
-        , m_max_children(max_children)
-    {}
+        , m_max_children(max_children) {}
 
     bool valid() const { return m_handle.valid(); }
     const block_handle& block() const { return m_handle.block(); }
@@ -114,12 +111,13 @@ private:
     /// Otherwise, the value will be located in the right sequence, at index `insert_index - mid`.
     ///
     /// \note This function does not apply the new size to either sequence, it only moves elements.
-    static void sequence_insert(u32 value_size, byte* left, byte* right, u32 count, u32 mid, u32 insert_index, const byte* value);
+    static void sequence_insert(u32 value_size, byte* left, byte* right, u32 count, u32 mid,
+                                u32 insert_index, const byte* value);
 
 private:
     handle<header> m_handle;
-    u32 m_value_size = 0;       // Size of a single value
-    u32 m_max_children = 0;         // Max number of values per node
+    u32 m_value_size = 0;   // Size of a single value
+    u32 m_max_children = 0; // Max number of values per node
 };
 
 } // namespace prequel::detail::btree_impl

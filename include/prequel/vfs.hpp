@@ -15,7 +15,8 @@ class vfs;
 // TODO: Mechanism for fadvice() .
 class file {
 public:
-    file(prequel::vfs& v): m_vfs(v) {}
+    file(prequel::vfs& v)
+        : m_vfs(v) {}
 
     virtual ~file();
 
@@ -83,9 +84,8 @@ public:
     virtual const char* name() const noexcept = 0;
 
     /// Opens the file at the given path or throws an exception.
-    virtual std::unique_ptr<file> open(const char* path,
-                                       access_t access = read_only,
-                                       flags_t mode = open_normal) = 0;
+    virtual std::unique_ptr<file>
+    open(const char* path, access_t access = read_only, flags_t mode = open_normal) = 0;
 
     /// Creates and opens a new temporary file.
     /// The new file will be deleted automatically when it is no longer
@@ -120,8 +120,7 @@ public:
 
 protected:
     void check_vfs(file& f) const {
-        PREQUEL_CHECK(&f.get_vfs() == this,
-                    "The file does not belong to this filesystem.");
+        PREQUEL_CHECK(&f.get_vfs() == this, "The file does not belong to this filesystem.");
     }
 };
 

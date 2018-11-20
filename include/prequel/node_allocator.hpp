@@ -4,8 +4,8 @@
 #include <prequel/allocator.hpp>
 #include <prequel/anchor_handle.hpp>
 #include <prequel/binary_format.hpp>
-#include <prequel/handle.hpp>
 #include <prequel/detail/free_list.hpp>
+#include <prequel/handle.hpp>
 
 namespace prequel {
 
@@ -61,7 +61,6 @@ private:
     detail::free_list m_list;
     u32 m_chunk_size = 32;
 };
-
 
 } // namespace prequel
 

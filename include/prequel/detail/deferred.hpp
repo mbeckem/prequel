@@ -24,13 +24,11 @@ private:
 public:
     deferred(const Function& fn)
         : fn(fn)
-        , invoke(true)
-    {}
+        , invoke(true) {}
 
     deferred(Function&& fn)
         : fn(std::move(fn))
-        , invoke(true)
-    {}
+        , invoke(true) {}
 
     ~deferred() noexcept(noexcept(fn())) {
         if (invoke) {
@@ -45,9 +43,7 @@ public:
 
     /// Once `disable` has been called on a rollback object,
     /// the rollback function will not be executed upon destruction.
-    void disable() noexcept {
-        invoke = false;
-    }
+    void disable() noexcept { invoke = false; }
 
     deferred(deferred&& other) = delete;
     deferred& operator=(const deferred&) = delete;

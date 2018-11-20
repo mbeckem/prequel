@@ -14,15 +14,12 @@ namespace detail {
 class raw_list_node {
 private:
     struct header {
-        block_index prev;   // Previous node in list
-        block_index next;   // Next node
-        u32 size = 0;       // Number of values in this node <= capacity
+        block_index prev; // Previous node in list
+        block_index next; // Next node
+        u32 size = 0;     // Number of values in this node <= capacity
 
         static constexpr auto get_binary_format() {
-            return make_binary_format(
-                        &header::prev,
-                        &header::next,
-                        &header::size);
+            return make_binary_format(&header::prev, &header::next, &header::size);
         }
     };
 
@@ -32,8 +29,7 @@ public:
     raw_list_node(block_handle block, u32 value_size, u32 capacity)
         : m_handle(std::move(block), 0)
         , m_value_size(value_size)
-        , m_capacity(capacity)
-    {}
+        , m_capacity(capacity) {}
 
     const block_handle& block() const { return m_handle.block(); }
     block_index index() const { return block().index(); }
@@ -72,18 +68,16 @@ public:
     }
 
     static void move(const raw_list_node& src, u32 first_index, u32 last_index,
-                      const raw_list_node& dest, u32 dest_index)
-    {
+                     const raw_list_node& dest, u32 dest_index) {
         PREQUEL_ASSERT(src.valid() && dest.valid(), "Nodes must both be valid.");
         PREQUEL_ASSERT(src.m_value_size == dest.m_value_size, "Different value sizes.");
         PREQUEL_ASSERT(src.m_capacity == dest.m_capacity, "Different capacities.");
-        PREQUEL_ASSERT(first_index <= src.m_capacity
-                     && last_index <= src.m_capacity
-                     && last_index >= first_index,
-                     "Source range within bounds.");
+        PREQUEL_ASSERT(first_index <= src.m_capacity && last_index <= src.m_capacity
+                           && last_index >= first_index,
+                       "Source range within bounds.");
         PREQUEL_ASSERT(dest_index <= dest.m_capacity
-                     && (last_index - first_index) <= dest.m_capacity - dest_index,
-                     "Dest range within bounds.");
+                           && (last_index - first_index) <= dest.m_capacity - dest_index,
+                       "Dest range within bounds.");
 
         byte* b1 = dest.block().writable_data() + dest.offset_of_index(dest_index);
         const byte* b2 = src.block().data() + src.offset_of_index(first_index);
@@ -91,7 +85,9 @@ public:
     }
 
 private:
-    u32 offset_of_index(u32 index) const { return serialized_size<header>() + index * m_value_size; }
+    u32 offset_of_index(u32 index) const {
+        return serialized_size<header>() + index * m_value_size;
+    }
 
 private:
     handle<header> m_handle;
@@ -172,8 +168,7 @@ public:
         : uses_allocator(alloc_)
         , m_anchor(std::move(anchor_))
         , m_value_size(value_size)
-        , m_node_capacity(raw_list_node::capacity(get_engine().block_size(), m_value_size))
-    {
+        , m_node_capacity(raw_list_node::capacity(get_engine().block_size(), m_value_size)) {
         if (m_node_capacity == 0) {
             PREQUEL_THROW(bad_argument("Block size too small to fit a single value."));
         }
@@ -190,16 +185,10 @@ public:
         auto c = std::make_unique<raw_list_cursor_impl>(this);
 
         switch (seek) {
-        case raw_list::seek_none:
-            break;
-        case raw_list::seek_first:
-            c->move_first();
-            break;
-        case raw_list::seek_last:
-            c->move_last();
-            break;
-        default:
-            PREQUEL_THROW(bad_argument("Invalid seek value."));
+        case raw_list::seek_none: break;
+        case raw_list::seek_first: c->move_first(); break;
+        case raw_list::seek_last: c->move_last(); break;
+        default: PREQUEL_THROW(bad_argument("Invalid seek value."));
         }
 
         return c;
@@ -221,7 +210,8 @@ public:
     void pop_back();
     void pop_front();
 
-    void visit(bool (*visit_fn)(const raw_list::node_view& node, void* user_data), void* user_data) const;
+    void visit(bool (*visit_fn)(const raw_list::node_view& node, void* user_data),
+               void* user_data) const;
 
     void dump(std::ostream& os) const;
 
@@ -246,16 +236,10 @@ private:
 
     using cursor_list_type = boost::intrusive::list<
         raw_list_cursor_impl,
-        boost::intrusive::member_hook<
-            raw_list_cursor_impl,
-            decltype(raw_list_cursor_impl::cursors),
-            &raw_list_cursor_impl::cursors
-        >
-    >;
+        boost::intrusive::member_hook<raw_list_cursor_impl, decltype(raw_list_cursor_impl::cursors),
+                                      &raw_list_cursor_impl::cursors>>;
 
-    void link_cursor(raw_list_cursor_impl* cursor) {
-        m_cursors.push_back(*cursor);
-    }
+    void link_cursor(raw_list_cursor_impl* cursor) { m_cursors.push_back(*cursor); }
 
     void unlink_cursor(raw_list_cursor_impl* cursor) {
         m_cursors.erase(m_cursors.iterator_to(*cursor));
@@ -325,15 +309,14 @@ void raw_list_impl::destroy_node(const raw_list_node& node) {
         read_node(prev).set_next(node.get_next());
     } else {
         PREQUEL_ASSERT(node.index() == m_anchor.get<&anchor::first>(),
-                    "node must be the first one");
+                       "node must be the first one");
         m_anchor.set<&anchor::first>(node.get_next());
     }
 
     if (auto next = node.get_next()) {
         read_node(next).set_prev(node.get_prev());
     } else {
-        PREQUEL_ASSERT(node.index() == m_anchor.get<&anchor::last>(),
-                    "node must be the last one");
+        PREQUEL_ASSERT(node.index() == m_anchor.get<&anchor::last>(), "node must be the last one");
         m_anchor.set<&anchor::last>(node.get_prev());
     }
 
@@ -409,8 +392,7 @@ void raw_list_impl::insert_first(const byte* value) {
     m_anchor.set<&anchor::size>(1);
 }
 
-void raw_list_impl::insert_at(raw_list_node node, u32 index, const byte* value)
-{
+void raw_list_impl::insert_at(raw_list_node node, u32 index, const byte* value) {
     PREQUEL_ASSERT(index <= node.get_size(), "index is out of bounds");
 
     m_anchor.set<&anchor::size>(size() + 1);
@@ -430,8 +412,7 @@ void raw_list_impl::insert_at(raw_list_node node, u32 index, const byte* value)
         return;
     }
 
-    PREQUEL_ASSERT(size == max,
-                "Node must be exactly full.");
+    PREQUEL_ASSERT(size == max, "Node must be exactly full.");
 
     // Split the node. The new node is to the right of the old one.
     raw_list_node new_node = create_node();
@@ -453,9 +434,9 @@ void raw_list_impl::insert_at(raw_list_node node, u32 index, const byte* value)
     // The number of elements that will remain in the old node.
     const u32 mid = [&]() -> u32 {
         if (new_node.index() == m_anchor.get<&anchor::last>())
-            return size;    // Start a new node with a single element.
+            return size; // Start a new node with a single element.
         if (node.index() == m_anchor.get<&anchor::first>())
-            return 1;       // Leave only one element in the old node.
+            return 1; // Leave only one element in the old node.
 
         // Else: move half of the values to the new node.
         // +1 because of the insertion, another +1 to round up.
@@ -523,13 +504,14 @@ void raw_list_impl::erase_at(raw_list_node node, u32 index) {
     }
 
     // The first and the last node can become completely empty.
-    if (node.index() == m_anchor.get<&anchor::first>() || node.index() == m_anchor.get<&anchor::last>()) {
+    if (node.index() == m_anchor.get<&anchor::first>()
+        || node.index() == m_anchor.get<&anchor::last>()) {
         if (node_size == 0) {
             int flags = 0;
             flags |= raw_list_cursor_impl::DELETED;
             flags |= node.index() == m_anchor.get<&anchor::first>()
-                    ? raw_list_cursor_impl::SEEK_FIRST_NEXT
-                    : raw_list_cursor_impl::SEEK_LAST_NEXT;
+                         ? raw_list_cursor_impl::SEEK_FIRST_NEXT
+                         : raw_list_cursor_impl::SEEK_LAST_NEXT;
 
             cursors_in_node(node.index(), [&](raw_list_cursor_impl& cursor) {
                 cursor.flags = flags;
@@ -590,8 +572,7 @@ void raw_list_impl::visit_nodes(Func&& fn) const {
 }
 
 void raw_list_impl::visit(bool (*visit_fn)(const raw_list::node_view& node, void* user_data),
-                          void* user_data) const
-{
+                          void* user_data) const {
     if (!visit_fn)
         PREQUEL_THROW(bad_argument("Invalid visitation function."));
 
@@ -613,39 +594,32 @@ void raw_list_impl::visit(bool (*visit_fn)(const raw_list::node_view& node, void
 
     node_view_impl view;
     visit_nodes([&](const raw_list_node& node) {
-         view.node = node;
-         return visit_fn(view, user_data);
+        view.node = node;
+        return visit_fn(view, user_data);
     });
 }
 
 void raw_list_impl::dump(std::ostream& os) const {
     fmt::print(os,
-        "Raw list:\n"
-        "  Value size: {}\n"
-        "  Block size: {}\n"
-        "  Node Capacity: {}\n"
-        "  Size: {}\n"
-        "  Nodes: {}\n"
-        "\n",
-        value_size(),
-        get_engine().block_size(),
-        node_capacity(),
-        size(),
-        nodes());
+               "Raw list:\n"
+               "  Value size: {}\n"
+               "  Block size: {}\n"
+               "  Node Capacity: {}\n"
+               "  Size: {}\n"
+               "  Nodes: {}\n"
+               "\n",
+               value_size(), get_engine().block_size(), node_capacity(), size(), nodes());
 
     if (!empty())
         fmt::print(os, "\n");
 
     visit_nodes([&](const raw_list_node& node) -> bool {
         fmt::print(os,
-            "  Node @{}:\n"
-            "    Previous: @{}\n"
-            "    Next: @{}\n"
-            "    Size: {}\n",
-            node.index(),
-            node.get_prev(),
-            node.get_next(),
-            node.get_size());
+                   "  Node @{}:\n"
+                   "    Previous: @{}\n"
+                   "    Next: @{}\n"
+                   "    Size: {}\n",
+                   node.index(), node.get_prev(), node.get_next(), node.get_size());
 
         u32 size = node.get_size();
         for (u32 i = 0; i < size; ++i) {
@@ -680,8 +654,7 @@ static void check_cursor_valid_element(const raw_list_cursor_impl& c) {
 }
 
 raw_list_cursor_impl::raw_list_cursor_impl(raw_list_impl* list)
-    : list(list)
-{
+    : list(list) {
     list->link_cursor(this);
 }
 
@@ -694,8 +667,7 @@ raw_list_cursor_impl::raw_list_cursor_impl(const raw_list_cursor_impl& other)
     : list(other.list)
     , flags(other.flags)
     , node(other.node)
-    , index(other.index)
-{
+    , index(other.index) {
     if (list)
         list->link_cursor(this);
 }
@@ -800,7 +772,8 @@ void raw_list_cursor_impl::move_prev() {
 }
 
 void raw_list_cursor_impl::move_to_node(block_index node_index, int direction) {
-    PREQUEL_ASSERT(!(flags & DELETED), "Cursor in invalid state for moving, clear deletion flag first.");
+    PREQUEL_ASSERT(!(flags & DELETED),
+                   "Cursor in invalid state for moving, clear deletion flag first.");
     PREQUEL_ASSERT(direction == -1 || direction == 1, "Invalid direction value.");
 
     if (node_index) {
@@ -849,14 +822,12 @@ void raw_list_cursor_impl::insert_after(const byte* data) {
 // --------------------------------
 
 raw_list::raw_list(anchor_handle<anchor> anchor_, u32 value_size, allocator& alloc_)
-    : m_impl(std::make_unique<detail::raw_list_impl>(std::move(anchor_), value_size, alloc_))
-{}
+    : m_impl(std::make_unique<detail::raw_list_impl>(std::move(anchor_), value_size, alloc_)) {}
 
 raw_list::~raw_list() {}
 
 raw_list::raw_list(raw_list&& other) noexcept
-    : m_impl(std::move(other.m_impl))
-{}
+    : m_impl(std::move(other.m_impl)) {}
 
 raw_list& raw_list::operator=(raw_list&& other) noexcept {
     if (this != &other) {
@@ -865,13 +836,27 @@ raw_list& raw_list::operator=(raw_list&& other) noexcept {
     return *this;
 }
 
-engine& raw_list::get_engine() const { return impl().get_engine(); }
-allocator& raw_list::get_allocator() const { return impl().get_allocator(); }
-u32 raw_list::value_size() const { return impl().value_size(); }
-u32 raw_list::node_capacity() const { return impl().node_capacity(); }
-bool raw_list::empty() const { return impl().empty(); }
-u64 raw_list::size() const { return impl().size(); }
-u64 raw_list::nodes() const { return impl().nodes(); }
+engine& raw_list::get_engine() const {
+    return impl().get_engine();
+}
+allocator& raw_list::get_allocator() const {
+    return impl().get_allocator();
+}
+u32 raw_list::value_size() const {
+    return impl().value_size();
+}
+u32 raw_list::node_capacity() const {
+    return impl().node_capacity();
+}
+bool raw_list::empty() const {
+    return impl().empty();
+}
+u64 raw_list::size() const {
+    return impl().size();
+}
+u64 raw_list::nodes() const {
+    return impl().nodes();
+}
 
 double raw_list::fill_factor() const {
     return empty() ? 0 : double(size()) / (nodes() * node_capacity());
@@ -889,20 +874,35 @@ raw_list_cursor raw_list::create_cursor(raw_list::cursor_seek_t seek) const {
     return raw_list_cursor(impl().create_cursor(seek));
 }
 
-void raw_list::reset() { impl().clear(); }
-void raw_list::clear() { impl().clear(); }
-void raw_list::push_front(const byte *value) { impl().push_front(value); }
-void raw_list::push_back(const byte* value) { impl().push_back(value); }
-void raw_list::pop_front() { impl().pop_front(); }
-void raw_list::pop_back() { impl().pop_back(); }
+void raw_list::reset() {
+    impl().clear();
+}
+void raw_list::clear() {
+    impl().clear();
+}
+void raw_list::push_front(const byte* value) {
+    impl().push_front(value);
+}
+void raw_list::push_back(const byte* value) {
+    impl().push_back(value);
+}
+void raw_list::pop_front() {
+    impl().pop_front();
+}
+void raw_list::pop_back() {
+    impl().pop_back();
+}
 
 raw_list::node_view::~node_view() {}
 
-void raw_list::visit(bool (*visit_fn)(const node_view& node, void* user_data), void* user_data) const {
+void raw_list::visit(bool (*visit_fn)(const node_view& node, void* user_data),
+                     void* user_data) const {
     return impl().visit(visit_fn, user_data);
 }
 
-void raw_list::dump(std::ostream& os) const { impl().dump(os); }
+void raw_list::dump(std::ostream& os) const {
+    impl().dump(os);
+}
 
 detail::raw_list_impl& raw_list::impl() const {
     if (!m_impl)
@@ -916,20 +916,17 @@ detail::raw_list_impl& raw_list::impl() const {
 //
 // --------------------------------
 
-raw_list_cursor::raw_list_cursor()
-{}
+raw_list_cursor::raw_list_cursor() {}
 
 raw_list_cursor::raw_list_cursor(std::unique_ptr<detail::raw_list_cursor_impl> impl)
-    : m_impl(std::move(impl))
-{}
+    : m_impl(std::move(impl)) {}
 
 raw_list_cursor::raw_list_cursor(const raw_list_cursor& other)
-    : m_impl(other.m_impl ? std::make_unique<detail::raw_list_cursor_impl>(*other.m_impl) : nullptr)
-{}
+    : m_impl(other.m_impl ? std::make_unique<detail::raw_list_cursor_impl>(*other.m_impl) : nullptr) {
+}
 
 raw_list_cursor::raw_list_cursor(raw_list_cursor&& other) noexcept
-    : m_impl(std::move(other.m_impl))
-{}
+    : m_impl(std::move(other.m_impl)) {}
 
 raw_list_cursor::~raw_list_cursor() {}
 
@@ -938,7 +935,8 @@ raw_list_cursor& raw_list_cursor::operator=(const raw_list_cursor& other) {
         if (m_impl && other.m_impl) {
             *m_impl = *other.m_impl;
         } else {
-            m_impl = other.m_impl ? std::make_unique<detail::raw_list_cursor_impl>(*other.m_impl) : nullptr;
+            m_impl = other.m_impl ? std::make_unique<detail::raw_list_cursor_impl>(*other.m_impl)
+                                  : nullptr;
         }
     }
     return *this;
@@ -957,21 +955,45 @@ detail::raw_list_cursor_impl& raw_list_cursor::impl() const {
     return *m_impl;
 }
 
-void raw_list_cursor::move_first() { impl().move_first(); }
-void raw_list_cursor::move_last() { impl().move_last(); }
-void raw_list_cursor::move_next() { impl().move_next(); }
-void raw_list_cursor::move_prev() { impl().move_prev(); }
+void raw_list_cursor::move_first() {
+    impl().move_first();
+}
+void raw_list_cursor::move_last() {
+    impl().move_last();
+}
+void raw_list_cursor::move_next() {
+    impl().move_next();
+}
+void raw_list_cursor::move_prev() {
+    impl().move_prev();
+}
 
-void raw_list_cursor::erase() { impl().erase(); }
+void raw_list_cursor::erase() {
+    impl().erase();
+}
 
-void raw_list_cursor::insert_before(const byte* data) { impl().insert_before(data); }
-void raw_list_cursor::insert_after(const byte* data) { impl().insert_after(data); }
+void raw_list_cursor::insert_before(const byte* data) {
+    impl().insert_before(data);
+}
+void raw_list_cursor::insert_after(const byte* data) {
+    impl().insert_after(data);
+}
 
-const byte* raw_list_cursor::get() const { return impl().get(); }
-void raw_list_cursor::set(const byte* data) { impl().set(data); }
-u32 raw_list_cursor::value_size() const { return impl().value_size(); }
+const byte* raw_list_cursor::get() const {
+    return impl().get();
+}
+void raw_list_cursor::set(const byte* data) {
+    impl().set(data);
+}
+u32 raw_list_cursor::value_size() const {
+    return impl().value_size();
+}
 
-bool raw_list_cursor::at_end() const { return !m_impl || impl().at_end(); }
-bool raw_list_cursor::erased() const { return m_impl && impl().erased(); }
+bool raw_list_cursor::at_end() const {
+    return !m_impl || impl().at_end();
+}
+bool raw_list_cursor::erased() const {
+    return m_impl && impl().erased();
+}
 
 } // namespace prequel

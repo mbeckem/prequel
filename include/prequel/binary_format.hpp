@@ -19,22 +19,17 @@ template<typename T, typename... V>
 class binary_format {
 public:
     constexpr binary_format(V T::*... fields)
-        : m_fields(fields...)
-    {}
+        : m_fields(fields...) {}
 
     /// Returns the description of the classes fields,
     /// as a tuple of member data pointers.
-    constexpr const std::tuple<V T::*...>& fields() const {
-        return m_fields;
-    }
+    constexpr const std::tuple<V T::*...>& fields() const { return m_fields; }
 
     /// Returns the number of fields.
-    constexpr size_t field_count() const {
-        return sizeof...(V);
-    }
+    constexpr size_t field_count() const { return sizeof...(V); }
 
 private:
-    std::tuple<V T::*...>  m_fields;
+    std::tuple<V T::*...> m_fields;
 };
 
 /// Create a binary_format that describes a user defined structure.
@@ -72,7 +67,7 @@ constexpr binary_format<T, V...> make_binary_format(V T::*... members) {
     return binary_format<T, V...>(members...);
 }
 
-/// Declare this class as a friend if you wish to keep the `get_binary_format()` 
+/// Declare this class as a friend if you wish to keep the `get_binary_format()`
 /// function private.
 ///
 /// \ingroup binary_format

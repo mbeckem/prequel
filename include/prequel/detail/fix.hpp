@@ -34,12 +34,10 @@ private:
 
 public:
     fix(const Function& fn)
-        : m_fn(fn)
-    {}
+        : m_fn(fn) {}
 
     fix(Function&& fn)
-        : m_fn(std::move(fn))
-    {}
+        : m_fn(std::move(fn)) {}
 
     template<typename... Args>
     decltype(auto) operator()(Args&&... args) const {

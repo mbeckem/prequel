@@ -18,12 +18,9 @@ public:
     /// located at `offset`.
     handle_base(block_handle block, u32 offset) noexcept
         : m_block(std::move(block))
-        , m_offset(offset)
-    {
-        PREQUEL_ASSERT(m_block || m_offset == 0,
-                     "Offset must be zero for invalid blocks.");
-        PREQUEL_ASSERT(m_offset <= m_block.block_size(),
-                     "Offset out of bounds.");
+        , m_offset(offset) {
+        PREQUEL_ASSERT(m_block || m_offset == 0, "Offset must be zero for invalid blocks.");
+        PREQUEL_ASSERT(m_offset <= m_block.block_size(), "Offset out of bounds.");
     }
 
     handle_base(const handle_base&) = default;
@@ -31,8 +28,7 @@ public:
 
     handle_base(handle_base&& other) noexcept
         : m_block(std::move(other.m_block))
-        , m_offset(std::exchange(other.m_offset, 0))
-    {}
+        , m_offset(std::exchange(other.m_offset, 0)) {}
 
     handle_base& operator=(handle_base&& other) noexcept {
         if (this != &other) {
@@ -53,7 +49,7 @@ public:
     }
 
     /// The handle to the block that contains this value.
-    const block_handle& block() const & { return m_block; }
+    const block_handle& block() const& { return m_block; }
     block_handle&& block() && { return std::move(m_block); }
 
     /// The offset of this handle's value in its block.
@@ -95,10 +91,9 @@ public:
     handle() = default;
 
     handle(block_handle block, u32 offset)
-        : handle_base(std::move(block), offset)
-    {
+        : handle_base(std::move(block), offset) {
         PREQUEL_ASSERT((!m_block || serialized_size<T>() <= m_block.block_size() - m_offset),
-                     "Offset out of bounds.");
+                       "Offset out of bounds.");
     }
 
     /// Returns the address of this object on disk.
@@ -122,7 +117,7 @@ public:
     /// then overwrite the existing content of the handle with the serialized
     /// representation of the new instance.
     template<typename... Args>
-    void construct(Args&& ...args) {
+    void construct(Args&&... args) {
         PREQUEL_ASSERT(valid(), "invalid handle.");
         set(T(std::forward<Args>(args)...));
     }
@@ -154,22 +149,22 @@ public:
         return m_block.get<member_type_t<decltype(MemberPtr)>>(offset);
     }
 
-   template<auto MemberPtr>
-   void set(const member_type_t<decltype(MemberPtr)>& value) const {
+    template<auto MemberPtr>
+    void set(const member_type_t<decltype(MemberPtr)>& value) const {
         static_assert(std::is_same_v<object_type_t<decltype(MemberPtr)>, T>,
                       "The member pointer must belong to this type.");
         PREQUEL_ASSERT(valid(), "Invalid handle.");
         u32 offset = m_offset + serialized_offset<MemberPtr>();
         m_block.set<member_type_t<decltype(MemberPtr)>>(offset, value);
-   }
+    }
 
-   template<auto MemberPtr>
-   handle<member_type_t<decltype(MemberPtr)>> member() const {
+    template<auto MemberPtr>
+    handle<member_type_t<decltype(MemberPtr)>> member() const {
         static_assert(std::is_same_v<object_type_t<decltype(MemberPtr)>, T>,
                       "The member pointer must belong to this type.");
         PREQUEL_ASSERT(valid(), "Invalid handle.");
         return {block(), m_offset + static_cast<u32>(serialized_offset<MemberPtr>())};
-   }
+    }
 };
 
 /// Cast the block handle to a specific type. This cast is unchecked,

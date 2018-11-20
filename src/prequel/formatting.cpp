@@ -6,7 +6,6 @@ std::string format_hex(const byte* data, size_t size, size_t numbers_per_line) {
     static constexpr char hexmap[] = {'0', '1', '2', '3', '4', '5', '6', '7',
                                       '8', '9', 'A', 'B', 'C', 'D', 'E', 'F'};
 
-
     std::string s;
 
     if (size == 0 || data == nullptr)

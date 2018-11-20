@@ -22,9 +22,7 @@ public:
     class anchor {
         raw_array::anchor array;
 
-        static constexpr auto get_binary_format() {
-            return make_binary_format(&anchor::array);
-        }
+        static constexpr auto get_binary_format() { return make_binary_format(&anchor::array); }
 
         friend class array;
         friend class binary_format_access;
@@ -36,8 +34,7 @@ public:
      * alloc` must be equivalent every time the raw array is loaded.
      */
     explicit array(anchor_handle<anchor> _anchor, allocator& alloc)
-        : inner(std::move(_anchor).template member<&anchor::array>(), value_size(), alloc)
-    {}
+        : inner(std::move(_anchor).template member<&anchor::array>(), value_size(), alloc) {}
 
 public:
     engine& get_engine() const { return inner.get_engine(); }
@@ -163,7 +160,6 @@ public:
      * @post `capacity() >= size() + n`
      */
     void reserve_additional(u64 n) { inner.reserve_additional(n); }
-
 
     /**
      * Reduces the storage space used by the array by releasing unused capacity.

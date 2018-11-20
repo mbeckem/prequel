@@ -92,7 +92,8 @@ public:
 
     void dump(std::ostream& os) const;
 
-    void visit(bool (*visit_fn)(const raw_btree::node_view& node, void* user_data), void* user_data) const;
+    void visit(bool (*visit_fn)(const raw_btree::node_view& node, void* user_data),
+               void* user_data) const;
 
     void validate() const;
 
@@ -100,26 +101,28 @@ private:
     void seek_insert_location(const byte* key, cursor& cursor);
 
     // Create a new root node from two children (leaves or internal) and a split key.
-    internal_node create_root(block_index left_child, block_index right_child, const byte* split_key);
+    internal_node
+    create_root(block_index left_child, block_index right_child, const byte* split_key);
 
     // Exactly like split(const leaf_node&, byte*) but for internal nodes.
     internal_node split(const internal_node& old_internal, byte* split_key);
 
     // The root was split. Make sure that all (valid) cursors include the new root in their path.
-    void apply_root_split(const internal_node& new_root, const internal_node& left_leaf, const internal_node& right_leaf);
+    void apply_root_split(const internal_node& new_root, const internal_node& left_leaf,
+                          const internal_node& right_leaf);
 
     // A node with a (non-full!) parent was split. The left node was at left_index and remains there. The right node
     // becomes the child at index left_index + 1 and all nodes further to the right have their index incremented by one.
     // 'level' is the level of the left node.
-    void apply_child_split(const internal_node& parent, u32 left_level, u32 left_index, const internal_node& left, const internal_node& right);
+    void apply_child_split(const internal_node& parent, u32 left_level, u32 left_index,
+                           const internal_node& left, const internal_node& right);
 
 private:
     // Handle the deletion of a leaf node in its parent node(s).
     void propagate_leaf_deletion(cursor& cursor, block_index child_node, u32 child_node_index);
 
     // Steal an entry from the neighboring node and put it into the leaf.
-    void steal_leaf_entry(const internal_node& parent,
-                          const leaf_node& leaf, u32 leaf_index,
+    void steal_leaf_entry(const internal_node& parent, const leaf_node& leaf, u32 leaf_index,
                           const leaf_node& neighbor, u32 neighbor_index);
     void steal_internal_entry(const internal_node& parent, u32 stack_index,
                               const internal_node& internal, u32 internal_index,
@@ -127,13 +130,10 @@ private:
 
     // Merge two neighboring nodes.
     // Note: values will end up in "leaf" and will be taken from "neighbor".
-    void merge_leaf(const internal_node& parent,
-                    const leaf_node& leaf, u32 leaf_index,
+    void merge_leaf(const internal_node& parent, const leaf_node& leaf, u32 leaf_index,
                     const leaf_node& neighbor, u32 neighbor_index);
-    void merge_internal(const internal_node& parent, u32 stack_index,
-                        const internal_node& node, u32 node_index,
-                        const internal_node& neighbor, u32 neighbor_index);
-
+    void merge_internal(const internal_node& parent, u32 stack_index, const internal_node& node,
+                        u32 node_index, const internal_node& neighbor, u32 neighbor_index);
 
 private:
     // Index of the first value >= key or leaf.size() if none exists.
@@ -147,11 +147,7 @@ private:
 
     // Seek to the first value with key(value) > key (upper)
     // or >= key (lower).
-    enum seek_bound_t {
-        seek_bound_lower,
-        seek_bound_upper,
-        seek_bound_find
-    };
+    enum seek_bound_t { seek_bound_lower, seek_bound_upper, seek_bound_find };
 
     template<seek_bound_t which>
     void seek_bound(const byte* key, cursor& cursor) const;
@@ -188,21 +184,11 @@ private:
     friend cursor;
 
     using cursor_list_type = boost::intrusive::list<
-        cursor,
-        boost::intrusive::member_hook<
-            cursor,
-            decltype(cursor::m_cursors),
-            &cursor::m_cursors
-        >
-    >;
+        cursor, boost::intrusive::member_hook<cursor, decltype(cursor::m_cursors), &cursor::m_cursors>>;
 
-    void link_cursor(cursor* cursor) {
-        m_cursors.push_back(*cursor);
-    }
+    void link_cursor(cursor* cursor) { m_cursors.push_back(*cursor); }
 
-    void unlink_cursor(cursor* cursor) {
-        m_cursors.erase(m_cursors.iterator_to(*cursor));
-    }
+    void unlink_cursor(cursor* cursor) { m_cursors.erase(m_cursors.iterator_to(*cursor)); }
 
 public:
     // Persistent tree state accessors
@@ -215,33 +201,21 @@ public:
     u64 leaf_nodes() const { return m_anchor.get<&anchor::leaf_nodes>(); }
     u64 internal_nodes() const { return m_anchor.get<&anchor::internal_nodes>(); }
 
-    void set_height(u32 height) {
-        m_anchor.set<&anchor::height>(height);
-    }
+    void set_height(u32 height) { m_anchor.set<&anchor::height>(height); }
 
-    void set_size(u64 size) {
-        m_anchor.set<&anchor::size>(size);
-    }
+    void set_size(u64 size) { m_anchor.set<&anchor::size>(size); }
 
-    void set_root(block_index root) {
-        m_anchor.set<&anchor::root>(root);
-    }
+    void set_root(block_index root) { m_anchor.set<&anchor::root>(root); }
 
-    void set_leftmost(block_index leftmost) {
-        m_anchor.set<&anchor::leftmost>(leftmost);
-    }
+    void set_leftmost(block_index leftmost) { m_anchor.set<&anchor::leftmost>(leftmost); }
 
-    void set_rightmost(block_index rightmost) {
-        m_anchor.set<&anchor::rightmost>(rightmost);
-    }
+    void set_rightmost(block_index rightmost) { m_anchor.set<&anchor::rightmost>(rightmost); }
 
     void set_internal_nodes(u32 internal_nodes) {
         m_anchor.set<&anchor::internal_nodes>(internal_nodes);
     }
 
-    void set_leaf_nodes(u64 leaf_nodes) {
-        m_anchor.set<&anchor::leaf_nodes>(leaf_nodes);
-    }
+    void set_leaf_nodes(u64 leaf_nodes) { m_anchor.set<&anchor::leaf_nodes>(leaf_nodes); }
 
 private:
     anchor_handle<anchor> m_anchor;

@@ -39,30 +39,21 @@ static std::string load_string(const prequel::heap& h, const database_entry::key
     return std::visit(visitor{&h}, key);
 }
 
-
 database::database(prequel::anchor_handle<anchor> anchor_, prequel::allocator& alloc)
     : m_strings(anchor_.member<&anchor::strings>(), alloc)
-    , m_table(anchor_.member<&anchor::table>(), alloc,
-              database_entry::derive_key(),
-              database_entry::key_hash(),
-              database_entry::key_equal(m_strings))
-{}
+    , m_table(anchor_.member<&anchor::table>(), alloc, database_entry::derive_key(),
+              database_entry::key_hash(), database_entry::key_equal(m_strings)) {}
 
 bool database::contains(const std::string& key) const {
     database_entry ignored;
-    return m_table.find_compatible(search_key(key, string_hash(key)),
-                                   search_key_hash(),
-                                   search_key_equals(this),
-                                   ignored);
+    return m_table.find_compatible(search_key(key, string_hash(key)), search_key_hash(),
+                                   search_key_equals(this), ignored);
 }
 
 std::optional<std::string> database::find(const std::string& key) const {
     database_entry ent;
-    if (!m_table.find_compatible(search_key(key, string_hash(key)),
-                                 search_key_hash(),
-                                 search_key_equals(this),
-                                 ent))
-    {
+    if (!m_table.find_compatible(search_key(key, string_hash(key)), search_key_hash(),
+                                 search_key_equals(this), ent)) {
         return {};
     }
 
@@ -89,7 +80,7 @@ bool database::insert(const std::string& key, const std::string& value) {
     if (key.size() <= database_entry::short_key_t::max_size) {
         new_ent.key = database_entry::short_key_t(std::string_view(key));
     } else {
-        new_ent.key = database_entry::long_key_t{allocate_string(m_strings, key), string_hash(key) };
+        new_ent.key = database_entry::long_key_t{allocate_string(m_strings, key), string_hash(key)};
     }
     new_ent.value = allocate_string(m_strings, value);
 
@@ -101,8 +92,7 @@ bool database::insert(const std::string& key, const std::string& value) {
 }
 
 bool database::erase(const std::string& key) {
-    return m_table.erase_compatible(search_key(key, string_hash(key)),
-                                    search_key_hash(),
+    return m_table.erase_compatible(search_key(key, string_hash(key)), search_key_hash(),
                                     search_key_equals(this));
 }
 
@@ -121,40 +111,33 @@ void database::validate() const {
 
 void database::dump(std::ostream& os) const {
     fmt::print(os,
-        "Database:\n"
-        "  Entries:     {}\n"
-        "  Byte size:   {}\n"
-        "\n",
-        size(), byte_size());
+               "Database:\n"
+               "  Entries:     {}\n"
+               "  Byte size:   {}\n"
+               "\n",
+               size(), byte_size());
 
     fmt::print(os,
-        "Hash-Table stats:\n"
-        "  Entries:             {}\n"
-        "  Allocated buckets:   {}\n"
-        "  Primary buckets:     {}\n"
-        "  Overflow buckets:    {}\n"
-        "  Fill factor:         {}\n"
-        "  Overhead:            {}\n"
-        "  Byte size:           {}\n"
-        "\n",
-        m_table.size(),
-        m_table.allocated_buckets(),
-        m_table.primary_buckets(),
-        m_table.overflow_buckets(),
-        m_table.fill_factor(),
-        m_table.overhead(),
-        m_table.byte_size());
+               "Hash-Table stats:\n"
+               "  Entries:             {}\n"
+               "  Allocated buckets:   {}\n"
+               "  Primary buckets:     {}\n"
+               "  Overflow buckets:    {}\n"
+               "  Fill factor:         {}\n"
+               "  Overhead:            {}\n"
+               "  Byte size:           {}\n"
+               "\n",
+               m_table.size(), m_table.allocated_buckets(), m_table.primary_buckets(),
+               m_table.overflow_buckets(), m_table.fill_factor(), m_table.overhead(),
+               m_table.byte_size());
 
     fmt::print(os,
-        "Heap stats:\n"
-        "  Objects count:   {}\n"
-        "  Objects size:    {}\n"
-        "  Byte size:       {}\n"
-        "\n",
-        m_strings.objects_count(),
-        m_strings.objects_size(),
-        m_strings.byte_size()
-    );
+               "Heap stats:\n"
+               "  Objects count:   {}\n"
+               "  Objects size:    {}\n"
+               "  Byte size:       {}\n"
+               "\n",
+               m_strings.objects_count(), m_strings.objects_size(), m_strings.byte_size());
 
     fmt::print(os, "Entries:\n");
     m_table.iterate([&](const database_entry& entry) {

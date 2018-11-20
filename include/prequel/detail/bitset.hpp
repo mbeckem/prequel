@@ -24,8 +24,7 @@ public:
     /// Constructs a bitset with the given number of bits.
     explicit bitset(size_t bits = 0)
         : m_bits(bits)
-        , m_blocks(ceil_div(bits, bits_per_block))
-    {}
+        , m_blocks(ceil_div(bits, bits_per_block)) {}
 
     /// Returns the number of bits in this bitset.
     size_t size() const { return m_bits; }
@@ -43,9 +42,7 @@ public:
     }
 
     /// Set all bits to zero.
-    void reset() {
-        m_blocks.assign(m_blocks.size(), 0);
-    }
+    void reset() { m_blocks.assign(m_blocks.size(), 0); }
 
     /// Returns true iff the bit at the position is set.
     bool test(size_t bit) const {
@@ -66,14 +63,10 @@ public:
     }
 
     /// Counts the total number of set bits.
-    size_t count() const {
-        return count(0, m_bits);
-    }
+    size_t count() const { return count(0, m_bits); }
 
     /// Counts the total number of set bits, starting from the given index.
-    size_t count(size_t begin) {
-        return count(begin, size() - begin);
-    }
+    size_t count(size_t begin) { return count(begin, size() - begin); }
 
     /// Counts the total number of 1-bits in the range [begin, begin + n).
     size_t count(size_t begin, size_t n) const {
@@ -81,9 +74,7 @@ public:
             return 0;
 
         // Sets all bits before `index` to zero.
-        auto mask_front = [](block_t block, int index) {
-            return (block >> index) << index;
-        };
+        auto mask_front = [](block_t block, int index) { return (block >> index) << index; };
 
         // Sets all bits at `index` and after it to zero.
         auto mask_back = [](block_t block, int index) {
@@ -146,7 +137,7 @@ public:
         if (n >= m_bits)
             return npos;
 
-        size_t r = [&]{
+        size_t r = [&] {
             // Check current block if not on block boundary.
             size_t b = block_index(n);
             int i = bit_index(n);
@@ -194,23 +185,16 @@ private:
         return __builtin_ffsll(b);
     }
 
-    static int block_ffz(block_t b) {
-        return block_ffs(~b);
-    }
+    static int block_ffz(block_t b) { return block_ffs(~b); }
 
     static int block_popcount(block_t b) {
         // TODO: GCC specific
         return __builtin_popcountll(b);
     }
 
-    static size_t block_index(size_t bit) {
-        return bit / bits_per_block;
-    }
+    static size_t block_index(size_t bit) { return bit / bits_per_block; }
 
-    static int bit_index(size_t bit) {
-        return bit & (bits_per_block - 1);
-    }
-
+    static int bit_index(size_t bit) { return bit & (bits_per_block - 1); }
 
 private:
     size_t m_bits = 0;

@@ -21,9 +21,7 @@ public:
     class anchor {
         raw_list::anchor list;
 
-        static constexpr auto get_binary_format() {
-            return make_binary_format(&anchor::list);
-        }
+        static constexpr auto get_binary_format() { return make_binary_format(&anchor::list); }
 
         friend class list;
         friend binary_format_access;
@@ -39,9 +37,7 @@ public:
         static constexpr u32 value_size() { return list::value_size(); }
 
         /// Returns the current value.
-        value_type get() const {
-            return deserialized_value<value_type>(inner.get(), value_size());
-        }
+        value_type get() const { return deserialized_value<value_type>(inner.get(), value_size()); }
 
         /// Replaces the current value with the given argument.
         void set(const value_type& value) {
@@ -96,7 +92,8 @@ public:
     private:
         friend class list;
 
-        cursor(raw_list::cursor&& inner): inner(std::move(inner)) {}
+        cursor(raw_list::cursor&& inner)
+            : inner(std::move(inner)) {}
 
     private:
         raw_list::cursor inner;
@@ -111,8 +108,7 @@ public:
 
 public:
     explicit list(anchor_handle<anchor> anchor_, allocator& alloc_)
-        : inner(std::move(anchor_).template member<&anchor::list>(), value_size(), alloc_)
-    {}
+        : inner(std::move(anchor_).template member<&anchor::list>(), value_size(), alloc_) {}
 
 public:
     engine& get_engine() const { return inner.get_engine(); }
@@ -197,7 +193,9 @@ public:
         block_index prev_address() const { return m_inner.prev_address(); }
 
         u32 value_count() const { return m_inner.value_count(); }
-        value_type value(u32 index) const { return deserialized_value<value_type>(m_inner.value(index)); }
+        value_type value(u32 index) const {
+            return deserialized_value<value_type>(m_inner.value(index));
+        }
 
     private:
         friend class list;
@@ -237,25 +235,18 @@ void list<T>::dump(std::ostream& os) const {
         "  Size: {}\n"
         "  Nodes: {}\n"
         "\n",
-        value_size(),
-        get_engine().block_size(),
-        node_capacity(),
-        size(),
-        nodes());
+        value_size(), get_engine().block_size(), node_capacity(), size(), nodes());
 
     if (!empty())
         os << "\n";
 
-    visit([&](const node_view& node) -> bool{
+    visit([&](const node_view& node) -> bool {
         fmt::print(
             "  Node @{}:\n"
             "    Previous: @{}\n"
             "    Next: @{}\n"
             "    Size: {}\n",
-            node.address(),
-            node.prev_address(),
-            node.next_address(),
-            node.value_count());
+            node.address(), node.prev_address(), node.next_address(), node.value_count());
 
         u32 size = node.value_count();
         for (u32 i = 0; i < size; ++i) {

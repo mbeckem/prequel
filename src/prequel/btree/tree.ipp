@@ -3,9 +3,9 @@
 
 #include <prequel/btree/tree.hpp>
 
+#include <prequel/detail/fix.hpp>
 #include <prequel/exception.hpp>
 #include <prequel/formatting.hpp>
-#include <prequel/detail/fix.hpp>
 
 #include <fmt/ostream.h>
 
@@ -16,39 +16,37 @@ namespace prequel::detail::btree_impl {
 inline tree::tree(anchor_handle<anchor> _anchor, const raw_btree_options& opts, allocator& alloc)
     : uses_allocator(alloc)
     , m_anchor(std::move(_anchor))
-    , m_options(opts)
-{
+    , m_options(opts) {
     if (m_options.value_size == 0)
         PREQUEL_THROW(bad_argument("Zero value size."));
     if (m_options.key_size == 0)
         PREQUEL_THROW(bad_argument("Zero key size."));
     if (m_options.key_size > max_key_size)
-        PREQUEL_THROW(bad_argument(fmt::format("Key sizes larger than {} are not supported.", max_key_size)));
+        PREQUEL_THROW(
+            bad_argument(fmt::format("Key sizes larger than {} are not supported.", max_key_size)));
     if (!m_options.derive_key)
         PREQUEL_THROW(bad_argument("No derive_key function provided."));
     if (!m_options.key_less)
         PREQUEL_THROW(bad_argument("No key_less function provided."));
 
     m_leaf_capacity = leaf_node::capacity(get_engine().block_size(), value_size());
-    m_internal_max_children = internal_node::compute_max_children(get_engine().block_size(), key_size());
+    m_internal_max_children =
+        internal_node::compute_max_children(get_engine().block_size(), key_size());
     m_internal_min_children = internal_node::compute_min_children(m_internal_max_children);
 
     if (m_leaf_capacity < 2) {
         PREQUEL_THROW(bad_argument(
             fmt::format("Block size {} is too small (cannot fit 2 values into one leaf)",
-                        get_engine().block_size())
-        ));
+                        get_engine().block_size())));
     }
     if (m_internal_max_children < 4) {
         PREQUEL_THROW(bad_argument(
             fmt::format("Block size {} is too small (cannot fit 4 children into one internal node)",
-                        get_engine().block_size())
-        ));
+                        get_engine().block_size())));
     }
 }
 
-inline tree::~tree()
-{
+inline tree::~tree() {
     // Invalidate all existing cursors.
     for (auto& cursor : m_cursors) {
         cursor.reset_to_invalid();
@@ -120,9 +118,10 @@ inline void tree::seek_bound(const byte* key, cursor& cursor) const {
 
 inline bool tree::next_leaf(cursor& cursor) const {
     // Find a parent that is not yet at it's last index.
-    auto rpos = std::find_if(cursor.m_parents.rbegin(), cursor.m_parents.rend(), [&](const auto& entry) {
-        return entry.index + 1 < entry.node.get_child_count();
-    });
+    auto rpos =
+        std::find_if(cursor.m_parents.rbegin(), cursor.m_parents.rend(), [&](const auto& entry) {
+            return entry.index + 1 < entry.node.get_child_count();
+        });
     if (rpos == cursor.m_parents.rend()) {
         return false;
     }
@@ -142,9 +141,8 @@ inline bool tree::next_leaf(cursor& cursor) const {
 
 inline bool tree::prev_leaf(cursor& cursor) const {
     // Find a parent that is not yet at index 0.
-    auto rpos = std::find_if(cursor.m_parents.rbegin(), cursor.m_parents.rend(), [&](const auto& entry) {
-        return entry.index > 0;
-    });
+    auto rpos = std::find_if(cursor.m_parents.rbegin(), cursor.m_parents.rend(),
+                             [&](const auto& entry) { return entry.index > 0; });
     if (rpos == cursor.m_parents.rend()) {
         return false;
     }
@@ -183,11 +181,12 @@ inline void tree::find(const byte* key, cursor& cursor) const {
 
 inline u32 tree::lower_bound(const leaf_node& leaf, const byte* search_key) const {
     const u32 size = leaf.get_size();
-    index_iterator result = std::lower_bound(index_iterator(0), index_iterator(size), search_key, [&](u32 i, const byte* search_key) {
-        key_buffer buffer;
-        derive_key(leaf.get(i), buffer.data());
-        return key_less(buffer.data(), search_key);
-    });
+    index_iterator result = std::lower_bound(index_iterator(0), index_iterator(size), search_key,
+                                             [&](u32 i, const byte* search_key) {
+                                                 key_buffer buffer;
+                                                 derive_key(leaf.get(i), buffer.data());
+                                                 return key_less(buffer.data(), search_key);
+                                             });
     return *result;
 }
 
@@ -195,19 +194,20 @@ inline u32 tree::lower_bound(const internal_node& internal, const byte* search_k
     PREQUEL_ASSERT(internal.get_child_count() > 1, "Not enough children in this internal node");
     // internal.get_size() is the number of children, not the number of keys.
     const u32 keys = internal.get_child_count() - 1;
-    index_iterator result = std::lower_bound(index_iterator(0), index_iterator(keys), search_key, [&](u32 i, const byte* search_key) {
-        return key_less(internal.get_key(i), search_key);
-    });
+    index_iterator result = std::lower_bound(
+        index_iterator(0), index_iterator(keys), search_key,
+        [&](u32 i, const byte* search_key) { return key_less(internal.get_key(i), search_key); });
     return *result;
 }
 
 inline u32 tree::upper_bound(const leaf_node& leaf, const byte* search_key) const {
     const u32 size = leaf.get_size();
-    index_iterator result = std::upper_bound(index_iterator(0), index_iterator(size), search_key, [&](const byte* search_key, u32 i) {
-        key_buffer buffer;
-        derive_key(leaf.get(i), buffer.data());
-        return key_less(search_key, buffer.data());
-    });
+    index_iterator result = std::upper_bound(index_iterator(0), index_iterator(size), search_key,
+                                             [&](const byte* search_key, u32 i) {
+                                                 key_buffer buffer;
+                                                 derive_key(leaf.get(i), buffer.data());
+                                                 return key_less(search_key, buffer.data());
+                                             });
     return *result;
 }
 
@@ -215,9 +215,9 @@ inline u32 tree::upper_bound(const internal_node& internal, const byte* search_k
     PREQUEL_ASSERT(internal.get_child_count() > 1, "Not enough children in this internal node");
     // internal.get_size() is the number of children, not the number of keys.
     const u32 keys = internal.get_child_count() - 1;
-    index_iterator result = std::upper_bound(index_iterator(0), index_iterator(keys), search_key, [&](const byte* search_key, u32 i) {
-        return key_less(search_key, internal.get_key(i));
-    });
+    index_iterator result = std::upper_bound(
+        index_iterator(0), index_iterator(keys), search_key,
+        [&](const byte* search_key, u32 i) { return key_less(search_key, internal.get_key(i)); });
     return *result;
 }
 
@@ -289,7 +289,7 @@ inline bool tree::insert(const byte* value, cursor& cursor) {
         leaf_node new_leaf = create_leaf();
 
         // Number of remaining entries in the existing leaf.
-        const u32 left_size = [&]{
+        const u32 left_size = [&] {
             if (leaf.index() == rightmost())
                 return leaf_size;
             if (leaf.index() == leftmost())
@@ -309,13 +309,15 @@ inline bool tree::insert(const byte* value, cursor& cursor) {
         // Insert the pointer of the new leaf into the parent node (if any, else create a new root).
         // Then update all cursors so that they remain consistent.
         if (height() == 1) {
-            const internal_node new_root = create_root(leaf.index(), new_leaf.index(), split_key.data());
+            const internal_node new_root =
+                create_root(leaf.index(), new_leaf.index(), split_key.data());
 
             for (auto& c : m_cursors) {
                 if (c.invalid())
                     continue;
 
-                PREQUEL_ASSERT(c.m_leaf.index() == leaf.index(), "Must point to the existing root.");
+                PREQUEL_ASSERT(c.m_leaf.index() == leaf.index(),
+                               "Must point to the existing root.");
                 PREQUEL_ASSERT(c.m_parents.empty(), "There cannot be any internal nodes.");
 
                 if (&c != &cursor && c.m_index >= insert_index)
@@ -342,13 +344,15 @@ inline bool tree::insert(const byte* value, cursor& cursor) {
                 if (c.invalid())
                     continue;
 
-                auto& parent_entry =  c.m_parents.back();
+                auto& parent_entry = c.m_parents.back();
                 if (parent_entry.node.index() != parent.index())
                     continue;
 
                 if (parent_entry.index == index_in_parent) {
-                    PREQUEL_ASSERT(c.m_leaf.index() == leaf.index(), "Inconsistent leaf node for parent index.");
-                    PREQUEL_ASSERT(parent_entry.node.get_child(index_in_parent) == leaf.index(), "Inconsistent child pointer.");
+                    PREQUEL_ASSERT(c.m_leaf.index() == leaf.index(),
+                                   "Inconsistent leaf node for parent index.");
+                    PREQUEL_ASSERT(parent_entry.node.get_child(index_in_parent) == leaf.index(),
+                                   "Inconsistent child pointer.");
 
                     if (&c != &cursor && c.m_index >= insert_index)
                         c.m_index += 1;
@@ -370,8 +374,7 @@ inline bool tree::insert(const byte* value, cursor& cursor) {
     return true;
 }
 
-inline void tree::seek_insert_location(const byte* key, cursor& cursor)
-{
+inline void tree::seek_insert_location(const byte* key, cursor& cursor) {
     PREQUEL_ASSERT(height() > 0, "Tree must not be empty at this point.");
 
     // For every level of internal nodes.
@@ -395,7 +398,8 @@ inline void tree::seek_insert_location(const byte* key, cursor& cursor)
 
             if (cursor.m_parents.size() == 1) {
                 // Root split
-                internal_node new_root = create_root(internal.index(), new_internal.index(), split_key.data());
+                internal_node new_root =
+                    create_root(internal.index(), new_internal.index(), split_key.data());
                 apply_root_split(new_root, internal, new_internal);
             } else {
                 // Split node with a parent.
@@ -404,10 +408,11 @@ inline void tree::seek_insert_location(const byte* key, cursor& cursor)
                 const u32 index_in_parent = parent_entry.index;
 
                 PREQUEL_ASSERT(parent.get_child_count() < parent.max_children(),
-                             "Parent must not be full.");
+                               "Parent must not be full.");
                 PREQUEL_ASSERT(parent.get_child(index_in_parent) == internal.index(),
-                             "Parent does not point to this node at the given index");
-                parent.insert_split_result(index_in_parent + 1, split_key.data(), new_internal.index());
+                               "Parent does not point to this node at the given index");
+                parent.insert_split_result(index_in_parent + 1, split_key.data(),
+                                           new_internal.index());
                 apply_child_split(parent, level, index_in_parent, internal, new_internal);
             }
         }
@@ -422,10 +427,8 @@ inline void tree::seek_insert_location(const byte* key, cursor& cursor)
     cursor.m_index = lower_bound(cursor.m_leaf, key);
 }
 
-inline internal_node tree::create_root(block_index left_child,
-                                                 block_index right_child,
-                                                 const byte* split_key)
-{
+inline internal_node
+tree::create_root(block_index left_child, block_index right_child, const byte* split_key) {
     // Grow by one level.
     internal_node new_root = create_internal();
     new_root.set_child(0, left_child);
@@ -445,10 +448,8 @@ internal_node tree::split(const internal_node& old_internal, byte* split_key) {
     return new_internal;
 }
 
-inline void tree::apply_root_split(const internal_node& new_root,
-                                   const internal_node& left_internal,
-                                   const internal_node& right_internal)
-{
+inline void tree::apply_root_split(const internal_node& new_root, const internal_node& left_internal,
+                                   const internal_node& right_internal) {
     // All children with index >= left_child_count have moved to the right node.
     const u32 left_child_count = left_internal.get_child_count();
 
@@ -457,9 +458,9 @@ inline void tree::apply_root_split(const internal_node& new_root,
             continue;
 
         PREQUEL_ASSERT(!cursor.m_parents.empty(),
-                     "Must have internal nodes on the stack because the root was internal.");
+                       "Must have internal nodes on the stack because the root was internal.");
         PREQUEL_ASSERT(cursor.m_parents.front().node.index() == left_internal.index(),
-                     "Must point to the old root.");
+                       "Must point to the old root.");
 
         auto& root_entry = cursor.m_parents.front();
 
@@ -478,15 +479,15 @@ inline void tree::apply_root_split(const internal_node& new_root,
     }
 }
 
-inline void tree::apply_child_split(const internal_node& parent,
-                                    u32 left_level, u32 left_index,
-                                    const internal_node& left_internal,
-                                    const internal_node& right_internal)
-{
+inline void
+tree::apply_child_split(const internal_node& parent, u32 left_level, u32 left_index,
+                        const internal_node& left_internal, const internal_node& right_internal) {
     PREQUEL_ASSERT(left_level > 0, "Left node must not be at leaf level.");
     PREQUEL_ASSERT(left_level < height() - 1, "Left node must not be the root.");
-    PREQUEL_ASSERT(parent.get_child(left_index) == left_internal.index(), "Parent must point to the left node.");
-    PREQUEL_ASSERT(parent.get_child(left_index + 1) == right_internal.index(), "Parent must point to the right node.");
+    PREQUEL_ASSERT(parent.get_child(left_index) == left_internal.index(),
+                   "Parent must point to the left node.");
+    PREQUEL_ASSERT(parent.get_child(left_index + 1) == right_internal.index(),
+                   "Parent must point to the right node.");
 
     // Examine only these indices. Lower levels might not yet be initialized for the seeking cursor.
     const u32 children_stack_index = height() - 1 - left_level;
@@ -499,9 +500,9 @@ inline void tree::apply_child_split(const internal_node& parent,
             continue;
 
         PREQUEL_ASSERT(parent_stack_index < cursor.m_parents.size(),
-                     "Parent stack index out of bounds.");
+                       "Parent stack index out of bounds.");
         PREQUEL_ASSERT(children_stack_index >= 1 && children_stack_index < cursor.m_parents.size(),
-                     "Children stack index out of bounds.");
+                       "Children stack index out of bounds.");
 
         // Fixup entries of neighboring internal nodes.
         auto& parent_entry = cursor.m_parents[parent_stack_index];
@@ -511,10 +512,11 @@ inline void tree::apply_child_split(const internal_node& parent,
         if (parent_entry.index == left_index) {
             // Fixup entries of cursors in the split nodes
             auto& child_entry = cursor.m_parents[children_stack_index];
-            PREQUEL_ASSERT(parent_entry.node.get_child(parent_entry.index) == child_entry.node.index(),
-                         "Parent must point to the old child.");
+            PREQUEL_ASSERT(parent_entry.node.get_child(parent_entry.index)
+                               == child_entry.node.index(),
+                           "Parent must point to the old child.");
             PREQUEL_ASSERT(child_entry.node.index() == left_internal.index(),
-                         "Old child must be the left internal node.");
+                           "Old child must be the left internal node.");
 
             if (child_entry.index >= left_child_count) {
                 child_entry.node = right_internal;
@@ -533,8 +535,10 @@ inline void tree::apply_child_split(const internal_node& parent,
 // in slightly less than half full internal nodes.
 inline void tree::erase(cursor& cursor) {
     PREQUEL_ASSERT(!(cursor.m_flags & cursor.INVALID), "Cursor must not be invalid.");
-    PREQUEL_ASSERT(!(cursor.m_flags & cursor.DELETED), "Cursor must not point to a deleted element.");
-    PREQUEL_ASSERT(cursor.m_parents.size() == this->height() - 1, "Not enough nodes on the parent stack.");
+    PREQUEL_ASSERT(!(cursor.m_flags & cursor.DELETED),
+                   "Cursor must not point to a deleted element.");
+    PREQUEL_ASSERT(cursor.m_parents.size() == this->height() - 1,
+                   "Not enough nodes on the parent stack.");
     PREQUEL_ASSERT(height() > 0, "The tree cannot be empty.");
 
     leaf_node leaf = cursor.m_leaf;
@@ -586,7 +590,7 @@ inline void tree::erase(cursor& cursor) {
             u32 neighbor_index;
             leaf_node neighbor;
             u32 index_in_neighbor;
-            if (leaf.index() == leftmost())  {
+            if (leaf.index() == leftmost()) {
                 neighbor_index = index_in_parent + 1;
                 neighbor = read_leaf(parent.get_child(neighbor_index));
                 index_in_neighbor = 0;
@@ -613,8 +617,8 @@ inline void tree::erase(cursor& cursor) {
             free_leaf(leaf.index());
             propagate_leaf_deletion(cursor, leaf.index(), index_in_parent);
 
-        // If there are only two leaves remaining we will merge them back together if both are
-        // somewhat empty. Two leaf nodes with a single element each just look too stupid.
+            // If there are only two leaves remaining we will merge them back together if both are
+            // somewhat empty. Two leaf nodes with a single element each just look too stupid.
         } else if (leaf_nodes() == 2 && size() <= leaf.max_size()) {
             const internal_node& parent = cursor.m_parents.back().node;
             if (leaf.index() == leftmost()) {
@@ -644,8 +648,8 @@ inline void tree::erase(cursor& cursor) {
     leaf_node right;
     if (index_in_parent + 1 < parent.get_child_count()) {
         right = read_leaf(parent.get_child(index_in_parent + 1));
-        if (right.get_size() > right.min_size() || (right.index() == rightmost() && right.get_size() > 1))
-        {
+        if (right.get_size() > right.min_size()
+            || (right.index() == rightmost() && right.get_size() > 1)) {
             steal_leaf_entry(parent, leaf, index_in_parent, right, index_in_parent + 1);
             return;
         }
@@ -655,8 +659,8 @@ inline void tree::erase(cursor& cursor) {
     leaf_node left;
     if (index_in_parent > 0) {
         left = read_leaf(parent.get_child(index_in_parent - 1));
-        if ((left.get_size() > left.min_size() || (left.index() == leftmost() && left.get_size() > 1)))
-        {
+        if ((left.get_size() > left.min_size()
+             || (left.index() == leftmost() && left.get_size() > 1))) {
             steal_leaf_entry(parent, leaf, index_in_parent, left, index_in_parent - 1);
             return;
         }
@@ -683,10 +687,8 @@ inline void tree::erase(cursor& cursor) {
 
 // Called when the leaf node `child_node` has been merged with a neighbor and now has to be removed from its parent.
 // The internal nodes up the stack might have to be merged as well.
-inline void tree::propagate_leaf_deletion(cursor& cursor,
-                                          block_index child_node,
-                                          u32 child_node_index)
-{
+inline void
+tree::propagate_leaf_deletion(cursor& cursor, block_index child_node, u32 child_node_index) {
     PREQUEL_ASSERT(!cursor.m_parents.empty(), "There must be internal node parents.");
 
     // Walk up the stack and merge nodes if necessary.
@@ -694,9 +696,9 @@ inline void tree::propagate_leaf_deletion(cursor& cursor,
     internal_node node = cursor.m_parents[stack_index].node;
     while (1) {
         PREQUEL_ASSERT(cursor.m_parents.at(stack_index).node.index() == node.index(),
-                     "Internal node must be at that level.");
+                       "Internal node must be at that level.");
         PREQUEL_ASSERT(node.get_child(child_node_index) == child_node,
-                     "Parent must point to the child.");
+                       "Parent must point to the child.");
         PREQUEL_ASSERT(node.get_child_count() >= 2, "Node is too empty.");
 
         // Remove the child and shift cursors to the left.
@@ -708,7 +710,7 @@ inline void tree::propagate_leaf_deletion(cursor& cursor,
             auto& entry = c.m_parents[stack_index];
             if (entry.node.index() == node.index()) {
                 PREQUEL_ASSERT(entry.index != child_node_index,
-                             "Nobody must point to the deleted child.");
+                               "Nobody must point to the deleted child.");
                 if (entry.index > child_node_index)
                     entry.index -= 1;
             }
@@ -725,8 +727,9 @@ inline void tree::propagate_leaf_deletion(cursor& cursor,
                 for (auto& c : m_cursors) {
                     if (c.invalid())
                         continue;
-                    PREQUEL_ASSERT(!c.m_parents.empty() && c.m_parents[0].node.index() == node.index(),
-                            "All cursors must point to the root.");
+                    PREQUEL_ASSERT(!c.m_parents.empty()
+                                       && c.m_parents[0].node.index() == node.index(),
+                                   "All cursors must point to the root.");
                     c.m_parents.erase(c.m_parents.begin());
                 }
             }
@@ -746,7 +749,8 @@ inline void tree::propagate_leaf_deletion(cursor& cursor,
         if (index_in_parent + 1 < parent.get_child_count()) {
             right = read_internal(parent.get_child(index_in_parent + 1));
             if (right.get_child_count() > right.min_children()) {
-                steal_internal_entry(parent, stack_index, node, index_in_parent, right, index_in_parent + 1);
+                steal_internal_entry(parent, stack_index, node, index_in_parent, right,
+                                     index_in_parent + 1);
                 break;
             }
         }
@@ -756,7 +760,8 @@ inline void tree::propagate_leaf_deletion(cursor& cursor,
         if (index_in_parent > 0) {
             left = read_internal(parent.get_child(index_in_parent - 1));
             if (left.get_child_count() > left.min_children()) {
-                steal_internal_entry(parent, stack_index, node, index_in_parent, left, index_in_parent - 1);
+                steal_internal_entry(parent, stack_index, node, index_in_parent, left,
+                                     index_in_parent - 1);
                 break;
             }
         }
@@ -780,20 +785,17 @@ inline void tree::propagate_leaf_deletion(cursor& cursor,
     }
 }
 
-inline void tree::steal_leaf_entry(const internal_node& parent,
-                                   const leaf_node& leaf, u32 leaf_index,
-                                   const leaf_node& neighbor, u32 neighbor_index)
-{
+inline void tree::steal_leaf_entry(const internal_node& parent, const leaf_node& leaf,
+                                   u32 leaf_index, const leaf_node& neighbor, u32 neighbor_index) {
     const u32 parent_children = parent.get_child_count();
     const u32 leaf_size = leaf.get_size();
     const u32 neighbor_size = neighbor.get_size();
 
-    PREQUEL_ASSERT(neighbor_index < parent.get_child_count(),
-                 "Neighbor index out of bounds.");
+    PREQUEL_ASSERT(neighbor_index < parent.get_child_count(), "Neighbor index out of bounds.");
     PREQUEL_ASSERT(leaf_index != 0 || neighbor_index == 1,
-                 "Invalid neighbor index for first child.");
+                   "Invalid neighbor index for first child.");
     PREQUEL_ASSERT(leaf_index != parent_children - 1 || neighbor_index == parent_children - 2,
-                 "Invalid neighbor index for last child.");
+                   "Invalid neighbor index for last child.");
     PREQUEL_ASSERT(parent.get_child(leaf_index) == leaf.index(), "Leaf index wrong.");
     PREQUEL_ASSERT(parent.get_child(neighbor_index) == neighbor.index(), "Neighbor index wrong.");
     PREQUEL_ASSERT(neighbor_size > 1, "At least one value must remain after stealing one.");
@@ -851,24 +853,23 @@ inline void tree::steal_leaf_entry(const internal_node& parent,
 }
 
 // Note: stack_index is the index of the children (node and neighbor).
-inline void tree::steal_internal_entry(const internal_node& parent, u32 stack_index,
-                                       const internal_node& node, u32 node_index,
-                                       const internal_node& neighbor, u32 neighbor_index)
-{
+inline void
+tree::steal_internal_entry(const internal_node& parent, u32 stack_index, const internal_node& node,
+                           u32 node_index, const internal_node& neighbor, u32 neighbor_index) {
     const u32 parent_children = parent.get_child_count();
     const u32 node_children = node.get_child_count();
     const u32 neighbor_children = neighbor.get_child_count();
 
     PREQUEL_ASSERT(stack_index > 0, "Cannot steal from the root.");
-    PREQUEL_ASSERT(neighbor_index < parent_children,
-                 "Neighbor index out of bounds.");
+    PREQUEL_ASSERT(neighbor_index < parent_children, "Neighbor index out of bounds.");
     PREQUEL_ASSERT(node_index != 0 || neighbor_index == 1,
-                 "Invalid neighbor index for first child.");
+                   "Invalid neighbor index for first child.");
     PREQUEL_ASSERT(node_index != parent_children - 1 || neighbor_index == parent_children - 2,
-                 "Invalid neighbor index for last child.");
+                   "Invalid neighbor index for last child.");
     PREQUEL_ASSERT(parent.get_child(node_index) == node.index(), "Node index wrong.");
     PREQUEL_ASSERT(parent.get_child(neighbor_index) == neighbor.index(), "Neighbor index wrong.");
-    PREQUEL_ASSERT(neighbor_children > neighbor.min_children(), "Enough children must remain after stealing one.");
+    PREQUEL_ASSERT(neighbor_children > neighbor.min_children(),
+                   "Enough children must remain after stealing one.");
 
     if (node_index < parent_children - 1 && neighbor_index == node_index + 1) {
         // Taking from the right neighbor. We have to update our own key after this op.
@@ -897,7 +898,8 @@ inline void tree::steal_internal_entry(const internal_node& parent, u32 stack_in
     } else if (node_index > 0 && neighbor_index == node_index - 1) {
         // Taking from the left neighbor. The appropriate key (the max) is stored
         // in the parent node and needs to be taken + replaced.
-        node.prepend_entry(parent.get_key(neighbor_index), neighbor.get_child(neighbor_children - 1));
+        node.prepend_entry(parent.get_key(neighbor_index),
+                           neighbor.get_child(neighbor_children - 1));
         parent.set_key(neighbor_index, neighbor.get_key(neighbor_children - 2));
         neighbor.remove_child(neighbor_children - 1);
 
@@ -923,19 +925,17 @@ inline void tree::steal_internal_entry(const internal_node& parent, u32 stack_in
     }
 }
 
-inline void tree::merge_leaf(const internal_node& parent,
-                             const leaf_node& leaf, u32 leaf_index,
+inline void tree::merge_leaf(const internal_node& parent, const leaf_node& leaf, u32 leaf_index,
                              const leaf_node& neighbor, u32 neighbor_index) {
     const u32 parent_children = parent.get_child_count();
     const u32 leaf_size = leaf.get_size();
     const u32 neighbor_size = neighbor.get_size();
 
-    PREQUEL_ASSERT(neighbor_index < parent.get_child_count(),
-                 "Neighbor index out of bounds.");
+    PREQUEL_ASSERT(neighbor_index < parent.get_child_count(), "Neighbor index out of bounds.");
     PREQUEL_ASSERT(leaf_index != 0 || neighbor_index == 1,
-                 "Invalid neighbor index for first child.");
+                   "Invalid neighbor index for first child.");
     PREQUEL_ASSERT(leaf_index != parent_children - 1 || neighbor_index == parent_children - 2,
-                 "Invalid neighbor index for last child.");
+                   "Invalid neighbor index for last child.");
     PREQUEL_ASSERT(parent.get_child(leaf_index) == leaf.index(), "Leaf index wrong.");
     PREQUEL_ASSERT(parent.get_child(neighbor_index) == neighbor.index(), "Neighbor index wrong.");
 
@@ -983,19 +983,19 @@ inline void tree::merge_leaf(const internal_node& parent,
 }
 
 // Note: stack_index is the index of the children (node and neighbor).
-inline void tree::merge_internal(const internal_node& parent, u32 stack_index,
-                                 const internal_node& node, u32 node_index,
-                                 const internal_node& neighbor, u32 neighbor_index)
-{
+inline void
+tree::merge_internal(const internal_node& parent, u32 stack_index, const internal_node& node,
+                     u32 node_index, const internal_node& neighbor, u32 neighbor_index) {
     const u32 parent_children = parent.get_child_count();
     const u32 node_children = node.get_child_count();
     const u32 neighbor_children = neighbor.get_child_count();
 
     PREQUEL_ASSERT(stack_index > 0, "Cannot steal from the root.");
     PREQUEL_ASSERT(neighbor_index < parent_children, "Neighbor index out of bounds.");
-    PREQUEL_ASSERT(node_index != 0 || neighbor_index == 1, "Invalid neighbor index for first child.");
+    PREQUEL_ASSERT(node_index != 0 || neighbor_index == 1,
+                   "Invalid neighbor index for first child.");
     PREQUEL_ASSERT(node_index != parent_children - 1 || neighbor_index == parent_children - 2,
-                 "Invalid neighbor index for last child.");
+                   "Invalid neighbor index for last child.");
     PREQUEL_ASSERT(parent.get_child(node_index) == node.index(), "Node index wrong.");
     PREQUEL_ASSERT(parent.get_child(neighbor_index) == neighbor.index(), "Neighbor index wrong.");
 
@@ -1101,8 +1101,7 @@ inline void tree::clear_subtree(block_index index, u32 level) {
     }
 }
 
-inline std::unique_ptr<loader> tree::bulk_load()
-{
+inline std::unique_ptr<loader> tree::bulk_load() {
     if (!empty())
         PREQUEL_THROW(bad_operation("Tree must be empty."));
 
@@ -1113,16 +1112,10 @@ inline std::unique_ptr<cursor> tree::create_cursor(raw_btree::cursor_seek_t seek
     auto c = std::make_unique<cursor>(this);
 
     switch (seek) {
-    case raw_btree::seek_none:
-        break;
-    case raw_btree::seek_min:
-        c->move_min();
-        break;
-    case raw_btree::seek_max:
-        c->move_max();
-        break;
-    default:
-        PREQUEL_THROW(bad_argument("Invalid seek value."));
+    case raw_btree::seek_none: break;
+    case raw_btree::seek_min: c->move_min(); break;
+    case raw_btree::seek_max: c->move_max(); break;
+    default: PREQUEL_THROW(bad_argument("Invalid seek value."));
     }
 
     return c;
@@ -1133,7 +1126,8 @@ inline void tree::visit_nodes(Func&& fn) const {
     if (height() == 0)
         return;
 
-    detail::fix recurse = [&](auto& self, u32 level, block_index parent, block_index current) -> bool {
+    detail::fix recurse = [&](auto& self, u32 level, block_index parent,
+                              block_index current) -> bool {
         if (level == 0)
             return fn(parent, level, read_leaf(current));
 
@@ -1153,25 +1147,25 @@ inline void tree::visit_nodes(Func&& fn) const {
 
 inline void tree::dump(std::ostream& os) const {
     fmt::print(os,
-       "Raw btree:\n"
-       "  Value size: {}\n"
-       "  Key size: {}\n"
-       "  Internal node capacity: {}\n"
-       "  Leaf node capacity: {}\n"
-       "  Height: {}\n"
-       "  Size: {}\n"
-       "  Internal nodes: {}\n"
-       "  Leaf nodes: {}\n",
-       value_size(), key_size(),
-       internal_node_max_children(), leaf_node_max_values(),
-       height(), size(), internal_nodes(), leaf_nodes());
+               "Raw btree:\n"
+               "  Value size: {}\n"
+               "  Key size: {}\n"
+               "  Internal node capacity: {}\n"
+               "  Leaf node capacity: {}\n"
+               "  Height: {}\n"
+               "  Size: {}\n"
+               "  Internal nodes: {}\n"
+               "  Leaf nodes: {}\n",
+               value_size(), key_size(), internal_node_max_children(), leaf_node_max_values(),
+               height(), size(), internal_nodes(), leaf_nodes());
 
     if (!empty())
         os << "\n";
 
     struct visitor {
         std::ostream& os;
-        visitor(std::ostream& os): os(os) {}
+        visitor(std::ostream& os)
+            : os(os) {}
 
         bool operator()(block_index parent, u32 level, const internal_node& node) const {
             const u32 child_count = node.get_child_count();
@@ -1185,8 +1179,7 @@ inline void tree::dump(std::ostream& os) const {
                        node.index(), parent, level, child_count);
 
             for (u32 i = 0; i < child_count - 1; ++i) {
-                fmt::print(os, "  {}: @{} (<= {})\n",
-                           i, node.get_child(i),
+                fmt::print(os, "  {}: @{} (<= {})\n", i, node.get_child(i),
                            format_hex(node.get_key(i), node.key_size()));
             }
             fmt::print(os, "  {}: @{}\n", child_count - 1, node.get_child(child_count - 1));
@@ -1212,8 +1205,7 @@ inline void tree::dump(std::ostream& os) const {
 }
 
 inline void tree::visit(bool (*visit_fn)(const raw_btree::node_view& node, void* user_data),
-                        void* user_data) const
-{
+                        void* user_data) const {
     if (!visit_fn)
         PREQUEL_THROW(bad_argument("Invalid visitation function."));
 
@@ -1226,7 +1218,7 @@ inline void tree::visit(bool (*visit_fn)(const raw_btree::node_view& node, void*
         virtual block_index parent_address() const { return m_parent; }
 
         virtual u32 child_count() const { return check_internal().get_child_count(); }
-        virtual u32 key_count() const  { return check_internal().get_child_count() - 1; }
+        virtual u32 key_count() const { return check_internal().get_child_count() - 1; }
 
         virtual const byte* key(u32 index) const {
             const internal_node& node = check_internal();
@@ -1266,7 +1258,6 @@ inline void tree::visit(bool (*visit_fn)(const raw_btree::node_view& node, void*
             return *ptr;
         }
 
-
         u32 m_level = 0;
         block_index m_parent;
         block_index m_address;
@@ -1300,8 +1291,7 @@ inline void tree::visit(bool (*visit_fn)(const raw_btree::node_view& node, void*
 }
 
 inline void tree::validate() const {
-#define PREQUEL_ERROR(...) PREQUEL_THROW( \
-    corruption_error(fmt::format("validate: " __VA_ARGS__)));
+#define PREQUEL_ERROR(...) PREQUEL_THROW(corruption_error(fmt::format("validate: " __VA_ARGS__)));
 
     struct context {
         u32 level = 0;
@@ -1322,7 +1312,8 @@ inline void tree::validate() const {
         u64 seen_leaf_nodes = 0;
         u64 seen_internal_nodes = 0;
 
-        checker(const class tree* tree): tree(tree) {}
+        checker(const class tree* tree)
+            : tree(tree) {}
 
         void check_key(const context& ctx, const byte* key) {
             if (ctx.lower_key && !tree->key_greater(key, ctx.lower_key))
@@ -1346,10 +1337,8 @@ inline void tree::validate() const {
             if (size == 0) {
                 PREQUEL_ERROR("Empty leaf.");
             }
-            if (size < min_values
-                    && leaf.index() != tree->root()
-                    && leaf.index() != tree->leftmost()
-                    && leaf.index() != tree->rightmost()) {
+            if (size < min_values && leaf.index() != tree->root()
+                && leaf.index() != tree->leftmost() && leaf.index() != tree->rightmost()) {
                 PREQUEL_ERROR("Leaf is underflowing.");
             }
             if (size > max_values) {

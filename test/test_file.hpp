@@ -3,21 +3,20 @@
 
 #include <prequel/file_engine.hpp>
 #include <prequel/handle.hpp>
-#include <prequel/mmap_engine.hpp>
 #include <prequel/memory_engine.hpp>
+#include <prequel/mmap_engine.hpp>
 #include <prequel/vfs.hpp>
 
 #include <prequel/detail/deferred.hpp>
 
-#include <boost/optional.hpp>
 #include <boost/noncopyable.hpp>
+#include <boost/optional.hpp>
 
 namespace prequel {
 
 class test_file : boost::noncopyable {
 public:
-    explicit test_file(u32 block_size)
-    {
+    explicit test_file(u32 block_size) {
         // TODO test mmap engine
         constexpr bool fs_test = true;
         if (fs_test) {

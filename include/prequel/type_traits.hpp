@@ -17,8 +17,7 @@ using void_t = void;
 
 template<typename T>
 struct is_trivial {
-    static constexpr bool value =
-                std::is_trivially_copyable<T>::value;
+    static constexpr bool value = std::is_trivially_copyable<T>::value;
 };
 
 template<typename T>
@@ -31,17 +30,18 @@ template<typename T>
 using remove_cvref_t = std::remove_cv_t<std::remove_reference_t<T>>;
 
 template<typename T, typename U>
-using DisableSelf = disable_if_t<
-    std::is_base_of<T, remove_cvref_t<U>>::value
->;
+using DisableSelf = disable_if_t<std::is_base_of<T, remove_cvref_t<U>>::value>;
 
 // Performs a static pointer cast and preserves the constness.
 template<typename To, typename From>
-To* const_pointer_cast(From* from) { return static_cast<To*>(from); }
+To* const_pointer_cast(From* from) {
+    return static_cast<To*>(from);
+}
 
 template<typename To, typename From>
-const To* const_pointer_cast(const From* from) { return static_cast<const To*>(from); }
-
+const To* const_pointer_cast(const From* from) {
+    return static_cast<const To*>(from);
+}
 
 namespace detail {
 

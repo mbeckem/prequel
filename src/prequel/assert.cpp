@@ -8,9 +8,8 @@
 
 namespace prequel::detail {
 
-assertion_failure_impl_::assertion_failure_impl_(
-        const char* file, int line,
-        const char* cond, const char* message) {
+assertion_failure_impl_::assertion_failure_impl_(const char* file, int line, const char* cond,
+                                                 const char* message) {
     assert_impl(file, line, cond, message);
 }
 
@@ -20,8 +19,7 @@ void assert_impl(const char* file, int line, const char* condition, const char* 
         std::cerr << ": " << message;
     }
     std::cerr << "\n";
-    std::cerr << "    (in " << file << ":" << line << ")"
-              << std::endl;
+    std::cerr << "    (in " << file << ":" << line << ")" << std::endl;
     std::abort();
 }
 
@@ -31,8 +29,7 @@ void unreachable_impl_(const char* file, int line, const char* message) {
         std::cerr << ": " << message;
     }
     std::cerr << ".\n";
-    std::cerr << "    (in " << file << ":" << line << ")"
-              << std::endl;
+    std::cerr << "    (in " << file << ":" << line << ")" << std::endl;
     std::abort();
 }
 
@@ -43,8 +40,7 @@ void abort_impl(const char* file, int line, const char* message) {
         std::cerr << "Abort.";
     }
     std::cerr << "\n"
-              << "    (in " << file << ":" << line << ")"
-              << std::endl;
+              << "    (in " << file << ":" << line << ")" << std::endl;
     std::abort();
 }
 

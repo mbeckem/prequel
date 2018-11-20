@@ -4,9 +4,9 @@
 #include <prequel/assert.hpp>
 #include <prequel/binary_format.hpp>
 #include <prequel/defs.hpp>
+#include <prequel/detail/iter_tools.hpp>
 #include <prequel/exception.hpp>
 #include <prequel/type_traits.hpp>
-#include <prequel/detail/iter_tools.hpp>
 
 #include <boost/endian/conversion.hpp>
 
@@ -55,7 +55,10 @@ struct detect_std_array<std::array<T, N>> : std::true_type {};
 // This library only works when CHAT_BIT == 8 so char, signed char unsigned char are
 // treated the same as u8 and i8.
 template<typename T>
-constexpr bool is_byte_v = std::is_same_v<T, char> || std::is_same_v<T, signed char> || std::is_same_v<T, unsigned char> || std::is_same_v<T, u8> || std::is_same_v<T, i8>;
+constexpr bool is_byte_v =
+    std::is_same_v<
+        T,
+        char> || std::is_same_v<T, signed char> || std::is_same_v<T, unsigned char> || std::is_same_v<T, u8> || std::is_same_v<T, i8>;
 
 // Use the trivial serializer (i.e. memcpy) if type is a byte or made up of bytes (recursively).
 template<typename T>
@@ -76,13 +79,9 @@ template<typename T>
 struct trivial_serializer {
     static constexpr size_t serialized_size = sizeof(T);
 
-    static void serialize(const T& v, byte* b) {
-        std::memcpy(b, std::addressof(v), sizeof(T));
-    }
+    static void serialize(const T& v, byte* b) { std::memcpy(b, std::addressof(v), sizeof(T)); }
 
-    static void deserialize(T& v, const byte* b) {
-        std::memcpy(std::addressof(v), b, sizeof(T));
-    }
+    static void deserialize(T& v, const byte* b) { std::memcpy(std::addressof(v), b, sizeof(T)); }
 };
 
 template<typename T, typename = void>
@@ -100,8 +99,7 @@ struct default_serializer : std::false_type {};
 // Serialization of numeric types.
 template<typename T, size_t size>
 struct big_endian_serializer {
-    static_assert(sizeof(T) == size,
-                  "Unexpected datatype size.");
+    static_assert(sizeof(T) == size, "Unexpected datatype size.");
 
     static constexpr size_t serialized_size = sizeof(T);
 
@@ -143,8 +141,7 @@ struct default_serializer<i64> : big_endian_serializer<i64, 8> {};
 // For example, a float is copied into a u32 which in turn gets serialized as a big endian value.
 template<typename T, typename U>
 struct float_serializer {
-    static_assert(sizeof(T) == sizeof(U),
-                  "Unexpected size of floating point type.");
+    static_assert(sizeof(T) == sizeof(U), "Unexpected size of floating point type.");
     static_assert(std::numeric_limits<T>::is_iec559,
                   "The floating point type must conform to IEEE 754.");
 
@@ -172,13 +169,9 @@ template<>
 struct default_serializer<bool> {
     static constexpr size_t serialized_size = 1;
 
-    static void serialize(bool v, byte* b) {
-        b[0] = v;
-    }
+    static void serialize(bool v, byte* b) { b[0] = v; }
 
-    static void deserialize(bool& v, const byte* b) {
-        v = b[0];
-    }
+    static void deserialize(bool& v, const byte* b) { v = b[0]; }
 };
 
 // One-dimensional arrays of static size are serialized by serializing each element.
@@ -220,7 +213,8 @@ struct default_serializer<std::array<T, N>> {
 // pair<T1, T2> is serialized by serializing the first, then the second value.
 template<typename T1, typename T2>
 struct default_serializer<std::pair<T1, T2>> {
-    static constexpr size_t serialized_size = prequel::serialized_size<T1>() + prequel::serialized_size<T2>();
+    static constexpr size_t serialized_size =
+        prequel::serialized_size<T1>() + prequel::serialized_size<T2>();
 
     static void serialize(const std::pair<T1, T2>& v, byte* b) {
         b = prequel::serialize(v.first, b);
@@ -240,15 +234,11 @@ struct default_serializer<std::tuple<T...>> {
     static constexpr size_t serialized_size = (prequel::serialized_size<T>() + ...);
 
     static void serialize(const std::tuple<T...>& v, byte* b) {
-        tuple_for_each(v, [&](const auto& elem) {
-            b = prequel::serialize(elem, b);
-        });
+        tuple_for_each(v, [&](const auto& elem) { b = prequel::serialize(elem, b); });
     }
 
-    static void deserialize(std::tuple<T...>&v, const byte* b) {
-        tuple_for_each(v, [&](auto& elem) {
-            b = prequel::deserialize(elem, b);
-        });
+    static void deserialize(std::tuple<T...>& v, const byte* b) {
+        tuple_for_each(v, [&](auto& elem) { b = prequel::deserialize(elem, b); });
     }
 };
 
@@ -256,7 +246,7 @@ struct default_serializer<std::tuple<T...>> {
 template<typename... T>
 constexpr size_t max_size() {
     size_t max = 0;
-    size_t values[] = { sizeof(T)... };
+    size_t values[] = {sizeof(T)...};
     for (size_t v : values) {
         if (v > max)
             max = v;
@@ -287,9 +277,8 @@ struct default_serializer<std::optional<T>> {
             prequel::deserialize(value, b + 1);
             v = std::move(value);
         } else {
-            PREQUEL_THROW(corruption_error(
-                fmt::format("Invalid value for the has_value flag: {}", b[0])
-            ));
+            PREQUEL_THROW(
+                corruption_error(fmt::format("Invalid value for the has_value flag: {}", b[0])));
         }
     }
 };
@@ -304,8 +293,7 @@ struct default_serializer<std::variant<T...>> {
 
     static constexpr size_t max_alternatives = 16;
 
-    static_assert(alternatives <= max_alternatives,
-                  "Too many types in this variant");
+    static_assert(alternatives <= max_alternatives, "Too many types in this variant");
 
     static constexpr size_t serialized_size = 1 + max_size<T...>();
 
@@ -322,14 +310,14 @@ struct default_serializer<std::variant<T...>> {
         ++b;
 
         switch (which) {
-        // Don't make the compiler generate a god damn function pointer table for this.
-        #define PREQUEL_DETAIL_VARIANT_CASE(i)                             \
-                case i: {                                           \
-                    if constexpr (i < alternatives) {               \
-                        b = prequel::serialize(std::get<i>(v), b);  \
-                        break;                                      \
-                    }                                               \
-                }
+// Don't make the compiler generate a god damn function pointer table for this.
+#define PREQUEL_DETAIL_VARIANT_CASE(i)             \
+case i: {                                          \
+    if constexpr (i < alternatives) {              \
+        b = prequel::serialize(std::get<i>(v), b); \
+        break;                                     \
+    }                                              \
+}
 
             PREQUEL_DETAIL_VARIANT_CASE(0)
             PREQUEL_DETAIL_VARIANT_CASE(1)
@@ -348,7 +336,7 @@ struct default_serializer<std::variant<T...>> {
             PREQUEL_DETAIL_VARIANT_CASE(14)
             PREQUEL_DETAIL_VARIANT_CASE(15)
 
-        #undef PREQUEL_DETAIL_VARIANT_CASE
+#undef PREQUEL_DETAIL_VARIANT_CASE
         }
 
         // Zero the remainder of the variant.
@@ -361,25 +349,23 @@ struct default_serializer<std::variant<T...>> {
 
         if (which >= alternatives) {
             PREQUEL_THROW(corruption_error(
-                fmt::format("Invalid value for variant alternative index: {}", which)
-            ));
+                fmt::format("Invalid value for variant alternative index: {}", which)));
         }
 
-
         switch (which) {
-        // Switch case for the type at the given index. The constexpr-if hides the body
-        // of the if statement if the current variant type does not have that many alternatives.
-        // This approach is better than a function table generated at compile time because
-        // it (probably) does not cause excessive binary bloat.
-        #define PREQUEL_DETAIL_VARIANT_CASE(i)                                         \
-            case i: {                                                           \
-                if constexpr (i < alternatives) {                               \
-                    std::variant_alternative_t<i, std::variant<T...>> value;    \
-                    prequel::deserialize(value, b);                             \
-                    v.template emplace<i>(std::move(value));                    \
-                    break;                                                      \
-                }                                                               \
-            };
+// Switch case for the type at the given index. The constexpr-if hides the body
+// of the if statement if the current variant type does not have that many alternatives.
+// This approach is better than a function table generated at compile time because
+// it (probably) does not cause excessive binary bloat.
+#define PREQUEL_DETAIL_VARIANT_CASE(i)                           \
+case i: {                                                        \
+    if constexpr (i < alternatives) {                            \
+        std::variant_alternative_t<i, std::variant<T...>> value; \
+        prequel::deserialize(value, b);                          \
+        v.template emplace<i>(std::move(value));                 \
+        break;                                                   \
+    }                                                            \
+};
 
             PREQUEL_DETAIL_VARIANT_CASE(0)
             PREQUEL_DETAIL_VARIANT_CASE(1)
@@ -398,7 +384,7 @@ struct default_serializer<std::variant<T...>> {
             PREQUEL_DETAIL_VARIANT_CASE(14)
             PREQUEL_DETAIL_VARIANT_CASE(15)
 
-        #undef PREQUEL_DETAIL_VARIANT_CASE
+#undef PREQUEL_DETAIL_VARIANT_CASE
         }
     }
 };
@@ -459,13 +445,9 @@ struct explicit_serializer {
     // cannot define static data members (even if they are constexpr...)
     static constexpr size_t serialized_size = impl::serialized_size();
 
-    static void serialize(const T& v, byte* b) {
-        return impl::serialize(v, b);
-    }
+    static void serialize(const T& v, byte* b) { return impl::serialize(v, b); }
 
-    static void deserialize(T& v, const byte* b) {
-        return impl::deserialize(v, b);
-    }
+    static void deserialize(T& v, const byte* b) { return impl::deserialize(v, b); }
 };
 
 enum class serializer_kind {
@@ -487,7 +469,7 @@ template<typename T>
 constexpr auto which_serializer() {
     if constexpr (use_trivial_serializer<T>()) {
         return serializer_kind::trivial_serialization;
-    } else if constexpr (!std::is_base_of_v<std::false_type, default_serializer<T>>)  {
+    } else if constexpr (!std::is_base_of_v<std::false_type, default_serializer<T>>) {
         return serializer_kind::default_serialization;
     } else {
         if constexpr (has_explicit_serializer<T>::value) {
@@ -495,9 +477,10 @@ constexpr auto which_serializer() {
         } else if constexpr (has_binary_format<T>()) {
             return serializer_kind::binary_format_serialization;
         } else {
-            static_assert(always_false<T>::value,
-                          "The type cannot be serialized. You must either implement get_binary_format() or "
-                          "explicit serialization protocols.");
+            static_assert(
+                always_false<T>::value,
+                "The type cannot be serialized. You must either implement get_binary_format() or "
+                "explicit serialization protocols.");
         }
     }
 }
@@ -596,8 +579,7 @@ byte* serialize(const T& v, byte* buffer) {
 /// \ingroup serialization
 template<typename T>
 byte* serialize(const T& v, byte* buffer, size_t buffer_size) {
-    PREQUEL_ASSERT(buffer_size >= serialized_size(v),
-                 "The provided buffer is too small.");
+    PREQUEL_ASSERT(buffer_size >= serialized_size(v), "The provided buffer is too small.");
 
     unused(buffer_size);
     return serialize(v, buffer);
@@ -621,8 +603,7 @@ const byte* deserialize(T& v, const byte* buffer) {
 /// \ingroup serialization
 template<typename T>
 const byte* deserialize(T& v, const byte* buffer, const size_t buffer_size) {
-    PREQUEL_ASSERT(buffer_size >= serialized_size(v),
-                 "The provided buffer is too small.");
+    PREQUEL_ASSERT(buffer_size >= serialized_size(v), "The provided buffer is too small.");
     unused(buffer_size);
     return deserialize(v, buffer);
 }
@@ -631,9 +612,9 @@ const byte* deserialize(T& v, const byte* buffer, const size_t buffer_size) {
 /// \ingroup serialization
 template<typename T>
 serialized_buffer<T> serialized_value(const T& instance) {
-   std::array<byte, serialized_size<T>()> buffer;
-   serialize(instance, buffer.data(), buffer.size());
-   return buffer;
+    std::array<byte, serialized_size<T>()> buffer;
+    serialize(instance, buffer.data(), buffer.size());
+    return buffer;
 }
 
 /// Deserializes a value of type `T` from a buffer.
@@ -743,7 +724,7 @@ constexpr size_t serialized_offset_recursive() {
 template<auto MemberPtr, auto... MemberPtrs>
 constexpr size_t serialized_offset() {
     static_assert(std::is_member_object_pointer<decltype(MemberPtr)>::value
-                  && (std::is_member_object_pointer<decltype(MemberPtrs)>::value && ...),
+                      && (std::is_member_object_pointer<decltype(MemberPtrs)>::value && ...),
                   "Must pass members pointers.");
     using object_type = object_type_t<decltype(MemberPtr)>;
     return detail::serialized_offset_recursive<object_type, MemberPtr, MemberPtrs...>();

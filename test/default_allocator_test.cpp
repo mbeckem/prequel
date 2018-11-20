@@ -11,7 +11,6 @@ using namespace prequel;
 namespace {
 
 constexpr u32 block_size = 256;
-
 }
 
 TEST_CASE("default allocator", "[default-allocator]") {
@@ -54,7 +53,7 @@ TEST_CASE("default allocator", "[default-allocator]") {
         REQUIRE(a4 == a1 + 1);
         alloc.free(a4, 1);
 
-        auto a5  = alloc.allocate(5);
+        auto a5 = alloc.allocate(5);
         REQUIRE(a5 == a3 + 1);
         REQUIRE(alloc.stats().data_used == 7);
 
@@ -101,7 +100,8 @@ TEST_CASE("default allocator", "[default-allocator]") {
         auto b5 = alloc.reallocate(b4, 1024, 3024);
         REQUIRE(b5 == b4); // In place b4 was the last extent.
         REQUIRE(alloc.stats().data_total == 4096 + 32);
-        REQUIRE(alloc.stats().data_free + alloc.stats().meta_data == 1048 + 32); // 48 additional blocks b/c the +2k blocks are rounded to 2048.
+        REQUIRE(alloc.stats().data_free + alloc.stats().meta_data
+                == 1048 + 32); // 48 additional blocks b/c the +2k blocks are rounded to 2048.
 
         auto b6 = alloc.reallocate(b5, 3024, 3072);
         REQUIRE(b6 == b5);

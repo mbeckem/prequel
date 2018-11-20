@@ -17,9 +17,7 @@ public:
         /// Points to the first block in the list.
         block_index head;
 
-        constexpr static auto get_binary_format() {
-            return make_binary_format(&anchor::head);
-        }
+        constexpr static auto get_binary_format() { return make_binary_format(&anchor::head); }
 
         friend binary_format_access;
         friend free_list;

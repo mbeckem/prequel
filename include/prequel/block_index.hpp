@@ -1,9 +1,9 @@
 #ifndef PREQUEL_BLOCK_INDEX_HPP
 #define PREQUEL_BLOCK_INDEX_HPP
 
+#include <prequel/assert.hpp>
 #include <prequel/binary_format.hpp>
 #include <prequel/defs.hpp>
-#include <prequel/assert.hpp>
 #include <prequel/detail/operators.hpp>
 
 #include <ostream>
@@ -13,11 +13,9 @@ namespace prequel {
 class engine;
 
 /// References a block in secondary storage by index.
-class block_index :
-        public detail::make_addable<block_index, u64>,
-        public detail::make_subtractable<block_index, u64>,
-        public detail::make_comparable<block_index>
-{
+class block_index : public detail::make_addable<block_index, u64>,
+                    public detail::make_subtractable<block_index, u64>,
+                    public detail::make_comparable<block_index> {
 public:
     static constexpr u64 invalid_value = u64(-1);
 
@@ -28,8 +26,7 @@ public:
     /// Constructs a block index with the given value.
     /// Passing \ref invalid_value creates an invalid block index.
     explicit block_index(u64 index)
-        : m_value(index)
-    {}
+        : m_value(index) {}
 
     /// Returns true if the block index refers to a block in secondary storage.
     /// \{
@@ -55,13 +52,9 @@ public:
         return *this;
     }
 
-    bool operator<(const block_index& rhs) const {
-        return (value() + 1) < (rhs.value() + 1);
-    }
+    bool operator<(const block_index& rhs) const { return (value() + 1) < (rhs.value() + 1); }
 
-    bool operator==(const block_index& rhs) const {
-        return value() == rhs.value();
-    }
+    bool operator==(const block_index& rhs) const { return value() == rhs.value(); }
 
     friend std::ostream& operator<<(std::ostream& o, const block_index& index) {
         if (!index)
@@ -71,9 +64,7 @@ public:
         return o;
     }
 
-    static constexpr auto get_binary_format() {
-        return make_binary_format(&block_index::m_value);
-    }
+    static constexpr auto get_binary_format() { return make_binary_format(&block_index::m_value); }
 
 private:
     u64 m_value = invalid_value;

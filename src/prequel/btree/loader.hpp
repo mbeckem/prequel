@@ -3,8 +3,8 @@
 
 #include <prequel/block_index.hpp>
 #include <prequel/btree/base.hpp>
-#include <prequel/btree/leaf_node.hpp>
 #include <prequel/btree/internal_node.hpp>
+#include <prequel/btree/leaf_node.hpp>
 
 #include <memory>
 #include <vector>
@@ -52,11 +52,7 @@ private:
     void insert_child_nonfull(proto_internal_node& node, const byte* key, block_index child);
     void flush_leaf();
 
-    enum state_t {
-        STATE_OK,
-        STATE_ERROR,
-        STATE_FINALIZED
-    };
+    enum state_t { STATE_OK, STATE_ERROR, STATE_FINALIZED };
 
 private:
     // Constants
@@ -69,9 +65,9 @@ private:
     state_t m_state = STATE_OK;
 
     // Track these values while we build the tree.
-    block_index m_leftmost_leaf;    // First leaf created.
-    block_index m_rightmost_leaf;   // Last leaf created.
-    u64 m_size = 0;                 // Total number of values inserted.
+    block_index m_leftmost_leaf;  // First leaf created.
+    block_index m_rightmost_leaf; // Last leaf created.
+    u64 m_size = 0;               // Total number of values inserted.
 
     // One proto node for every level of internal nodes.
     // The last entry is the root. Unique pointer for stable addresses.

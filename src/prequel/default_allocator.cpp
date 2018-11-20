@@ -20,8 +20,7 @@ public:
         , m_meta_freelist(m_anchor.member<&anchor::meta_freelist>(), m_engine)
         , m_meta_alloc(this, m_engine)
         , m_extents_by_position(m_anchor.member<&anchor::extents_by_position>(), m_meta_alloc)
-        , m_extents_by_size(m_anchor.member<&anchor::extents_by_size>(), m_meta_alloc)
-    {}
+        , m_extents_by_size(m_anchor.member<&anchor::extents_by_size>(), m_meta_alloc) {}
 
     impl_t(const impl_t&) = delete;
     impl_t& operator=(const impl_t&) = delete;
@@ -36,9 +35,7 @@ public:
     }
 
     void free(block_index block, u64 size);
-    void free(extent_t extent) {
-        free(extent.block, extent.size);
-    }
+    void free(extent_t extent) { free(extent.block, extent.size); }
 
     allocation_stats stats() const;
 
@@ -64,10 +61,8 @@ private:
     extent_t allocate_from_front();
 
     // Removes the extent from both datastructures and keeps the free block counter in sync.
-    void allocate_extent(const extent_t& extent,
-                         extent_position_cursor& by_pos,
+    void allocate_extent(const extent_t& extent, extent_position_cursor& by_pos,
                          extent_size_cursor& by_size);
-
 
     void free_internal(const extent_t& free);
 
@@ -95,18 +90,16 @@ private:
     }
 
     /// Reserve this many blocks before allocating anything else.
-    u32 required_total_meta_blocks() const {
-        return 6;
-    }
+    u32 required_total_meta_blocks() const { return 6; }
 
     /// Number of metadata blocks we need before we can continue normal operations.
     u32 needed_metadata_blocks() const {
         const u32 needed_total = meta_total() < required_total_meta_blocks()
-                ? required_total_meta_blocks() - meta_total()
-                : 0;
-        const u32 needed_free =meta_free() < required_free_meta_blocks()
-                ? required_free_meta_blocks() - meta_free()
-                : 0;
+                                     ? required_total_meta_blocks() - meta_total()
+                                     : 0;
+        const u32 needed_free = meta_free() < required_free_meta_blocks()
+                                    ? required_free_meta_blocks() - meta_free()
+                                    : 0;
         return std::max(needed_free, needed_total);
     }
 
@@ -162,8 +155,7 @@ private:
 
         metadata_allocator(impl_t* _impl, engine& _engine)
             : allocator(_engine)
-            , parent(_impl)
-        {}
+            , parent(_impl) {}
 
         metadata_allocator(const metadata_allocator&) = delete;
         metadata_allocator& operator=(const metadata_allocator&) = delete;
@@ -187,21 +179,13 @@ private:
     };
 
 private:
-    void set_meta_free(u64 meta_free) {
-        m_anchor.set<&anchor::meta_free>(meta_free);
-    }
+    void set_meta_free(u64 meta_free) { m_anchor.set<&anchor::meta_free>(meta_free); }
 
-    void set_meta_total(u64 meta_total) {
-        m_anchor.set<&anchor::meta_total>(meta_total);
-    }
+    void set_meta_total(u64 meta_total) { m_anchor.set<&anchor::meta_total>(meta_total); }
 
-    void set_data_free(u64 data_free) {
-        m_anchor.set<&anchor::data_free>(data_free);
-    }
+    void set_data_free(u64 data_free) { m_anchor.set<&anchor::data_free>(data_free); }
 
-    void set_data_total(u64 data_total) {
-        m_anchor.set<&anchor::data_total>(data_total);
-    }
+    void set_data_total(u64 data_total) { m_anchor.set<&anchor::data_total>(data_total); }
 
     u64 meta_free() const { return m_anchor.get<&anchor::meta_free>(); }
     u64 meta_total() const { return m_anchor.get<&anchor::meta_total>(); }
@@ -272,9 +256,12 @@ block_index default_allocator::impl_t::allocate(u64 request) {
     }
 
     // If the last extent borders the end of file, we can grow it.
-    if (extent_position_cursor last_pos = m_extents_by_position.create_cursor(m_extents_by_position.seek_max); last_pos) {
+    if (extent_position_cursor last_pos =
+            m_extents_by_position.create_cursor(m_extents_by_position.seek_max);
+        last_pos) {
         const extent_t last_extent = last_pos.get();
-        PREQUEL_ASSERT(last_extent.size < request, "Must not be able to satisfy allocation (see best fit above).");
+        PREQUEL_ASSERT(last_extent.size < request,
+                       "Must not be able to satisfy allocation (see best fit above).");
 
         if (borders_end(last_extent)) {
             extent_size_cursor last_size = find_size_entry(last_extent);
@@ -284,7 +271,8 @@ block_index default_allocator::impl_t::allocate(u64 request) {
 
             allocate_extent(last_extent, last_pos, last_size);
 
-            const extent_t remainder(last_extent.block + request, last_extent.size + allocated.size - request);
+            const extent_t remainder(last_extent.block + request,
+                                     last_extent.size + allocated.size - request);
             free(remainder);
             return last_extent.block;
         }
@@ -362,7 +350,8 @@ block_index default_allocator::impl_t::reallocate(block_index block, u64 size, u
                 allocate_extent(prev_extent, prev_pos, prev_size);
                 copy_blocks(m_engine, block, prev_extent.block, size);
 
-                const extent_t remainder(prev_extent.block + new_size, prev_extent.size + size - new_size);
+                const extent_t remainder(prev_extent.block + new_size,
+                                         prev_extent.size + size - new_size);
                 free(remainder);
                 return prev_extent.block;
             }
@@ -498,8 +487,7 @@ default_allocator::extent_t default_allocator::impl_t::allocate_from_front() {
 
 void default_allocator::impl_t::allocate_extent(const extent_t& extent,
                                                 extent_position_cursor& by_pos,
-                                                extent_size_cursor& by_size)
-{
+                                                extent_size_cursor& by_size) {
     PREQUEL_ASSERT(extent.block, "Invalid extent.");
     PREQUEL_ASSERT(by_pos && by_pos.get() == extent, "Inconsistent by_pos cursor.");
     PREQUEL_ASSERT(by_size && by_size.get() == extent, "Inconsistent by_size cursor.");
@@ -516,7 +504,8 @@ void default_allocator::impl_t::allocate_extent(const extent_t& extent,
  */
 void default_allocator::impl_t::free_internal(const extent_t& free) {
     PREQUEL_ASSERT(free.block && free.size > 0, "Empty or invalid extent.");
-    PREQUEL_ASSERT(meta_free() >= required_free_meta_blocks(), "Not enough free metadata blocks for insertion.");
+    PREQUEL_ASSERT(meta_free() >= required_free_meta_blocks(),
+                   "Not enough free metadata blocks for insertion.");
 
     // Merge left and right neighbor into the entry if possible, then insert it into the tree.
     extent_t entry = free;
@@ -598,7 +587,7 @@ bool default_allocator::impl_t::take_metadata(extent_t& free, u32 needed) {
         take = free.size;
 
     // Push in reversed order b/c freelist behaves like a stack.
-    for (u64 i = take; i-- > 0; ) {
+    for (u64 i = take; i-- > 0;) {
         m_meta_freelist.push(free.block + i);
     }
     set_meta_free(meta_free() + take);
@@ -644,13 +633,13 @@ void default_allocator::impl_t::dump(std::ostream& os) const {
                "  Data used:        {} blocks\n"
                "  Data free:        {} blocks\n"
                "  Metadata:         {} blocks\n",
-               st.data_total, st.data_used, st.data_free,
-               st.meta_data);
+               st.data_total, st.data_used, st.data_free, st.meta_data);
 
     if (m_extents_by_position.size() > 0) {
         fmt::print(os, "\n");
         fmt::print(os, "Free extents ({} total):\n", m_extents_by_position.size());
-        for (auto c = m_extents_by_position.create_cursor(m_extents_by_position.seek_min); c; c.move_next()) {
+        for (auto c = m_extents_by_position.create_cursor(m_extents_by_position.seek_min); c;
+             c.move_next()) {
             extent_t extent = c.get();
             fmt::print(os, "  Start: {}, Size: {}\n", extent.block, extent.size);
         }
@@ -673,11 +662,11 @@ void default_allocator::impl_t::validate() const {
             const extent_t extent = by_pos.get();
             if (!by_size.find(extent)) {
                 PREQUEL_THROW(corruption_error(
-                                fmt::format("Failed to find by-size entry for extent at {}.", extent.block)));
+                    fmt::format("Failed to find by-size entry for extent at {}.", extent.block)));
             }
             if (extent != by_size.get()) {
                 PREQUEL_THROW(corruption_error(
-                                fmt::format("Unexpected extent in by-size tree at {}.", extent.block)));
+                    fmt::format("Unexpected extent in by-size tree at {}.", extent.block)));
             }
 
             data_free += extent.size;
@@ -688,11 +677,11 @@ void default_allocator::impl_t::validate() const {
             const extent_t extent = by_size.get();
             if (!by_pos.find(extent.block)) {
                 PREQUEL_THROW(corruption_error(
-                                fmt::format("Failed to find by-pos entry for extent at {}.", extent.block)));
+                    fmt::format("Failed to find by-pos entry for extent at {}.", extent.block)));
             }
             if (extent != by_pos.get()) {
                 PREQUEL_THROW(corruption_error(
-                                fmt::format("Unexpected extent in by-pos tree at {}.", extent.block)));
+                    fmt::format("Unexpected extent in by-pos tree at {}.", extent.block)));
             }
         }
     }
@@ -711,13 +700,11 @@ void default_allocator::impl_t::validate() const {
 
 default_allocator::default_allocator(anchor_handle<anchor> _anchor, engine& _engine)
     : allocator(_engine)
-    , m_impl(std::make_unique<impl_t>(std::move(_anchor), _engine))
-{}
+    , m_impl(std::make_unique<impl_t>(std::move(_anchor), _engine)) {}
 
 default_allocator::default_allocator(anchor_handle<anchor> _anchor, engine& _engine, bool can_grow)
     : allocator(_engine)
-    , m_impl(std::make_unique<impl_t>(std::move(_anchor), _engine, can_grow))
-{}
+    , m_impl(std::make_unique<impl_t>(std::move(_anchor), _engine, can_grow)) {}
 
 default_allocator::~default_allocator() {}
 

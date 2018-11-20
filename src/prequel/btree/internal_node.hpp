@@ -1,8 +1,8 @@
 #ifndef PREQUEL_BTREE_INTERNAL_NODE_HPP
 #define PREQUEL_BTREE_INTERNAL_NODE_HPP
 
-#include <prequel/defs.hpp>
 #include <prequel/block_index.hpp>
+#include <prequel/defs.hpp>
 #include <prequel/handle.hpp>
 #include <prequel/serialization.hpp>
 
@@ -23,11 +23,9 @@ class internal_node {
     static constexpr auto block_index_size = serialized_size<block_index>();
 
     struct header {
-        u32 size = 0;   // Number of children in this node <= capacity.
+        u32 size = 0; // Number of children in this node <= capacity.
 
-        static constexpr auto get_binary_format() {
-            return make_binary_format(&header::size);
-        }
+        static constexpr auto get_binary_format() { return make_binary_format(&header::size); }
     };
 
 public:
@@ -36,12 +34,11 @@ public:
     internal_node(block_handle block, u32 key_size, u32 max_children)
         : m_handle(std::move(block), 0)
         , m_key_size(key_size)
-        , m_max_children(max_children)
-    {
+        , m_max_children(max_children) {
         PREQUEL_ASSERT(key_size > 0, "Invalid key size");
         PREQUEL_ASSERT(max_children > 1, "Invalid capacity");
         PREQUEL_ASSERT(compute_size(max_children, key_size) <= m_handle.block().block_size(),
-                     "Node is too large.");
+                       "Node is too large.");
     }
 
     bool valid() const { return m_handle.valid(); }
@@ -60,9 +57,7 @@ public:
         m_handle.block().write(offset_of_key(index), key, m_key_size);
     }
 
-    const byte* get_key(u32 index) const {
-        return m_handle.block().data() + offset_of_key(index);
-    }
+    const byte* get_key(u32 index) const { return m_handle.block().data() + offset_of_key(index); }
 
     void set_child(u32 index, block_index child) const {
         m_handle.block().set(offset_of_child(index), child);
@@ -119,9 +114,7 @@ public:
         return (block_size - hdr_size + key_size) / (key_size + ptr_size);
     }
 
-    static u32 compute_min_children(u32 max_children) {
-        return max_children / 2;
-    }
+    static u32 compute_min_children(u32 max_children) { return max_children / 2; }
 
     static u32 compute_size(u32 max_children, u32 key_size) {
         PREQUEL_ASSERT(max_children > 1, "Invalid node capacity.");
@@ -134,9 +127,7 @@ public:
 private:
     u32 offset_of_child(u32 index) const {
         PREQUEL_ASSERT(index <= max_children(), "Child index out of bounds");
-        return serialized_size<header>()
-                + (max_keys() * m_key_size)
-                + (index * block_index_size);
+        return serialized_size<header>() + (max_keys() * m_key_size) + (index * block_index_size);
     }
 
     u32 offset_of_key(u32 index) const {
@@ -146,8 +137,8 @@ private:
 
 private:
     handle<header> m_handle;
-    u32 m_key_size = 0;         // Size of a search key
-    u32 m_max_children = 0;     // Number of CHILDREN per node (there can be `capacity - 1` keys).
+    u32 m_key_size = 0;     // Size of a search key
+    u32 m_max_children = 0; // Number of CHILDREN per node (there can be `capacity - 1` keys).
 };
 
 } // namespace prequel::detail::btree_impl

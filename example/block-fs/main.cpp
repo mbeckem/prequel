@@ -50,9 +50,8 @@ static struct stat to_stat(const file_metadata& metadata) {
 }
 
 // List the files in the root directory.
-static int fs_readdir(const char* path, void* buf, fuse_fill_dir_t filler,
-                      off_t offset, struct fuse_file_info* fi)
-{
+static int fs_readdir(const char* path, void* buf, fuse_fill_dir_t filler, off_t offset,
+                      struct fuse_file_info* fi) {
     prequel::unused(offset, fi);
 
     if (std::strcmp(path, "/") != 0)
@@ -89,7 +88,7 @@ static int fs_utimens(const char* path, const struct timespec tv[2]) {
 }
 
 // Get file attributes.
-static int fs_getattr(const char* path, struct stat *st) {
+static int fs_getattr(const char* path, struct stat* st) {
     std::memset(st, 0, sizeof(*st));
 
     filesystem& fs = filesystem_context();
@@ -145,9 +144,8 @@ static int fs_open(const char* path, struct fuse_file_info* fi) {
 }
 
 // Read from a file.
-static int fs_read(const char* path, char* buf, size_t size, off_t offset,
-                   struct fuse_file_info* fi)
-{
+static int
+fs_read(const char* path, char* buf, size_t size, off_t offset, struct fuse_file_info* fi) {
     prequel::unused(fi);
 
     if (offset < 0) {
@@ -159,9 +157,8 @@ static int fs_read(const char* path, char* buf, size_t size, off_t offset,
 }
 
 // Write to a file.
-static int fs_write(const char* path, const char* buf, size_t size, off_t offset,
-                    struct fuse_file_info* fi)
-{
+static int
+fs_write(const char* path, const char* buf, size_t size, off_t offset, struct fuse_file_info* fi) {
     prequel::unused(fi);
 
     if (offset < 0) {
@@ -219,18 +216,16 @@ static int trap_exceptions(Args... args) {
 template<auto Function>
 struct trap {
     template<typename... Args>
-    using func = int(*)(Args...);
+    using func = int (*)(Args...);
 
     // Overloaded conversion to function pointer ;)
     template<typename... Args>
     operator func<Args...>() const {
-        return [](Args... args) -> int {
-            return trap_exceptions<Function>(args...);
-        };
+        return [](Args... args) -> int { return trap_exceptions<Function>(args...); };
     }
 };
 
-static const fuse_operations operations = []{
+static const fuse_operations operations = [] {
     fuse_operations ops;
     std::memset(&ops, 0, sizeof(ops));
 
@@ -247,30 +242,25 @@ static const fuse_operations operations = []{
     return ops;
 }();
 
-static struct options_t {
-    const char* filename;
-} options;
+static struct options_t { const char* filename; } options;
 
 enum {
-     KEY_HELP,
-     KEY_VERSION,
+    KEY_HELP,
+    KEY_VERSION,
 };
 
-#define FS_OPTION(t, p)    \
-    { t, offsetof(options_t, p), 1}
+#define FS_OPTION(t, p) \
+    { t, offsetof(options_t, p), 1 }
 
-static const struct fuse_opt option_spec[] = {
-    FS_OPTION("--file=%s", filename),
+static const struct fuse_opt option_spec[] = {FS_OPTION("--file=%s", filename),
 
-    FUSE_OPT_KEY("-V",          KEY_VERSION),
-    FUSE_OPT_KEY("--version",   KEY_VERSION),
-    FUSE_OPT_KEY("-h",          KEY_HELP),
-    FUSE_OPT_KEY("--help",      KEY_HELP),
-    FUSE_OPT_END
-};
+                                              FUSE_OPT_KEY("-V", KEY_VERSION),
+                                              FUSE_OPT_KEY("--version", KEY_VERSION),
+                                              FUSE_OPT_KEY("-h", KEY_HELP),
+                                              FUSE_OPT_KEY("--help", KEY_HELP),
+                                              FUSE_OPT_END};
 
-static int option_callback(void *data, const char *arg, int key, struct fuse_args *outargs)
-{
+static int option_callback(void* data, const char* arg, int key, struct fuse_args* outargs) {
     (void) data;
     (void) arg;
 
@@ -327,9 +317,8 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    auto file = prequel::system_vfs().open(options.filename,
-                                         prequel::vfs::read_write,
-                                         prequel::vfs::open_normal);
+    auto file = prequel::system_vfs().open(options.filename, prequel::vfs::read_write,
+                                           prequel::vfs::open_normal);
 
     // Limits the cache to 128 MB.
     prequel::file_engine engine(*file, block_size, (128 * (1 << 20)) / block_size);

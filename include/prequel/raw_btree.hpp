@@ -46,9 +46,8 @@ struct raw_btree_anchor {
 
     static constexpr auto get_binary_format() {
         using self = raw_btree_anchor;
-        return make_binary_format(
-                    &self::size, &self::leaf_nodes, &self::internal_nodes, &self::height,
-                    &self::root, &self::leftmost, &self::rightmost);
+        return make_binary_format(&self::size, &self::leaf_nodes, &self::internal_nodes,
+                                  &self::height, &self::root, &self::leftmost, &self::rightmost);
     }
 };
 
@@ -264,8 +263,7 @@ public:
 
         insert_result(cursor position, bool inserted)
             : position(std::move(position))
-            , inserted(inserted)
-        {}
+            , inserted(inserted) {}
     };
 
     using insert_result_t = insert_result;
@@ -290,7 +288,7 @@ public:
         node_view& operator=(const node_view&) = delete;
 
     public:
-        virtual bool is_leaf() const  = 0;
+        virtual bool is_leaf() const = 0;
         virtual bool is_internal() const = 0;
 
         virtual u32 level() const = 0;
@@ -423,13 +421,15 @@ public:
     /// will be invoked for every node until it returns false, at which point the iteration
     /// through the tree will stop.
     /// The tree must not be modified during this operation.
-    void visit(bool (*visit_fn)(const node_view& node, void* user_data), void* user_data = nullptr) const;
+    void visit(bool (*visit_fn)(const node_view& node, void* user_data),
+               void* user_data = nullptr) const;
 
     template<typename Func>
     void visit(Func&& fn) const {
         using func_t = std::remove_reference_t<Func>;
 
-        bool (*visit_fn)(const node_view&, void*) = [](const node_view& node, void* user_data) -> bool {
+        bool (*visit_fn)(const node_view&, void*) = [](const node_view& node,
+                                                       void* user_data) -> bool {
             func_t* fn = reinterpret_cast<func_t*>(user_data);
             return (*fn)(node);
         };

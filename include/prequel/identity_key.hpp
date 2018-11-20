@@ -11,7 +11,9 @@ namespace prequel {
 
 struct identity_t {
     template<typename T>
-    T operator()(const T& value) const { return value; }
+    T operator()(const T& value) const {
+        return value;
+    }
 };
 
 } // namespace prequel

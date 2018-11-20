@@ -19,8 +19,7 @@ private:
     friend prequel::binary_format_access;
 
     static constexpr auto get_binary_format() {
-        return make_binary_format(&has_format::a, &has_format::b,
-                                  &has_format::c, &has_format::d);
+        return make_binary_format(&has_format::a, &has_format::b, &has_format::c, &has_format::d);
     }
 };
 
@@ -31,14 +30,9 @@ struct test1 {
     i8 v1 = 0;
     u64 v2 = 0;
 
-    bool operator==(const test1& other) const {
-        return v1 == other.v1 && v2 == other.v2;
-    }
+    bool operator==(const test1& other) const { return v1 == other.v1 && v2 == other.v2; }
 
-    static constexpr auto get_binary_format() {
-        return make_binary_format(&test1::v1,
-                                  &test1::v2);
-    }
+    static constexpr auto get_binary_format() { return make_binary_format(&test1::v1, &test1::v2); }
 };
 
 // Trivial serialization for bytes and byte containers. The compile down to a single memcpy call.
@@ -69,12 +63,9 @@ T make_deserialized(const std::array<byte, serialized_size<T>()>& buffer) {
 }
 
 TEST_CASE("roundtrips", "[serialization]") {
-    auto rt = [](auto value) {
-        return make_deserialized<decltype(value)>(make_serialized(value));
-    };
+    auto rt = [](auto value) { return make_deserialized<decltype(value)>(make_serialized(value)); };
 
-#define ROUND_TRIP(type, v) \
-    REQUIRE(type(v) == rt(type(v)));
+#define ROUND_TRIP(type, v) REQUIRE(type(v) == rt(type(v)));
 
     ROUND_TRIP(u8, 0);
     ROUND_TRIP(u8, 1);
@@ -90,21 +81,12 @@ TEST_CASE("roundtrips", "[serialization]") {
     ROUND_TRIP(u32, 0);
     ROUND_TRIP(u32, 1);
     ROUND_TRIP(u32, -1);
-    ROUND_TRIP(u32, (u32(123) << 24)
-                  + (u32(122) << 16)
-                  + (u32(121) << 8)
-                  + (u32(120) << 0));
+    ROUND_TRIP(u32, (u32(123) << 24) + (u32(122) << 16) + (u32(121) << 8) + (u32(120) << 0));
 
     ROUND_TRIP(u64, 0);
     ROUND_TRIP(u64, -1);
-    ROUND_TRIP(u64, (u64(123) << 56)
-                  + (u64(122) << 48)
-                  + (u64(121) << 40)
-                  + (u64(120) << 32)
-                  + (u64(119) << 24)
-                  + (u64(118) << 16)
-                  + (u64(117) << 8)
-                  + (u64(116) << 0));
+    ROUND_TRIP(u64, (u64(123) << 56) + (u64(122) << 48) + (u64(121) << 40) + (u64(120) << 32)
+                        + (u64(119) << 24) + (u64(118) << 16) + (u64(117) << 8) + (u64(116) << 0));
 
     ROUND_TRIP(i8, 0);
     ROUND_TRIP(i8, 1);
@@ -260,9 +242,7 @@ TEST_CASE("optional serialization", "[serialization]") {
             return make_binary_format(&test_t::a, &test_t::b);
         }
 
-        bool operator==(const test_t& other) const {
-            return a == other.a && b == other.b;
-        }
+        bool operator==(const test_t& other) const { return a == other.a && b == other.b; }
     };
 
     using opt_t = std::optional<test_t>;
@@ -309,12 +289,11 @@ TEST_CASE("variant serialization", "[serialization]") {
             return make_binary_format(&point::x, &point::y, &point::z);
         }
 
-        bool operator==(const point& p) const {
-            return x == p.x && y == p.y && z == p.z;
-        }
+        bool operator==(const point& p) const { return x == p.x && y == p.y && z == p.z; }
     };
 
-    REQUIRE(prequel::serialized_size<std::variant<i32, double>>() == 9); // 1 + max(size(i32), size(double))
+    REQUIRE(prequel::serialized_size<std::variant<i32, double>>()
+            == 9); // 1 + max(size(i32), size(double))
     REQUIRE(prequel::serialized_size<std::variant<bool, char>>() == 2); // 1 + max(1, 1)
 
     using variant_t = std::variant<i32, double, point>;
@@ -364,8 +343,6 @@ TEST_CASE("variant serialization", "[serialization]") {
         deserialize(v, buffer.data());
         REQUIRE(std::get<double>(v) == 123.1234);
     }
-
-
 }
 
 TEST_CASE("array serialization", "[serialization]") {
@@ -413,9 +390,7 @@ TEST_CASE("array serialization", "[serialization]") {
 
 TEST_CASE("struct serialization", "[serialization]") {
     struct empty_t {
-        static constexpr auto get_binary_format() {
-            return make_binary_format<empty_t>();
-        }
+        static constexpr auto get_binary_format() { return make_binary_format<empty_t>(); }
     } empty;
 
     struct simple_t {
@@ -480,7 +455,7 @@ TEST_CASE("struct serialization", "[serialization]") {
 TEST_CASE("serialized offset of", "[serialization]") {
     struct s1 {
         u32 x;
-        u8  y;
+        u8 y;
         u32 z;
 
         static constexpr auto get_binary_format() {
@@ -491,8 +466,8 @@ TEST_CASE("serialized offset of", "[serialization]") {
     struct s2 {
         u64 a;
         u64 b;
-        s1  c;
-        u8  d;
+        s1 c;
+        u8 d;
 
         static constexpr auto get_binary_format() {
             return make_binary_format(&s2::a, &s2::b, &s2::c, &s2::d);
@@ -587,39 +562,28 @@ TEST_CASE("complex struct", "[serialization]") {
 
         static constexpr auto get_binary_format() {
             return make_binary_format(
-                &sqlite_header_t::magic,
-                &sqlite_header_t::page_size,
-                &sqlite_header_t::write_version,
-                &sqlite_header_t::read_version,
+                &sqlite_header_t::magic, &sqlite_header_t::page_size,
+                &sqlite_header_t::write_version, &sqlite_header_t::read_version,
                 &sqlite_header_t::reserved_at_end,
 
                 &sqlite_header_t::max_embedded_payload_fraction,
                 &sqlite_header_t::min_embedded_payload_fraction,
                 &sqlite_header_t::leaf_payload_fraction,
 
-                &sqlite_header_t::file_change_counter,
-                &sqlite_header_t::file_size,
+                &sqlite_header_t::file_change_counter, &sqlite_header_t::file_size,
 
-                &sqlite_header_t::first_freelist_page,
-                &sqlite_header_t::freelist_pages,
+                &sqlite_header_t::first_freelist_page, &sqlite_header_t::freelist_pages,
 
-                &sqlite_header_t::schema_cookie,
-                &sqlite_header_t::schema_format,
+                &sqlite_header_t::schema_cookie, &sqlite_header_t::schema_format,
 
                 &sqlite_header_t::default_page_cache_size,
-                &sqlite_header_t::largest_btree_root_page,
-                &sqlite_header_t::text_encoding,
-                &sqlite_header_t::user_version,
-                &sqlite_header_t::incremental_vacuum,
-                &sqlite_header_t::application_id,
-                &sqlite_header_t::reserved,
+                &sqlite_header_t::largest_btree_root_page, &sqlite_header_t::text_encoding,
+                &sqlite_header_t::user_version, &sqlite_header_t::incremental_vacuum,
+                &sqlite_header_t::application_id, &sqlite_header_t::reserved,
 
-                &sqlite_header_t::version_valid_for,
-                &sqlite_header_t::sqlite_version_number
-            );
+                &sqlite_header_t::version_valid_for, &sqlite_header_t::sqlite_version_number);
         }
     };
-
 
     REQUIRE(serialized_size<sqlite_header_t>() == 100);
 
@@ -641,11 +605,11 @@ TEST_CASE("complex struct", "[serialization]") {
 
 TEST_CASE("custom serializer", "[serialization]") {
     struct free_t {
-        u64 free : 1;   // 1
+        u64 free : 1; // 1
         u64 next : 63;
     };
     struct object_t {
-        u64 free : 1;   // 0
+        u64 free : 1; // 0
         u64 marked : 1;
         u64 addr : 62;
     };
@@ -684,15 +648,11 @@ TEST_CASE("custom serializer", "[serialization]") {
             if (free.free) {
                 return free.next == other.free.next;
             }
-            return object.marked == other.object.marked
-                    && object.addr == other.object.addr;
+            return object.marked == other.object.marked && object.addr == other.object.addr;
         }
 
-
         struct binary_serializer {
-            constexpr static size_t serialized_size() {
-                return prequel::serialized_size<u64>();
-            }
+            constexpr static size_t serialized_size() { return prequel::serialized_size<u64>(); }
 
             static void serialize(const entry_t& e, byte* b) {
                 u64 val = 0;
@@ -725,13 +685,9 @@ TEST_CASE("custom serializer", "[serialization]") {
     REQUIRE(sizeof(entry_t) == sizeof(u64));
     REQUIRE(serialized_size<entry_t>() == serialized_size<u64>());
 
+    auto rt = [](auto value) { return make_deserialized<decltype(value)>(make_serialized(value)); };
 
-    auto rt = [](auto value) {
-        return make_deserialized<decltype(value)>(make_serialized(value));
-    };
-
-#define ROUND_TRIP(v) \
-    REQUIRE(v == rt(v));
+#define ROUND_TRIP(v) REQUIRE(v == rt(v));
 
     ROUND_TRIP(entry_t::make_free(0));
     ROUND_TRIP(entry_t::make_free(1));
@@ -767,15 +723,9 @@ TEST_CASE("nested objects", "[serialization]") {
             }
         } v2_;
 
-        static constexpr auto get_binary_format() {
-            return make_binary_format(&v1::a, &v1::v2_);
-        }
+        static constexpr auto get_binary_format() { return make_binary_format(&v1::a, &v1::v2_); }
     } v1_;
 
-    size_t offset = serialized_offset<
-        &v1::v2_,
-        &v1::v2::v3_,
-        &v1::v2::v3::e
-    >();
+    size_t offset = serialized_offset<&v1::v2_, &v1::v2::v3_, &v1::v2::v3::e>();
     REQUIRE(offset == 17);
 }

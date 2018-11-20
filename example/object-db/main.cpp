@@ -32,7 +32,8 @@ private:
 
 public:
     node_id() = default;
-    node_id(uint64_t value): m_value(value) {}
+    node_id(uint64_t value)
+        : m_value(value) {}
 
     uint64_t value() const { return m_value; }
 
@@ -56,7 +57,7 @@ class interned_strings {
     // unused interned keys. But currently we just store them forever (only keys
     // are interned).
     struct entry {
-        prequel::heap_reference string;   // Reference to the string.
+        prequel::heap_reference string; // Reference to the string.
         uint64_t hash = 0;              // The hash of the string.
 
         // Entries are indexed by their hash (and the location in the heap as a second
@@ -83,15 +84,13 @@ public:
     using anchor = typename tree_type::anchor;
 
 public:
-    interned_strings(prequel::anchor_handle<anchor> anc, prequel::allocator& alloc, prequel::heap& storage)
+    interned_strings(prequel::anchor_handle<anchor> anc, prequel::allocator& alloc,
+                     prequel::heap& storage)
         : m_tree(std::move(anc), alloc)
-        , m_heap(storage)
-    {}
+        , m_heap(storage) {}
 
     // Returns the reference to the interned copy of that string, if it exists.
-    prequel::heap_reference find(const std::string& str) const {
-        return find_impl(str, hash(str));
-    }
+    prequel::heap_reference find(const std::string& str) const { return find_impl(str, hash(str)); }
 
     // Interns the given string. Either returns a reference to some existing copy
     // of that string or inserts a new copy into the heap.
@@ -140,9 +139,9 @@ private:
 
 class property_map {
     struct property {
-        node_id node;                   // owner of the property
-        prequel::heap_reference name;     // name of the property (string, interned)
-        prequel::heap_reference value;    // value of the property (string)
+        node_id node;                  // owner of the property
+        prequel::heap_reference name;  // name of the property (string, interned)
+        prequel::heap_reference value; // value of the property (string)
 
         // Indexed by node id value and the key.
         struct derive_key {
@@ -165,8 +164,7 @@ public:
 public:
     property_map(prequel::anchor_handle<anchor> anc, prequel::heap& heap, prequel::allocator& alloc)
         : m_tree(std::move(anc), alloc)
-        , m_heap(heap)
-    {}
+        , m_heap(heap) {}
 
     template<typename Callback>
     void iterate_properties(node_id node, Callback&& cb) const {
@@ -227,8 +225,7 @@ public:
 
 private:
     template<typename CursorCallback>
-    void node_range(node_id node, CursorCallback&& cb) const
-    {
+    void node_range(node_id node, CursorCallback&& cb) const {
         const std::tuple<uint64_t, uint64_t> key(node.value(), 0);
 
         auto cursor = m_tree.create_cursor();
@@ -260,13 +257,12 @@ class edge_map {
 
             bool operator<(const key& other) const {
                 return std::tie(source, label, destination)
-                        < std::tie(other.source, other.label, other.destination);
+                       < std::tie(other.source, other.label, other.destination);
             }
 
             bool operator==(const key& other) const {
-                return source == other.source
-                        && label == other.label
-                        && destination == other.destination;
+                return source == other.source && label == other.label
+                       && destination == other.destination;
             }
 
             static constexpr auto get_binary_format() {
@@ -303,8 +299,7 @@ public:
 public:
     edge_map(prequel::anchor_handle<anchor> anc, prequel::allocator& alloc)
         : m_map(anc.member<&anchor::map>(), alloc)
-        , m_reverse_map(anc.member<&anchor::reverse_map>(), alloc)
-    {}
+        , m_reverse_map(anc.member<&anchor::reverse_map>(), alloc) {}
 
     template<typename Callback>
     void iterate_edges(node_id node, Callback&& cb) const {
@@ -406,9 +401,7 @@ private:
         return r;
     }
 
-    edge::key key(const edge& e) const {
-        return edge::derive_key()(e);
-    }
+    edge::key key(const edge& e) const { return edge::derive_key()(e); }
 
 private:
     tree_type m_map, m_reverse_map;
@@ -423,8 +416,7 @@ public:
 
 public:
     node_index(prequel::anchor_handle<anchor> anc, prequel::allocator& alloc)
-        : m_tree(std::move(anc), alloc)
-    {}
+        : m_tree(std::move(anc), alloc) {}
 
     template<typename Callback>
     void iterate_nodes(Callback&& cb) const {
@@ -436,9 +428,7 @@ public:
 
     uint64_t size() const { return m_tree.size(); }
 
-    bool find(node_id id) const {
-        return static_cast<bool>(m_tree.find(id));
-    }
+    bool find(node_id id) const { return static_cast<bool>(m_tree.find(id)); }
 
     bool insert(node_id id) {
         auto result = m_tree.insert(id);
@@ -468,9 +458,9 @@ class database {
         edge_map::anchor edges;
 
         static constexpr auto get_binary_format() {
-            return make_binary_format(&meta_block::heap, &meta_block::ids,
-                                      &meta_block::strings, &meta_block::nodes,
-                                      &meta_block::properties, &meta_block::edges);
+            return make_binary_format(&meta_block::heap, &meta_block::ids, &meta_block::strings,
+                                      &meta_block::nodes, &meta_block::properties,
+                                      &meta_block::edges);
         }
     };
 
@@ -485,8 +475,7 @@ public:
         , m_strings(m_meta.member<&meta_block::strings>(), m_format.get_allocator(), m_heap)
         , m_nodes(m_meta.member<&meta_block::nodes>(), m_format.get_allocator())
         , m_properties(m_meta.member<&meta_block::properties>(), m_heap, m_format.get_allocator())
-        , m_edges(m_meta.member<&meta_block::edges>(), m_format.get_allocator())
-    {}
+        , m_edges(m_meta.member<&meta_block::edges>(), m_format.get_allocator()) {}
 
     auto& engine() { return m_format.get_engine(); }
 
@@ -614,9 +603,7 @@ public:
         std::vector<node_id> nodes;
         nodes.reserve(m_nodes.size());
 
-        m_nodes.iterate_nodes([&](node_id id) {
-            nodes.push_back(id);
-        });
+        m_nodes.iterate_nodes([&](node_id id) { nodes.push_back(id); });
         return nodes;
     }
 
@@ -655,19 +642,9 @@ private:
     edge_map m_edges;
 };
 
-} // namespace example
+} // namespace objectdb
 
-enum class subcommand {
-    create,
-    delete_,
-    set,
-    unset,
-    link,
-    unlink,
-    print,
-    print_all,
-    debug
-};
+enum class subcommand { create, delete_, set, unset, link, unlink, print, print_all, debug };
 
 struct settings {
     std::string file;
@@ -719,90 +696,63 @@ void parse(settings& s, int argc, char** argv) {
 
     auto help = option("-h", "--help").set(show_help, true);
 
-    auto general = "General options:" % (
-        (required("-f", "--file") & value("file", s.file))          % "database file",
-        (option("-m", "--cache-size") & value("M", s.cache_size))   % ("cache size in megabyte (default: " + std::to_string(s.cache_size) + " MB)"),
-        (option("--stats").set(s.print_stats)                       % "print statistics after command execution."),
-        parameter(help)                                             % "display this text"
-    );
+    auto general =
+        "General options:"
+        % ((required("-f", "--file") & value("file", s.file)) % "database file",
+           (option("-m", "--cache-size") & value("M", s.cache_size))
+               % ("cache size in megabyte (default: " + std::to_string(s.cache_size) + " MB)"),
+           (option("--stats").set(s.print_stats) % "print statistics after command execution."),
+           parameter(help) % "display this text");
 
     auto cmd_create = command("create").set(s.cmd, subcommand::create);
 
-    auto cmd_delete = (
-        command("delete").set(s.cmd, subcommand::delete_),
-        "Subcommand delete:" % group(
-            value("node", s.delete_.node)                       % "node id",
-            option("-f", "--force").set(s.delete_.force, true)  % "force deletion (removes all edges first)"
-        )
-    );
+    auto cmd_delete = (command("delete").set(s.cmd, subcommand::delete_),
+                       "Subcommand delete:"
+                           % group(value("node", s.delete_.node) % "node id",
+                                   option("-f", "--force").set(s.delete_.force, true)
+                                       % "force deletion (removes all edges first)"));
 
-    auto cmd_set = (
-        command("set").set(s.cmd, subcommand::set),
-        "Subcommand set:" % (
-            value("node", s.set.node)                   % "node id",
-            value("name", s.set.name)                   % "property name",
-            value("value", s.set.value)                 % "property value"
-        )
-    );
+    auto cmd_set =
+        (command("set").set(s.cmd, subcommand::set),
+         "Subcommand set:"
+             % (value("node", s.set.node) % "node id", value("name", s.set.name) % "property name",
+                value("value", s.set.value) % "property value"));
 
-    auto cmd_unset = (
-        command("unset").set(s.cmd, subcommand::unset),
-        "Subcommand unset:" % (
-            value("node", s.unset.node)                 % "node id",
-            value("name", s.unset.name)                 % "property name"
-        )
-    );
+    auto cmd_unset = (command("unset").set(s.cmd, subcommand::unset),
+                      "Subcommand unset:"
+                          % (value("node", s.unset.node) % "node id",
+                             value("name", s.unset.name) % "property name"));
 
-    auto cmd_link = (
-        command("link").set(s.cmd, subcommand::link),
-        "Subcommand link:" % (
-            value("source", s.link.source)              % "source node id",
-            value("dest", s.link.destination)           % "destination source id",
-            value("label", s.link.label)                % "edge label"
-        )
-    );
+    auto cmd_link = (command("link").set(s.cmd, subcommand::link),
+                     "Subcommand link:"
+                         % (value("source", s.link.source) % "source node id",
+                            value("dest", s.link.destination) % "destination source id",
+                            value("label", s.link.label) % "edge label"));
 
-    auto cmd_unlink = (
-        command("unlink").set(s.cmd, subcommand::unlink),
-        "Subcommand link:" % (
-            value("source", s.unlink.source)            % "source node id",
-            value("dest", s.unlink.destination)         % "destination source id",
-            value("label", s.unlink.label)              % "edge label"
-        )
-    );
+    auto cmd_unlink = (command("unlink").set(s.cmd, subcommand::unlink),
+                       "Subcommand link:"
+                           % (value("source", s.unlink.source) % "source node id",
+                              value("dest", s.unlink.destination) % "destination source id",
+                              value("label", s.unlink.label) % "edge label"));
 
-    auto cmd_print = (
-        command("print").set(s.cmd, subcommand::print),
-        "Subcommand print:" % group(
-            value("node", s.print.node)                 % "node id"
-        )
-    );
+    auto cmd_print = (command("print").set(s.cmd, subcommand::print),
+                      "Subcommand print:" % group(value("node", s.print.node) % "node id"));
 
     auto cmd_print_all = command("print-all").set(s.cmd, subcommand::print_all);
 
     auto cmd_debug = command("debug").set(s.cmd, subcommand::debug);
 
-    auto cli = (general, (
-            cmd_create  | cmd_delete
-        |   cmd_set     | cmd_unset
-        |   cmd_link    | cmd_unlink
-        |   cmd_print   | cmd_print_all
-        |   cmd_debug
-    )) | help;
+    auto cli = (general, (cmd_create | cmd_delete | cmd_set | cmd_unset | cmd_link | cmd_unlink
+                          | cmd_print | cmd_print_all | cmd_debug))
+               | help;
 
-    auto print_usage = [&](bool include_help){
-        auto fmt = doc_formatting()
-                .start_column(0)
-                .doc_column(30)
-                .max_flags_per_param_in_usage(1);
+    auto print_usage = [&](bool include_help) {
+        auto fmt = doc_formatting().start_column(0).doc_column(30).max_flags_per_param_in_usage(1);
 
         std::cout << "Usage:\n"
-                  << usage_lines(cli, argv[0], doc_formatting(fmt).start_column(4))
-                  << "\n";
+                  << usage_lines(cli, argv[0], doc_formatting(fmt).start_column(4)) << "\n";
         if (include_help) {
-            std::cout << "\n"
-                      << documentation(cli, fmt)
-                      << "\n";
+            std::cout << "\n" << documentation(cli, fmt) << "\n";
         }
     };
 
@@ -825,9 +775,11 @@ int main(int argc, char** argv) {
     parse(s, argc, argv);
 
     // The number of blocks cached in memory.
-    const uint32_t cache_blocks = (uint64_t(s.cache_size) * uint64_t(1 << 20)) / objectdb::block_size;
+    const uint32_t cache_blocks =
+        (uint64_t(s.cache_size) * uint64_t(1 << 20)) / objectdb::block_size;
 
-    auto file = prequel::system_vfs().open(s.file.c_str(), prequel::vfs::read_write, prequel::vfs::open_create);
+    auto file = prequel::system_vfs().open(s.file.c_str(), prequel::vfs::read_write,
+                                           prequel::vfs::open_create);
     objectdb::database db(*file, cache_blocks);
 
     auto print_node = [&](objectdb::node_id node) {
@@ -848,44 +800,38 @@ int main(int argc, char** argv) {
 
     try {
         switch (s.cmd) {
-        case subcommand::create:
-        {
+        case subcommand::create: {
             auto node = db.create_node();
             std::cout << "New node: " << node.value() << std::endl;
             break;
         }
-        case subcommand::delete_:
-        {
+        case subcommand::delete_: {
             db.delete_node(objectdb::node_id(s.delete_.node), s.delete_.force);
             break;
         }
-        case subcommand::set:
-        {
+        case subcommand::set: {
             db.set_property(objectdb::node_id(s.set.node), s.set.name, s.set.value);
             break;
         }
-        case subcommand::unset:
-        {
+        case subcommand::unset: {
             db.unset_property(objectdb::node_id(s.unset.node), s.unset.name);
             break;
         }
-        case subcommand::link:
-        {
-            db.link_nodes(objectdb::node_id(s.link.source), s.link.label, objectdb::node_id(s.link.destination));
+        case subcommand::link: {
+            db.link_nodes(objectdb::node_id(s.link.source), s.link.label,
+                          objectdb::node_id(s.link.destination));
             break;
         }
-        case subcommand::unlink:
-        {
-            db.unlink_nodes(objectdb::node_id(s.unlink.source), s.unlink.label, objectdb::node_id(s.unlink.destination));
+        case subcommand::unlink: {
+            db.unlink_nodes(objectdb::node_id(s.unlink.source), s.unlink.label,
+                            objectdb::node_id(s.unlink.destination));
             break;
         }
-        case subcommand::print:
-        {
+        case subcommand::print: {
             print_node(objectdb::node_id(s.print.node));
             break;
         }
-        case subcommand::print_all:
-        {
+        case subcommand::print_all: {
             auto nodes = db.list_nodes();
             for (auto node : nodes) {
                 print_node(node);
@@ -893,9 +839,7 @@ int main(int argc, char** argv) {
             }
             break;
         }
-        case subcommand::debug:
-            db.debug_print(std::cout);
-            break;
+        case subcommand::debug: db.debug_print(std::cout); break;
         }
     } catch (const std::exception& e) {
         std::cerr << "Error: " << e.what() << std::endl;

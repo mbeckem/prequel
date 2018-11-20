@@ -3,14 +3,13 @@
 
 #include <prequel/btree/cursor.hpp>
 
-#include <prequel/exception.hpp>
 #include <prequel/btree/tree.hpp>
+#include <prequel/exception.hpp>
 
 namespace prequel::detail::btree_impl {
 
 inline cursor::cursor(btree_impl::tree* parent)
-    : m_tree(parent)
-{
+    : m_tree(parent) {
     if (m_tree)
         m_tree->link_cursor(this);
     reset_to_invalid();
@@ -50,34 +49,33 @@ inline void cursor::check_element_valid() const {
     {
         const u32 height = m_tree->height();
         PREQUEL_ASSERT(m_parents.size() + 1 == height,
-                     "Cursor does not have enough nodes on the stack.");
+                       "Cursor does not have enough nodes on the stack.");
         for (u32 i = 0; i < m_parents.size(); ++i) {
             auto& entry = m_parents[i];
-            PREQUEL_ASSERT(entry.node.valid(),
-                         "Invalid node on the cursor's stack.");
+            PREQUEL_ASSERT(entry.node.valid(), "Invalid node on the cursor's stack.");
             PREQUEL_ASSERT(entry.index < entry.node.get_child_count(),
-                         "Child index out of bounds.");
+                           "Child index out of bounds.");
 
             if (i > 0) {
                 // Must be at the specified index in its parent.
                 auto& parent_entry = m_parents[i - 1];
                 PREQUEL_ASSERT(parent_entry.node.get_child(parent_entry.index) == entry.node.index(),
-                             "Must be at that position in the parent.");
+                               "Must be at that position in the parent.");
             }
         }
-
 
         if (height > 1) {
             // Must be at the specified index in its parent.
             auto& parent_entry = m_parents.back();
             PREQUEL_ASSERT(parent_entry.node.get_child(parent_entry.index) == m_leaf.index(),
-                         "Must be at that position in the parent.");
+                           "Must be at that position in the parent.");
         }
 
         if (height == 1) {
             PREQUEL_ASSERT(m_leaf.index() == m_tree->root(), "Leaf must be the root");
         } else if (height > 1) {
-            PREQUEL_ASSERT(m_parents.front().node.index() == m_tree->root(), "First parent must be the root.");
+            PREQUEL_ASSERT(m_parents.front().node.index() == m_tree->root(),
+                           "First parent must be the root.");
         } else {
             PREQUEL_ASSERT(false, "The tree is empty...");
         }
@@ -169,16 +167,14 @@ inline bool cursor::move_prev() {
         PREQUEL_THROW(bad_cursor("Bad cursor."));
     }
 
-
     if (m_index > 0) {
         --m_index;
         return true;
     }
 
     // Find a parent that is not yet at index 0.
-    auto rpos = std::find_if(m_parents.rbegin(), m_parents.rend(), [&](const internal_entry& entry) {
-        return entry.index > 0;
-    });
+    auto rpos = std::find_if(m_parents.rbegin(), m_parents.rend(),
+                             [&](const internal_entry& entry) { return entry.index > 0; });
     if (rpos == m_parents.rend()) {
         reset_to_invalid();
         return false;
@@ -298,7 +294,7 @@ inline void cursor::set(const byte* value) {
 inline void cursor::validate() const {
 #define BAD(...) PREQUEL_THROW(bad_cursor(__VA_ARGS__))
 
-// TODO
+    // TODO
 
 #undef BAD
 }
@@ -315,7 +311,6 @@ inline bool cursor::operator==(const cursor& other) const {
         return true;
     return m_leaf.index() == other.m_leaf.index() && m_index == other.m_index;
 }
-
 
 } // namespace prequel::detail::btree_impl
 

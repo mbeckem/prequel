@@ -1,9 +1,9 @@
 #include <catch.hpp>
 
-#include <prequel/node_allocator.hpp>
-#include <prequel/raw_btree.hpp>
 #include <prequel/btree.hpp>
 #include <prequel/formatting.hpp>
+#include <prequel/node_allocator.hpp>
+#include <prequel/raw_btree.hpp>
 
 #include "./test_file.hpp"
 
@@ -30,8 +30,11 @@ struct raw_value {
     u32 count = 0;
 
     raw_value() = default;
-    explicit raw_value(u32 key): key(key) {}
-    explicit raw_value(u32 key, u32 count): key(key), count(count) {}
+    explicit raw_value(u32 key)
+        : key(key) {}
+    explicit raw_value(u32 key, u32 count)
+        : key(key)
+        , count(count) {}
 
     static constexpr auto get_binary_format() {
         return make_binary_format(&raw_value::key, &raw_value::count);
@@ -41,9 +44,7 @@ struct raw_value {
         return key == other.key && count == other.count;
     }
 
-    bool operator!=(const raw_value& other) const {
-        return !(*this == other);
-    }
+    bool operator!=(const raw_value& other) const { return !(*this == other); }
 
     friend std::ostream& operator<<(std::ostream& os, const raw_value& v) {
         return os << "(" << v.key << ", " << v.count << ")";
@@ -51,9 +52,7 @@ struct raw_value {
 };
 
 struct derive_key {
-    u32 operator()(const raw_value& v) const {
-        return v.key;
-    }
+    u32 operator()(const raw_value& v) const { return v.key; }
 };
 
 template<typename Value, typename Container>
@@ -106,7 +105,7 @@ template<typename Value, typename KeyDerive = identity_t, typename TestFunction>
 void simple_tree_test(TestFunction&& test) {
     using tree_type = btree<Value, KeyDerive>;
 
-    u32 block_sizes[] = { 128, 512, 4096 };
+    u32 block_sizes[] = {128, 512, 4096};
     for (u32 block_size : block_sizes) {
         CAPTURE(block_size);
 
@@ -175,7 +174,7 @@ TEST_CASE("raw btree", "[btree]") {
         SECTION("empty tree invariants") {
             REQUIRE(tree.value_size() == serialized_size<raw_value>());
             REQUIRE(tree.key_size() == serialized_size<u32>());
-            REQUIRE(tree.leaf_node_capacity() == 15); // (128 - 4) / 8; header is 4 bytes.
+            REQUIRE(tree.leaf_node_capacity() == 15);     // (128 - 4) / 8; header is 4 bytes.
             REQUIRE(tree.internal_node_capacity() == 10); // (128 - 4) / (4 + 8); header is 4 bytes.
             REQUIRE(tree.internal_nodes() == 0);
             REQUIRE(tree.leaf_nodes() == 0);
@@ -267,7 +266,7 @@ TEST_CASE("raw btree", "[btree]") {
 
             auto cursor = tree.create_cursor();
             for (u32 i = 1000; i < 1500; i += 5) {
-                raw_value v{i, i +1};
+                raw_value v{i, i + 1};
                 auto buffer = serialized_value(v);
                 cursor.insert(buffer.data());
                 cursors.push_back({cursor, v});
@@ -407,7 +406,8 @@ TEST_CASE("btree detects duplicate keys", "[btree]") {
         for (i32 n : numbers) {
             auto result = tree.insert_or_update(raw_value(n, 3));
             if (result.position.get() != raw_value(n, 3)) {
-                FAIL("Unexpected value " << result.position.get() << ", expected " << raw_value(n, 3));
+                FAIL("Unexpected value " << result.position.get() << ", expected "
+                                         << raw_value(n, 3));
             }
             if (result.inserted) {
                 FAIL("Value " << n << " should have been overwritten.");
@@ -427,7 +427,6 @@ TEST_CASE("btrees are always sorted", "[btree]") {
         for (i64 n : numbers)
             cursor.insert(n);
 
-
         std::sort(numbers.begin(), numbers.end());
 
         for (i64 n : numbers) {
@@ -439,7 +438,6 @@ TEST_CASE("btrees are always sorted", "[btree]") {
             if (!cursor || cursor.get() != n)
                 FAIL("Lower bound failed");
         }
-
 
         REQUIRE(tree.size() == numbers.size());
         check_tree_equals_container(tree, numbers);
@@ -465,7 +463,8 @@ TEST_CASE("btree deletion", "[btree]") {
             i32 expected = 1;
             while (cursor) {
                 if (cursor.get() != expected) {
-                    FAIL("unexpected value at this position: " << cursor.get() << ", expected " << expected);
+                    FAIL("unexpected value at this position: " << cursor.get() << ", expected "
+                                                               << expected);
                 }
 
                 if (auto c = tree.find(expected); !c || c != cursor) {
@@ -505,7 +504,8 @@ TEST_CASE("btree deletion", "[btree]") {
                 }
 
                 if (cursor.get() != expected) {
-                    FAIL("unexpected value at this position: " << cursor.get() << ", expected " << expected);
+                    FAIL("unexpected value at this position: " << cursor.get() << ", expected "
+                                                               << expected);
                 }
 
                 if (auto c = tree.find(expected); c != cursor) {
@@ -603,7 +603,7 @@ TEST_CASE("btree cursor stability", "[btree]") {
         std::mt19937_64 rng(123123);
         std::shuffle(numbers.begin(), numbers.end(), rng);
 
-        for (size_t i = 100; i < numbers.size(); ++i)  {
+        for (size_t i = 100; i < numbers.size(); ++i) {
             tree.find(numbers[i]).erase();
         }
         numbers.resize(100);
@@ -655,7 +655,7 @@ TEST_CASE("btree fuzzy tests", "[btree][.slow]") {
         tree_t::anchor tree_anchor;
         tree_t tree(make_anchor_handle(tree_anchor), alloc);
 
-        std::vector<u64> numbers =  generate_numbers<u64>(1000000, 23546);
+        std::vector<u64> numbers = generate_numbers<u64>(1000000, 23546);
 
         u64 count = 0;
         for (u64 n : numbers) {

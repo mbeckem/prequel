@@ -3,8 +3,8 @@
 
 #include <prequel/allocator.hpp>
 #include <prequel/anchor_handle.hpp>
-#include <prequel/defs.hpp>
 #include <prequel/btree.hpp>
+#include <prequel/defs.hpp>
 #include <prequel/engine.hpp>
 
 #include <iosfwd>
@@ -27,8 +27,8 @@ private:
         interval() = default;
 
         interval(value_type begin, value_type end)
-            : begin(begin), end(end)
-        {
+            : begin(begin)
+            , end(end) {
             PREQUEL_ASSERT(begin <= end, "Invalid interval.");
         }
 

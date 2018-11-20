@@ -3,9 +3,9 @@
 
 #include <prequel/btree/loader.hpp>
 
-#include <prequel/exception.hpp>
 #include <prequel/btree/tree.hpp>
 #include <prequel/detail/deferred.hpp>
+#include <prequel/exception.hpp>
 
 namespace prequel::detail::btree_impl {
 
@@ -15,8 +15,7 @@ inline loader::loader(btree_impl::tree& tree)
     , m_internal_max_children(m_tree.internal_node_max_children())
     , m_leaf_max_values(m_tree.leaf_node_max_values())
     , m_value_size(m_tree.value_size())
-    , m_key_size(m_tree.key_size())
-{}
+    , m_key_size(m_tree.key_size()) {}
 
 inline void loader::insert(const byte* values, size_t count) {
     if (count == 0)
@@ -28,9 +27,7 @@ inline void loader::insert(const byte* values, size_t count) {
     if (m_state == STATE_FINALIZED)
         PREQUEL_THROW(bad_operation("This loader was already finalized."));
 
-    detail::deferred guard = [&]{
-        m_state = STATE_ERROR;
-    };
+    detail::deferred guard = [&] { m_state = STATE_ERROR; };
 
     while (count > 0) {
         if (!m_leaf.valid()) {
@@ -83,7 +80,8 @@ inline void loader::finish() {
             // Continue with flush, make the tree grow in height.
         } else {
             // Not the last entry, this means that there must be enough entries for one node.
-            PREQUEL_ASSERT(node.size >= m_internal_min_children, "Not enough entries for one internal node.");
+            PREQUEL_ASSERT(node.size >= m_internal_min_children,
+                           "Not enough entries for one internal node.");
         }
 
         if (node.size > m_internal_max_children) {
@@ -93,7 +91,7 @@ inline void loader::finish() {
     }
 
     PREQUEL_ASSERT(m_parents.size() > 0 && m_parents.back()->size == 1,
-                 "The highest level must contain one child.");
+                   "The highest level must contain one child.");
 
     m_tree.set_height(m_parents.size());
     m_tree.set_root(m_parents.back()->children[0]);
@@ -143,8 +141,7 @@ inline void loader::flush_leaf() {
 }
 
 // Note: Invalidates references to nodes on the parent stack.
-inline void loader::insert_child(size_t index, const byte* key, block_index child)
-{
+inline void loader::insert_child(size_t index, const byte* key, block_index child) {
     PREQUEL_ASSERT(index <= m_parents.size(), "Invalid parent index.");
 
     if (index == m_parents.size()) {
@@ -167,9 +164,7 @@ inline void loader::flush_internal(size_t index, proto_internal_node& node, u32 
     PREQUEL_ASSERT(count <= m_internal_max_children, "Too many elements for a tree node.");
 
     internal_node tree_node = m_tree.create_internal();
-    detail::deferred cleanup = [&]{
-        m_tree.free_internal(tree_node.index());
-    };
+    detail::deferred cleanup = [&] { m_tree.free_internal(tree_node.index()); };
 
     // Copy first `count` entries into the real node, then forward max key and node index
     // to the next level.
@@ -179,12 +174,13 @@ inline void loader::flush_internal(size_t index, proto_internal_node& node, u32 
 
     // Shift `count` values to the left.
     std::copy_n(node.children.begin() + count, node.size - count, node.children.begin());
-    std::memmove(node.keys.data(), node.keys.data() + count * m_key_size, (node.size - count) * m_key_size);
+    std::memmove(node.keys.data(), node.keys.data() + count * m_key_size,
+                 (node.size - count) * m_key_size);
     node.size = node.size - count;
 }
 
-inline void loader::insert_child_nonfull(proto_internal_node& node, const byte* key, block_index child)
-{
+inline void
+loader::insert_child_nonfull(proto_internal_node& node, const byte* key, block_index child) {
     PREQUEL_ASSERT(node.size < node.capacity, "Node is full.");
 
     std::memcpy(node.keys.data() + node.size * m_key_size, key, m_key_size);

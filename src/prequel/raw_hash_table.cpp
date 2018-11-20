@@ -62,8 +62,8 @@ constexpr auto compute_bucket_range_sums(const std::array<u64, precomputed_bucke
 
 // bucket_range_sizes[i] is the size (in buckets) of the given range.
 // All other bucket range have the largest size times two.
-static constexpr std::array<u64, precomputed_bucket_ranges>
-    bucket_range_sizes = compute_bucket_range_sizes();
+static constexpr std::array<u64, precomputed_bucket_ranges> bucket_range_sizes =
+    compute_bucket_range_sizes();
 
 // bucket_range_size_sums[i] contains the sum of all bucket range sizes up the range i (inclusive).
 // Used for efficient binary search.
@@ -72,8 +72,8 @@ static constexpr std::array<u64, precomputed_bucket_ranges>
 // u64 index = bucket_range_index / 4;
 // u64 offset = bucket_range_index % 4;
 // return 4 * ((u64(1) << index) - 1) + (u64(1) << index) * (offset + 1);
-static constexpr std::array<u64, precomputed_bucket_ranges>
-    bucket_range_size_sums = compute_bucket_range_sums(bucket_range_sizes);
+static constexpr std::array<u64, precomputed_bucket_ranges> bucket_range_size_sums =
+    compute_bucket_range_sums(bucket_range_sizes);
 
 /*
  * Primary buckets are stored (nearly) next to each other in contiguous storage.
@@ -92,8 +92,7 @@ private:
         u32 size = 0;
 
         static constexpr auto get_binary_format() {
-            return make_binary_format(&header::next,
-                                      &header::size);
+            return make_binary_format(&header::next, &header::size);
         }
     };
 
@@ -103,17 +102,15 @@ public:
     bucket_node(block_handle handle, u32 value_size, u32 capacity)
         : m_handle(std::move(handle), 0)
         , m_value_size(value_size)
-        , m_capacity(capacity)
-    {
+        , m_capacity(capacity) {
         PREQUEL_ASSERT(capacity > 0, "Invalid capacity.");
         PREQUEL_ASSERT(value_size > 0, "Invalid value size.");
-        PREQUEL_ASSERT(serialized_size<header>() + capacity * value_size <= m_handle.block().block_size(),
+        PREQUEL_ASSERT(serialized_size<header>() + capacity * value_size
+                           <= m_handle.block().block_size(),
                        "Capacity is too large.");
     }
 
-    void init() const {
-        m_handle.set(header());
-    }
+    void init() const { m_handle.set(header()); }
 
     // The number of values that can fit into this node, not including the overflow lists.
     u32 capacity() const { return m_capacity; }
@@ -125,21 +122,13 @@ public:
     bool full() const { return get_size() == capacity(); }
     bool empty() const { return get_size() == 0; }
 
-    block_index get_next() const {
-        return m_handle.get<&header::next>();
-    }
+    block_index get_next() const { return m_handle.get<&header::next>(); }
 
-    void set_next(block_index new_next) const {
-        m_handle.set<&header::next>(new_next);
-    }
+    void set_next(block_index new_next) const { m_handle.set<&header::next>(new_next); }
 
-    u32 get_size() const {
-        return m_handle.get<&header::size>();
-    }
+    u32 get_size() const { return m_handle.get<&header::size>(); }
 
-    void set_size(u32 new_size) const {
-        m_handle.set<&header::size>(new_size);
-    }
+    void set_size(u32 new_size) const { m_handle.set<&header::size>(new_size); }
 
     const byte* get_value(u32 index) const {
         PREQUEL_ASSERT(index < m_capacity, "Index out of bounds.");
@@ -173,8 +162,7 @@ public:
         const u32 size = get_size();
 
         byte* data = m_handle.block().writable_data();
-        std::memmove(data + offset_of_value(index),
-                     data + offset_of_value(index + 1),
+        std::memmove(data + offset_of_value(index), data + offset_of_value(index + 1),
                      (size - index - 1) * m_value_size);
         set_size(size - 1);
     }
@@ -204,7 +192,8 @@ private:
 struct compatible_key_t {
     const void* data = nullptr;
 
-    compatible_key_t(const void* data): data(data) {}
+    compatible_key_t(const void* data)
+        : data(data) {}
 };
 
 } // namespace
@@ -234,12 +223,14 @@ static constexpr u64 total_bucket_count(u64 range_count) {
 // and the offset of the bucket within the range.
 static std::tuple<u64, u64> find_bucket_position(u64 bucket_index) {
     // Leftmost bucket range with end index > bucket_index. (Note: end index is exclusive).
-    auto pos = std::upper_bound(bucket_range_size_sums.begin(), bucket_range_size_sums.end(), bucket_index);
+    auto pos = std::upper_bound(bucket_range_size_sums.begin(), bucket_range_size_sums.end(),
+                                bucket_index);
     if (pos != bucket_range_size_sums.end()) {
         // bucket index is in the precomputed table.
         u64 range_index = pos - bucket_range_size_sums.begin();
         u64 range_start = *pos - bucket_range_size(range_index);
-        PREQUEL_ASSERT(bucket_index >= range_start && bucket_index < range_start + bucket_range_size(range_index),
+        PREQUEL_ASSERT(bucket_index >= range_start
+                           && bucket_index < range_start + bucket_range_size(range_index),
                        "Bucket index is not in this bucket.");
         return std::tuple(range_index, bucket_index - range_start);
     }
@@ -284,9 +275,9 @@ static std::tuple<u64, u64> find_bucket_position(u64 bucket_index) {
 class raw_hash_table_impl : public uses_allocator {
 public:
     using anchor = raw_hash_table_anchor;
+
 public:
-    raw_hash_table_impl(anchor_handle<anchor> _anchor,
-                        const raw_hash_table_options& _opts,
+    raw_hash_table_impl(anchor_handle<anchor> _anchor, const raw_hash_table_options& _opts,
                         allocator& _alloc);
 
 public:
@@ -325,11 +316,11 @@ public:
                           const std::function<u64(const void*)>& compatible_hash,
                           const std::function<bool(const void*, const byte*)>& compatible_equal);
 
-    void iterate(iteration_control (*iter_func)(const byte* value, void* user_data), void* user_data) const;
+    void iterate(iteration_control (*iter_func)(const byte* value, void* user_data),
+                 void* user_data) const;
 
-    void visit(const std::function<
-                    iteration_control(const raw_hash_table::node_view&)
-               >& visit_func) const;
+    void
+    visit(const std::function<iteration_control(const raw_hash_table::node_view&)>& visit_func) const;
 
     void dump(std::ostream& os) const;
     void validate() const;
@@ -340,15 +331,11 @@ private:
     // Find the given key using the provided hash and equality functions.
     // TODO: Generalize other operations too?
     template<typename KeyType, typename KeyHasher, typename KeyEquals>
-    bool find_impl(const KeyType& key,
-                   const KeyHasher& hasher,
-                   const KeyEquals& equals,
+    bool find_impl(const KeyType& key, const KeyHasher& hasher, const KeyEquals& equals,
                    byte* value) const;
 
     template<typename KeyType, typename KeyHasher, typename KeyEquals>
-    bool erase_impl(const KeyType& key,
-                    const KeyHasher& hasher,
-                    const KeyEquals& equals);
+    bool erase_impl(const KeyType& key, const KeyHasher& hasher, const KeyEquals& equals);
 
     // Inserts the value when we already know that it's not a duplicate.
     void insert_into_bucket(const bucket_node& primary_bucket, const byte* value);
@@ -358,9 +345,8 @@ private:
                         bucket_node& found_node, u32& found_index) const;
 
     template<typename KeyType, typename KeyEquals>
-    bool find_in_bucket(const bucket_node& primary_bucket,
-                        const KeyType& key, u64 key_hash, const KeyEquals& equals,
-                        bucket_node& found_node, u32& found_index) const;
+    bool find_in_bucket(const bucket_node& primary_bucket, const KeyType& key, u64 key_hash,
+                        const KeyEquals& equals, bucket_node& found_node, u32& found_index) const;
 
     bool grow();
     bool shrink();
@@ -446,9 +432,8 @@ public:
     u32 size() const { return m_node.get_size(); }
     const byte* value(u32 index) const {
         if (index >= size()) {
-            PREQUEL_THROW(bad_argument(
-                fmt::format("Index out of bounds: {} (size is {}).", index, size())
-            ));
+            PREQUEL_THROW(
+                bad_argument(fmt::format("Index out of bounds: {} (size is {}).", index, size())));
         }
 
         return m_node.get_value(index);
@@ -471,19 +456,18 @@ private:
 };
 
 raw_hash_table_impl::raw_hash_table_impl(anchor_handle<anchor> _anchor,
-                                         const raw_hash_table_options& _opts,
-                                         allocator& _alloc)
+                                         const raw_hash_table_options& _opts, allocator& _alloc)
     : uses_allocator(_alloc)
     , m_anchor(std::move(_anchor))
     , m_options(_opts)
-    , m_bucket_ranges(m_anchor.member<&anchor::bucket_ranges>(), _alloc)
-{
+    , m_bucket_ranges(m_anchor.member<&anchor::bucket_ranges>(), _alloc) {
     if (m_options.value_size == 0)
         PREQUEL_THROW(bad_argument("Zero value size."));
     if (m_options.key_size == 0)
         PREQUEL_THROW(bad_argument("Zero key size."));
     if (m_options.key_size > max_key_size)
-        PREQUEL_THROW(bad_argument(fmt::format("Key sizes larger than {} are not supported.", max_key_size)));
+        PREQUEL_THROW(
+            bad_argument(fmt::format("Key sizes larger than {} are not supported.", max_key_size)));
     if (!m_options.derive_key)
         PREQUEL_THROW(bad_argument("No derive_key function provided."));
     if (!m_options.key_hash)
@@ -497,8 +481,7 @@ raw_hash_table_impl::raw_hash_table_impl(anchor_handle<anchor> _anchor,
     if (m_bucket_capacity == 0) {
         PREQUEL_THROW(bad_argument(
             fmt::format("Block size {} is too small (cannot fit a single value into a bucket)",
-                        get_engine().block_size())
-        ));
+                        get_engine().block_size())));
     }
 }
 
@@ -562,23 +545,14 @@ bool raw_hash_table_impl::find(const byte* key, byte* value) const {
     if (!value)
         PREQUEL_THROW(bad_argument("Value is null."));
 
-    return find_impl(
-        key,
-        [&](const byte* key) {
-            return key_hash(key);
-        },
-        [&](const byte* left, const byte* right) {
-            return key_equal(left, right);
-        },
-        value
-    );
+    return find_impl(key, [&](const byte* key) { return key_hash(key); },
+                     [&](const byte* left, const byte* right) { return key_equal(left, right); },
+                     value);
 }
 
-bool raw_hash_table_impl::find_compatible(const void* compatible_key,
-                                          const std::function<u64(const void*)>& compatible_hash,
-                                          const std::function<bool(const void*, const byte*)>& compatible_equals,
-                                          byte* value) const
-{
+bool raw_hash_table_impl::find_compatible(
+    const void* compatible_key, const std::function<u64(const void*)>& compatible_hash,
+    const std::function<bool(const void*, const byte*)>& compatible_equals, byte* value) const {
     if (!compatible_key)
         PREQUEL_THROW(bad_argument("Key is null."));
     if (!compatible_hash)
@@ -588,37 +562,25 @@ bool raw_hash_table_impl::find_compatible(const void* compatible_key,
     if (!value)
         PREQUEL_THROW(bad_argument("Value is null."));
 
-    return find_impl(
-        compatible_key_t{compatible_key},
-        [&](const compatible_key_t ckey) {
-            return compatible_hash(ckey.data);
-        },
-        [&](const compatible_key_t left, const byte* right) {
-            return compatible_equals(left.data, right);
-        },
-        value
-    );
+    return find_impl(compatible_key_t{compatible_key},
+                     [&](const compatible_key_t ckey) { return compatible_hash(ckey.data); },
+                     [&](const compatible_key_t left, const byte* right) {
+                         return compatible_equals(left.data, right);
+                     },
+                     value);
 }
 
 bool raw_hash_table_impl::erase(const byte* key) {
     if (!key)
         PREQUEL_THROW(bad_argument("Key is null."));
 
-    return erase_impl(
-        key,
-        [&](const byte* key) {
-            return key_hash(key);
-        },
-        [&](const byte* left, const byte* right) {
-            return key_equal(left, right);
-        }
-    );
+    return erase_impl(key, [&](const byte* key) { return key_hash(key); },
+                      [&](const byte* left, const byte* right) { return key_equal(left, right); });
 }
 
-bool raw_hash_table_impl::erase_compatible(const void* compatible_key,
-                                           const std::function<u64(const void*)>& compatible_hash,
-                                           const std::function<bool(const void*, const byte*)>& compatible_equals)
-{
+bool raw_hash_table_impl::erase_compatible(
+    const void* compatible_key, const std::function<u64(const void*)>& compatible_hash,
+    const std::function<bool(const void*, const byte*)>& compatible_equals) {
     if (!compatible_key)
         PREQUEL_THROW(bad_argument("Key is null."));
     if (!compatible_hash)
@@ -626,20 +588,15 @@ bool raw_hash_table_impl::erase_compatible(const void* compatible_key,
     if (!compatible_equals)
         PREQUEL_THROW(bad_argument("Equality function is null."));
 
-    return erase_impl(
-        compatible_key_t{compatible_key},
-        [&](const compatible_key_t ckey) {
-            return compatible_hash(ckey.data);
-        },
-        [&](const compatible_key_t left, const byte* right) {
-            return compatible_equals(left.data, right);
-        }
-    );
+    return erase_impl(compatible_key_t{compatible_key},
+                      [&](const compatible_key_t ckey) { return compatible_hash(ckey.data); },
+                      [&](const compatible_key_t left, const byte* right) {
+                          return compatible_equals(left.data, right);
+                      });
 }
 
 void raw_hash_table_impl::iterate(iteration_control (*iter_func)(const byte* value, void* user_data),
-                                  void* user_data) const
-{
+                                  void* user_data) const {
     if (!iter_func)
         PREQUEL_THROW(bad_argument("Iteration function is null."));
 
@@ -672,10 +629,8 @@ end:
     return;
 }
 
-void raw_hash_table_impl::visit(const std::function<
-                                    iteration_control(const raw_hash_table::node_view& node)
-                                >& visit_func) const
-{
+void raw_hash_table_impl::visit(
+    const std::function<iteration_control(const raw_hash_table::node_view& node)>& visit_func) const {
     if (!visit_func)
         PREQUEL_THROW(bad_argument("Invalid visitation function."));
 
@@ -711,27 +666,19 @@ end:
 
 void raw_hash_table_impl::dump(std::ostream& os) const {
     fmt::print(os,
-        "Raw hash table:\n"
-        "  Value size:       {}\n"
-        "  Key size:         {}\n"
-        "  Block size:       {}\n"
-        "  Bucket capacity:  {}\n"
-        "  Size:             {}\n"
-        "  Primary buckets:  {}\n"
-        "  Overflow buckets: {}\n"
-        "  Split pointer:    {}\n"
-        "  Level:            {}\n"
-        "  Load:             {}\n",
-        value_size(),
-        key_size(),
-        get_engine().block_size(),
-        bucket_capacity(),
-        size(),
-        primary_buckets(),
-        overflow_buckets(),
-        get_step(),
-        get_level(),
-        load());
+               "Raw hash table:\n"
+               "  Value size:       {}\n"
+               "  Key size:         {}\n"
+               "  Block size:       {}\n"
+               "  Bucket capacity:  {}\n"
+               "  Size:             {}\n"
+               "  Primary buckets:  {}\n"
+               "  Overflow buckets: {}\n"
+               "  Split pointer:    {}\n"
+               "  Level:            {}\n"
+               "  Load:             {}\n",
+               value_size(), key_size(), get_engine().block_size(), bucket_capacity(), size(),
+               primary_buckets(), overflow_buckets(), get_step(), get_level(), load());
 
     if (!m_bucket_ranges.empty()) {
         fmt::print(os, "\n");
@@ -755,19 +702,13 @@ void raw_hash_table_impl::dump(std::ostream& os) const {
                        "  Bucket {} @{}:\n"
                        "    Next: @{}\n"
                        "    Size: {}\n",
-                       bucket_index,
-                       node.index(),
-                       node.get_next(),
-                       node.get_size());
+                       bucket_index, node.index(), node.get_next(), node.get_size());
         } else {
             fmt::print(os,
                        "  Bucket {} (Overflow {}) @{}:\n"
                        "    Next: @{}\n"
                        "    Size: {}\n",
-                       bucket_index, overflow,
-                       node.index(),
-                       node.get_next(),
-                       node.get_size());
+                       bucket_index, overflow, node.index(), node.get_next(), node.get_size());
         }
 
         const u32 size = node.get_size();
@@ -847,7 +788,7 @@ void raw_hash_table_impl::clear() {
     if (primary_buckets == 0)
         return;
 
-    for (u64 bucket_index = primary_buckets; bucket_index -- > 0; ) {
+    for (u64 bucket_index = primary_buckets; bucket_index-- > 0;) {
         bucket_node primary = read_primary_bucket(bucket_index);
         free_overflow_chain(primary.get_next());
         free_primary_bucket(bucket_index);
@@ -862,11 +803,8 @@ void raw_hash_table_impl::clear() {
 }
 
 template<typename KeyType, typename KeyHasher, typename KeyEquals>
-bool raw_hash_table_impl::find_impl(const KeyType& key,
-                                    const KeyHasher& hasher,
-                                    const KeyEquals& equals,
-                                    byte* value) const
-{
+bool raw_hash_table_impl::find_impl(const KeyType& key, const KeyHasher& hasher,
+                                    const KeyEquals& equals, byte* value) const {
     PREQUEL_ASSERT(value, "Value must not be null.");
 
     if (empty())
@@ -884,10 +822,8 @@ bool raw_hash_table_impl::find_impl(const KeyType& key,
 }
 
 template<typename KeyType, typename KeyHasher, typename KeyEquals>
-bool raw_hash_table_impl::erase_impl(const KeyType& key,
-                                     const KeyHasher& hasher,
-                                     const KeyEquals& equals)
-{
+bool raw_hash_table_impl::erase_impl(const KeyType& key, const KeyHasher& hasher,
+                                     const KeyEquals& equals) {
     if (empty())
         return false;
 
@@ -941,24 +877,19 @@ void raw_hash_table_impl::insert_into_bucket(const bucket_node& primary_bucket, 
     bucket.insert(value);
 }
 
-bool raw_hash_table_impl::find_in_bucket(const bucket_node& primary_bucket,
-                                         const byte* search_key, u64 search_hash,
-                                         bucket_node& found_node, u32& found_index) const
-{
-    return find_in_bucket(
-                primary_bucket,
-                search_key, search_hash, [&](const byte* left, const byte* right) {
-                    return key_equal(left, right);
-                },
-                found_node, found_index
-    );
+bool raw_hash_table_impl::find_in_bucket(const bucket_node& primary_bucket, const byte* search_key,
+                                         u64 search_hash, bucket_node& found_node,
+                                         u32& found_index) const {
+    return find_in_bucket(primary_bucket, search_key, search_hash,
+                          [&](const byte* left, const byte* right) { return key_equal(left, right); },
+                          found_node, found_index);
 }
 
 template<typename KeyType, typename KeyEquals>
 bool raw_hash_table_impl::find_in_bucket(const bucket_node& primary_bucket,
-                                         const KeyType& search_key, u64 search_hash, const KeyEquals& equals,
-                                         bucket_node& found_node, u32& found_index) const
-{
+                                         const KeyType& search_key, u64 search_hash,
+                                         const KeyEquals& equals, bucket_node& found_node,
+                                         u32& found_index) const {
     PREQUEL_ASSERT(primary_bucket, "Invalid primary bucket.");
 
     bucket_node bucket = primary_bucket;
@@ -1088,7 +1019,7 @@ bool raw_hash_table_impl::shrink() {
 
     if (step == 0) {
         if (level == 0)
-            return false;   // Cannot shrink anymore.
+            return false; // Cannot shrink anymore.
 
         PREQUEL_ASSERT(get_primary_buckets() == scale,
                        "Shrink operation for this level must be complete.");
@@ -1190,7 +1121,8 @@ bucket_node raw_hash_table_impl::allocate_primary_bucket(u64 index) {
 
 void raw_hash_table_impl::free_primary_bucket(u64 index) {
     PREQUEL_ASSERT(get_primary_buckets() > 0, "There are no primary buckets to free.");
-    PREQUEL_ASSERT(index == get_primary_buckets() - 1, "Primary buckets are freed in reverse order.");
+    PREQUEL_ASSERT(index == get_primary_buckets() - 1,
+                   "Primary buckets are freed in reverse order.");
 
     set_primary_buckets(index);
 
@@ -1261,7 +1193,7 @@ u64 raw_hash_table_impl::key_hash(const byte* key) const {
     return m_options.key_hash(key, m_options.user_data);
 }
 
-bool raw_hash_table_impl::key_equal(const byte* left_key, const byte *right_key) const {
+bool raw_hash_table_impl::key_equal(const byte* left_key, const byte* right_key) const {
     PREQUEL_ASSERT(left_key, "Null left key.");
     PREQUEL_ASSERT(right_key, "Null right key.");
     return m_options.key_equal(left_key, right_key, m_options.user_data);
@@ -1282,17 +1214,13 @@ void raw_hash_table_impl::derive_key(const byte* value, byte* key) const {
 // --------------------------------
 
 raw_hash_table::raw_hash_table(anchor_handle<anchor> anchor_,
-                               const raw_hash_table_options& options_,
-                               allocator& alloc_)
-    : m_impl(std::make_unique<detail::raw_hash_table_impl>(
-                std::move(anchor_), options_, alloc_))
-{}
+                               const raw_hash_table_options& options_, allocator& alloc_)
+    : m_impl(std::make_unique<detail::raw_hash_table_impl>(std::move(anchor_), options_, alloc_)) {}
 
 raw_hash_table::~raw_hash_table() {}
 
 raw_hash_table::raw_hash_table(raw_hash_table&& other) noexcept
-    : m_impl(std::move(other.m_impl))
-{}
+    : m_impl(std::move(other.m_impl)) {}
 
 raw_hash_table& raw_hash_table::operator=(raw_hash_table&& other) noexcept {
     if (this != &other) {
@@ -1301,67 +1229,102 @@ raw_hash_table& raw_hash_table::operator=(raw_hash_table&& other) noexcept {
     return *this;
 }
 
-engine& raw_hash_table::get_engine() const { return impl().get_engine(); }
-allocator& raw_hash_table::get_allocator() const { return impl().get_allocator(); }
+engine& raw_hash_table::get_engine() const {
+    return impl().get_engine();
+}
+allocator& raw_hash_table::get_allocator() const {
+    return impl().get_allocator();
+}
 
-u32 raw_hash_table::value_size() const { return impl().value_size(); }
-u32 raw_hash_table::key_size() const { return impl().key_size(); }
-u32 raw_hash_table::bucket_capacity() const { return impl().bucket_capacity(); }
+u32 raw_hash_table::value_size() const {
+    return impl().value_size();
+}
+u32 raw_hash_table::key_size() const {
+    return impl().key_size();
+}
+u32 raw_hash_table::bucket_capacity() const {
+    return impl().bucket_capacity();
+}
 
-bool raw_hash_table::empty() const { return impl().empty(); }
-u64 raw_hash_table::size() const { return impl().size(); }
+bool raw_hash_table::empty() const {
+    return impl().empty();
+}
+u64 raw_hash_table::size() const {
+    return impl().size();
+}
 
-u64 raw_hash_table::primary_buckets() const { return impl().primary_buckets(); }
-u64 raw_hash_table::overflow_buckets() const { return impl().overflow_buckets(); }
-u64 raw_hash_table::allocated_buckets() const { return impl().allocated_buckets(); }
+u64 raw_hash_table::primary_buckets() const {
+    return impl().primary_buckets();
+}
+u64 raw_hash_table::overflow_buckets() const {
+    return impl().overflow_buckets();
+}
+u64 raw_hash_table::allocated_buckets() const {
+    return impl().allocated_buckets();
+}
 
-double raw_hash_table::fill_factor() const { return impl().load(); }
-u64 raw_hash_table::byte_size() const { return impl().byte_size(); }
+double raw_hash_table::fill_factor() const {
+    return impl().load();
+}
+u64 raw_hash_table::byte_size() const {
+    return impl().byte_size();
+}
 
 double raw_hash_table::overhead() const {
     return empty() ? 1.0 : double(byte_size()) / (size() * value_size());
 }
 
-bool raw_hash_table::contains(const byte* key) const { return impl().contains(key); }
+bool raw_hash_table::contains(const byte* key) const {
+    return impl().contains(key);
+}
 
-bool raw_hash_table::find(const byte* key, byte* value) const { return impl().find(key, value); }
+bool raw_hash_table::find(const byte* key, byte* value) const {
+    return impl().find(key, value);
+}
 
-bool raw_hash_table::find_compatible(const void* compatible_key,
-                                     const std::function<u64(const void*)>& compatible_hash,
-                                     const std::function<bool(const void*, const byte*)>& compatible_equals,
-                                     byte* value) const
-{
+bool raw_hash_table::find_compatible(
+    const void* compatible_key, const std::function<u64(const void*)>& compatible_hash,
+    const std::function<bool(const void*, const byte*)>& compatible_equals, byte* value) const {
     return impl().find_compatible(compatible_key, compatible_hash, compatible_equals, value);
 }
 
-bool raw_hash_table::insert(const byte* value) { return impl().insert(value, false); }
-bool raw_hash_table::insert_or_update(const byte* value) { return impl().insert(value, true); }
+bool raw_hash_table::insert(const byte* value) {
+    return impl().insert(value, false);
+}
+bool raw_hash_table::insert_or_update(const byte* value) {
+    return impl().insert(value, true);
+}
 
-bool raw_hash_table::erase(const byte* key) { return impl().erase(key); }
+bool raw_hash_table::erase(const byte* key) {
+    return impl().erase(key);
+}
 
-bool raw_hash_table::erase_compatible(const void* compatible_key,
-                                      const std::function<u64(const void*)>& compatible_hash,
-                                      const std::function<bool(const void*, const byte*)>& compatible_equals) const
-{
+bool raw_hash_table::erase_compatible(
+    const void* compatible_key, const std::function<u64(const void*)>& compatible_hash,
+    const std::function<bool(const void*, const byte*)>& compatible_equals) const {
     return impl().erase_compatible(compatible_key, compatible_hash, compatible_equals);
 }
 
-void raw_hash_table::clear() { impl().clear(); }
-void raw_hash_table::reset() { impl().clear(); }
+void raw_hash_table::clear() {
+    impl().clear();
+}
+void raw_hash_table::reset() {
+    impl().clear();
+}
 
 void raw_hash_table::iterate(iteration_control (*iter_func)(const byte* value, void* user_data),
-                             void* user_data) const
-{
+                             void* user_data) const {
     impl().iterate(iter_func, user_data);
 }
 
-void raw_hash_table::dump(std::ostream& os) const { impl().dump(os); }
-void raw_hash_table::validate() const { impl().validate(); }
+void raw_hash_table::dump(std::ostream& os) const {
+    impl().dump(os);
+}
+void raw_hash_table::validate() const {
+    impl().validate();
+}
 
-void raw_hash_table::visit(const std::function<
-                                iteration_control(const node_view&)
-                           >& iter_func) const
-{
+void raw_hash_table::visit(const std::function<iteration_control(const node_view&)>& iter_func) const {
     impl().visit(iter_func);
 }
 
@@ -1378,19 +1341,32 @@ detail::raw_hash_table_impl& raw_hash_table::impl() const {
 // --------------------------------
 
 raw_hash_table::node_view::node_view(detail::raw_hash_table_node_view_impl* impl)
-    : m_impl(impl)
-{
+    : m_impl(impl) {
     PREQUEL_ASSERT(m_impl, "Invalid implementation pointer.");
 }
 
-bool raw_hash_table::node_view::is_primary() const { return m_impl->is_primary(); }
-bool raw_hash_table::node_view::is_overflow() const { return m_impl->is_overflow(); }
+bool raw_hash_table::node_view::is_primary() const {
+    return m_impl->is_primary();
+}
+bool raw_hash_table::node_view::is_overflow() const {
+    return m_impl->is_overflow();
+}
 
-u64 raw_hash_table::node_view::bucket_index() const { return m_impl->bucket_index(); }
-block_index raw_hash_table::node_view::address() const { return m_impl->address(); }
-block_index raw_hash_table::node_view::overflow_address() const { return m_impl->overflow_address(); }
+u64 raw_hash_table::node_view::bucket_index() const {
+    return m_impl->bucket_index();
+}
+block_index raw_hash_table::node_view::address() const {
+    return m_impl->address();
+}
+block_index raw_hash_table::node_view::overflow_address() const {
+    return m_impl->overflow_address();
+}
 
-u32 raw_hash_table::node_view::size() const { return m_impl->size(); }
-const byte* raw_hash_table::node_view::value(u32 index) const { return m_impl->value(index); }
+u32 raw_hash_table::node_view::size() const {
+    return m_impl->size();
+}
+const byte* raw_hash_table::node_view::value(u32 index) const {
+    return m_impl->value(index);
+}
 
 } // namespace prequel

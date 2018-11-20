@@ -23,14 +23,15 @@ struct settings {
     uint32_t cache_blocks = 1024;
 };
 
-}
+} // namespace keyvaluedb
 
 int main() {
     using namespace keyvaluedb;
 
     settings s;
 
-    auto file = prequel::memory_vfs().open("tempfile", prequel::vfs::read_write, prequel::vfs::open_create);
+    auto file =
+        prequel::memory_vfs().open("tempfile", prequel::vfs::read_write, prequel::vfs::open_create);
     prequel::default_file_format<database_header> format(*file, 4096, s.cache_blocks);
 
     {

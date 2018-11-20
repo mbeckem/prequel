@@ -80,10 +80,7 @@ TEST_CASE("heap of small objects", "[heap]") {
                 // Every string is 20 bytes
                 std::string str = fmt::format("Test String {:6}!\n", i + 1000);
 
-                refs.push_back({
-                    h.allocate((const byte*) str.data(), str.size()),
-                    str
-                });
+                refs.push_back({h.allocate((const byte*) str.data(), str.size()), str});
             }
         }
 
@@ -144,7 +141,7 @@ TEST_CASE("heap supports large objects", "[heap]") {
                 FAIL("Unexpected string: " << data << " expected " << str);
 
             total_size += str.size();
-            refs.push_back({ ref, std::move(str) });
+            refs.push_back({ref, std::move(str)});
         }
         h.validate();
 

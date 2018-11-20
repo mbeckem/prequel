@@ -9,8 +9,7 @@ namespace prequel {
 
 id_generator::id_generator(anchor_handle<anchor> _anchor, allocator& _alloc)
     : m_anchor(std::move(_anchor))
-    , m_tree(m_anchor.member<&anchor::tree>(), _alloc)
-{}
+    , m_tree(m_anchor.member<&anchor::tree>(), _alloc) {}
 
 id_generator::value_type id_generator::max() const {
     return m_anchor.get<&anchor::max>();
@@ -46,7 +45,6 @@ void id_generator::free(value_type id) {
         left = m_tree.create_cursor(m_tree.seek_max);
     }
 
-
     std::optional<interval> left_interval;
     if (left) {
         left_interval = left.get();
@@ -64,9 +62,7 @@ void id_generator::free(value_type id) {
     }
 
     PREQUEL_ASSERT(!left_interval || !right_interval || left_interval->end < right_interval->begin,
-                 "Intervals are ordered and do not overlap.");
-
-
+                   "Intervals are ordered and do not overlap.");
 
     // Merge with neighbors if possible.
     interval range(id, id);

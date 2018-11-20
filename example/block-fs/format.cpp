@@ -3,8 +3,8 @@
 #include <string>
 #include <vector>
 
-#include <prequel/vfs.hpp>
 #include <prequel/file_engine.hpp>
+#include <prequel/vfs.hpp>
 
 #include "filesystem.hpp"
 
@@ -45,8 +45,8 @@ int main(int argc, char** argv) {
     }
 
     try {
-        std::unique_ptr<prequel::file> device = prequel::system_vfs().open(
-                    argv[1], prequel::vfs::read_write);
+        std::unique_ptr<prequel::file> device =
+            prequel::system_vfs().open(argv[1], prequel::vfs::read_write);
         format_device(*device);
         std::cout << "OK." << std::endl;
         return 0;
