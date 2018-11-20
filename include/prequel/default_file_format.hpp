@@ -65,6 +65,7 @@ private:
     default_file_format() = default;
 
     void init();
+
 private:
     file* m_file = nullptr;
     std::unique_ptr<engine> m_engine;

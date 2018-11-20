@@ -53,7 +53,7 @@ double raw_btree::fill_factor() const {
 u64 raw_btree::byte_size() const { return nodes() * get_engine().block_size(); }
 
 double raw_btree::overhead() const {
-    return empty() ? 0 : double(byte_size()) / (size() * value_size());
+    return empty() ? 1.0 : double(byte_size()) / (size() * value_size());
 }
 
 raw_btree_cursor raw_btree::create_cursor(raw_btree::cursor_seek_t seek) const {

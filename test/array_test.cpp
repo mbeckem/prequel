@@ -179,7 +179,7 @@ TEST_CASE("customizable array growth", "[array]") {
 
             array.growth(linear_growth(12345));
             array.resize(101 * array.block_capacity() + 1);
-            REQUIRE(array.blocks() == (12345 + 101));
+            REQUIRE(array.blocks() == 12345);
         }
     }
 }

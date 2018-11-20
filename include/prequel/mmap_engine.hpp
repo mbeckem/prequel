@@ -41,11 +41,12 @@ public:
 private:
     u64 do_size() const override;
     void do_grow(u64 n) override;
-    block_handle do_access(block_index index) override;
-    block_handle do_read(block_index index) override;
-    block_handle do_overwrite_zero(block_index index) override;
-    block_handle do_overwrite(block_index index, const byte* data) override;
     void do_flush() override;
+
+    pin_result do_pin(block_index index, bool initialize) override;
+    void do_unpin(block_index index, uintptr_t cookie) noexcept override;
+    void do_flush(block_index index, uintptr_t cookie) override;
+    void do_dirty(block_index index, uintptr_t cookie) override;
 
 private:
     detail::mmap_engine_impl& impl() const;

@@ -323,7 +323,7 @@ struct default_serializer<std::variant<T...>> {
 
         switch (which) {
         // Don't make the compiler generate a god damn function pointer table for this.
-        #define PREQUEL_VARIANT_CASE(i)                             \
+        #define PREQUEL_DETAIL_VARIANT_CASE(i)                             \
                 case i: {                                           \
                     if constexpr (i < alternatives) {               \
                         b = prequel::serialize(std::get<i>(v), b);  \
@@ -331,24 +331,24 @@ struct default_serializer<std::variant<T...>> {
                     }                                               \
                 }
 
-            PREQUEL_VARIANT_CASE(0)
-            PREQUEL_VARIANT_CASE(1)
-            PREQUEL_VARIANT_CASE(2)
-            PREQUEL_VARIANT_CASE(3)
-            PREQUEL_VARIANT_CASE(4)
-            PREQUEL_VARIANT_CASE(5)
-            PREQUEL_VARIANT_CASE(6)
-            PREQUEL_VARIANT_CASE(7)
-            PREQUEL_VARIANT_CASE(8)
-            PREQUEL_VARIANT_CASE(9)
-            PREQUEL_VARIANT_CASE(10)
-            PREQUEL_VARIANT_CASE(11)
-            PREQUEL_VARIANT_CASE(12)
-            PREQUEL_VARIANT_CASE(13)
-            PREQUEL_VARIANT_CASE(14)
-            PREQUEL_VARIANT_CASE(15)
+            PREQUEL_DETAIL_VARIANT_CASE(0)
+            PREQUEL_DETAIL_VARIANT_CASE(1)
+            PREQUEL_DETAIL_VARIANT_CASE(2)
+            PREQUEL_DETAIL_VARIANT_CASE(3)
+            PREQUEL_DETAIL_VARIANT_CASE(4)
+            PREQUEL_DETAIL_VARIANT_CASE(5)
+            PREQUEL_DETAIL_VARIANT_CASE(6)
+            PREQUEL_DETAIL_VARIANT_CASE(7)
+            PREQUEL_DETAIL_VARIANT_CASE(8)
+            PREQUEL_DETAIL_VARIANT_CASE(9)
+            PREQUEL_DETAIL_VARIANT_CASE(10)
+            PREQUEL_DETAIL_VARIANT_CASE(11)
+            PREQUEL_DETAIL_VARIANT_CASE(12)
+            PREQUEL_DETAIL_VARIANT_CASE(13)
+            PREQUEL_DETAIL_VARIANT_CASE(14)
+            PREQUEL_DETAIL_VARIANT_CASE(15)
 
-        #undef PREQUEL_VARIANT_CASE
+        #undef PREQUEL_DETAIL_VARIANT_CASE
         }
 
         // Zero the remainder of the variant.
@@ -371,7 +371,7 @@ struct default_serializer<std::variant<T...>> {
         // of the if statement if the current variant type does not have that many alternatives.
         // This approach is better than a function table generated at compile time because
         // it (probably) does not cause excessive binary bloat.
-        #define PREQUEL_VARIANT_CASE(i)                                         \
+        #define PREQUEL_DETAIL_VARIANT_CASE(i)                                         \
             case i: {                                                           \
                 if constexpr (i < alternatives) {                               \
                     std::variant_alternative_t<i, std::variant<T...>> value;    \
@@ -381,24 +381,24 @@ struct default_serializer<std::variant<T...>> {
                 }                                                               \
             };
 
-            PREQUEL_VARIANT_CASE(0)
-            PREQUEL_VARIANT_CASE(1)
-            PREQUEL_VARIANT_CASE(2)
-            PREQUEL_VARIANT_CASE(3)
-            PREQUEL_VARIANT_CASE(4)
-            PREQUEL_VARIANT_CASE(5)
-            PREQUEL_VARIANT_CASE(6)
-            PREQUEL_VARIANT_CASE(7)
-            PREQUEL_VARIANT_CASE(8)
-            PREQUEL_VARIANT_CASE(9)
-            PREQUEL_VARIANT_CASE(10)
-            PREQUEL_VARIANT_CASE(11)
-            PREQUEL_VARIANT_CASE(12)
-            PREQUEL_VARIANT_CASE(13)
-            PREQUEL_VARIANT_CASE(14)
-            PREQUEL_VARIANT_CASE(15)
+            PREQUEL_DETAIL_VARIANT_CASE(0)
+            PREQUEL_DETAIL_VARIANT_CASE(1)
+            PREQUEL_DETAIL_VARIANT_CASE(2)
+            PREQUEL_DETAIL_VARIANT_CASE(3)
+            PREQUEL_DETAIL_VARIANT_CASE(4)
+            PREQUEL_DETAIL_VARIANT_CASE(5)
+            PREQUEL_DETAIL_VARIANT_CASE(6)
+            PREQUEL_DETAIL_VARIANT_CASE(7)
+            PREQUEL_DETAIL_VARIANT_CASE(8)
+            PREQUEL_DETAIL_VARIANT_CASE(9)
+            PREQUEL_DETAIL_VARIANT_CASE(10)
+            PREQUEL_DETAIL_VARIANT_CASE(11)
+            PREQUEL_DETAIL_VARIANT_CASE(12)
+            PREQUEL_DETAIL_VARIANT_CASE(13)
+            PREQUEL_DETAIL_VARIANT_CASE(14)
+            PREQUEL_DETAIL_VARIANT_CASE(15)
 
-        #undef PREQUEL_VARIANT_CASE
+        #undef PREQUEL_DETAIL_VARIANT_CASE
         }
     }
 };
@@ -496,7 +496,7 @@ constexpr auto which_serializer() {
             return serializer_kind::binary_format_serialization;
         } else {
             static_assert(always_false<T>::value,
-                          "The type cannot be serialized. You must either implement get binary format or "
+                          "The type cannot be serialized. You must either implement get_binary_format() or "
                           "explicit serialization protocols.");
         }
     }

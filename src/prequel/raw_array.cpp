@@ -56,7 +56,7 @@ public:
     u64 blocks() const { return m_extent.size(); }
     double fill_factor() const { return capacity() == 0 ? 0 : double(size()) / double(capacity()); }
     u64 byte_size() const { return blocks() * block_size(); }
-    double overhead() const { return capacity() == 0 ? 0 : double(byte_size()) / double(size() * value_size()); }
+    double overhead() const { return capacity() == 0 ? 1.0 : double(byte_size()) / double(size() * value_size()); }
 
     void get(u64 index, byte* value) {
         check_index(index);
@@ -81,9 +81,14 @@ public:
     void reserve(u64 n) {
         u64 needed_blocks = ceil_div(n, u64(block_capacity()));
         if (needed_blocks > blocks())
-            grow_extent(needed_blocks);
+            resize_extent(needed_blocks);
 
         PREQUEL_ASSERT(capacity() >= n, "Capacity invariant");
+    }
+
+    void shrink(bool exact) {
+        u64 needed_blocks = ceil_div(size(), u64(block_capacity()));
+        resize_extent(needed_blocks, exact);
     }
 
     void push_back(const byte* value) {
@@ -93,7 +98,7 @@ public:
         u64 blk_index = block_index(sz);
         u32 blk_offset = block_offset(sz);
         if (blk_index == blocks())
-            grow_extent(blocks() + 1);
+            resize_extent(blocks() + 1);
 
         auto handle = blk_offset == 0 ? create(blk_index) : read(blk_index);
         handle.write(calc_offset_in_block(value_size, blk_offset), value, m_value_size);
@@ -180,27 +185,28 @@ private:
         return m_extent.read(blk_index);
     }
 
-    // Grow to at least `minimum` blocks.
-    void grow_extent(u64 minimum) {
-        PREQUEL_ASSERT(minimum > m_extent.size(), "Cannot shrink extent");
-
+    // Adjust the minimum size (in blocks) according to the growth strategy.
+    u64 new_size(u64 minimum) const {
         struct visitor_t {
-            u64 old_size;
             u64 minimum;
 
             u64 operator()(const linear_growth& g) {
                 // Round up to multiple of chunk size.
-                u64 alloc = minimum - old_size;
-                return old_size + ceil_div(alloc, g.chunk_size()) * g.chunk_size();
+                return ceil_div(minimum, g.chunk_size()) * g.chunk_size();
             }
 
             u64 operator()(const exponential_growth&) {
                 return round_towards_pow2(minimum);
             }
-        } v{m_extent.size(), minimum};
+        };
 
-        u64 new_size = std::visit(v, m_growth);
-        m_extent.resize(new_size);
+        visitor_t v{minimum};
+        return std::visit(v, m_growth);
+    }
+
+    void resize_extent(u64 minimum, bool exact = false) {
+        u64 size = exact ? minimum : new_size(minimum);
+        m_extent.resize(size);
     }
 
     void check_index(u64 index) const {
@@ -253,6 +259,9 @@ void raw_array::reset() { impl().reset(); }
 void raw_array::clear() { impl().clear(); }
 void raw_array::resize(u64 n, const byte* value) { impl().resize(n, value); }
 void raw_array::reserve(u64 n) { impl().reserve(n); }
+void raw_array::reserve_additional(u64 n) { impl().reserve(checked_add(n, size())); }
+void raw_array::shrink() { impl().shrink(false); }
+void raw_array::shrink_to_fit() { impl().shrink(true); }
 void raw_array::growth(const growth_strategy& g) { impl().growth(g); }
 growth_strategy raw_array::growth() const { return impl().growth(); }
 

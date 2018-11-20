@@ -156,6 +156,32 @@ public:
     void reserve(u64 n) { inner.reserve(n); }
 
     /**
+     * Resize the underlying storage so that the stream can store at least `n` *additional* values
+     * without further resize operations. Uses the current growth strategy to computed the
+     * storage that needs to be allocated.
+     *
+     * @post `capacity() >= size() + n`
+     */
+    void reserve_additional(u64 n) { inner.reserve_additional(n); }
+
+
+    /**
+     * Reduces the storage space used by the array by releasing unused capacity.
+     *
+     * It uses the current growth strategy to determine the needed number of blocks
+     * and shrinks to that value.
+     */
+    void shrink() { inner.shrink(); }
+
+    /**
+     * Reduces the storage space used by the array by releasing all unused capacity.
+     *
+     * Releases *all* unused blocks to reduce the storage space to the absolute minimum.
+     * Ignores the growth strategy.
+     */
+    void shrink_to_fit() { inner.shrink_to_fit(); }
+
+    /**
      * Inserts a new value at the end of the stream.
      * Allocates new storage in accordance with the current growth strategy
      * if there is no free capacity remaining.

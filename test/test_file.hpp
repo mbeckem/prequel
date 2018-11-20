@@ -14,34 +14,19 @@
 
 namespace prequel {
 
-inline std::unique_ptr<file> get_test_file() {
-    // TODO: Make these defines or runtime options.
-    static constexpr bool fs_test = false;
-
-    if constexpr (fs_test) {
-        return system_vfs().create_temp();
-    } else {
-        return memory_vfs().open("testfile.bin", vfs::read_write, vfs::open_create);
-    }
-}
-
-inline std::unique_ptr<engine> get_test_engine(file& f, u32 block_size) {
-    // TODO: Make these defines or runtime options.
-    static constexpr bool mmap_test = false;
-
-    if constexpr (mmap_test) {
-        return std::make_unique<mmap_engine>(f, block_size);
-    } else {
-        return std::make_unique<file_engine>(f, block_size, 16 * 1024);
-    }
-}
-
-// TODO: Configuration option for file engine or mmap engine.
 class test_file : boost::noncopyable {
 public:
     explicit test_file(u32 block_size)
-        : m_engine(std::make_unique<memory_engine>(block_size))
-    {}
+    {
+        // TODO test mmap engine
+        constexpr bool fs_test = true;
+        if (fs_test) {
+            m_file = system_vfs().create_temp();
+            m_engine = std::make_unique<file_engine>(*m_file, block_size, 64);
+        } else {
+            m_engine = std::make_unique<memory_engine>(block_size);
+        }
+    }
 
     engine& get_engine() {
         if (!m_engine)
@@ -50,6 +35,7 @@ public:
     }
 
 private:
+    std::unique_ptr<file> m_file; // Can be unused
     std::unique_ptr<engine> m_engine;
 };
 

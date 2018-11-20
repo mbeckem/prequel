@@ -440,7 +440,7 @@ u64 raw_stack::byte_size() const {
 }
 
 double raw_stack::overhead() const {
-    return empty() ? 0 : double(byte_size()) / (size() * value_size());
+    return empty() ? 1.0 : double(byte_size()) / (size() * value_size());
 }
 
 void raw_stack::top(byte* value) const { impl().top(value); }

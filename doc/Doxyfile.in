@@ -11,7 +11,7 @@ INCLUDE_PATH            = @PROJECT_SOURCE_DIR@/include
 STRIP_FROM_PATH         = @PROJECT_SOURCE_DIR@/ \
                           @PROJECT_SOURCE_DIR@/include \
                           @PROJECT_BINARY_DIR@/
-EXCLUDE_SYMBOLS         = prequel::detail
+EXCLUDE_SYMBOLS         = prequel::detail PREQUEL_DETAIL_*
 
 ALIASES                 = "rst=\verbatim embed:rst"
 ALIASES                 += "endrst=\endverbatim"

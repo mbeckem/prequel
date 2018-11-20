@@ -882,7 +882,7 @@ u64 raw_list::byte_size() const {
 }
 
 double raw_list::overhead() const {
-    return empty() ? 0 : double(byte_size()) / (size() * value_size());
+    return empty() ? 1.0 : double(byte_size()) / (size() * value_size());
 }
 
 raw_list_cursor raw_list::create_cursor(raw_list::cursor_seek_t seek) const {

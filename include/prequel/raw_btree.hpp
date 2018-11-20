@@ -334,7 +334,7 @@ public:
     /// Returns the size (in bytes) of every value in the tree (stored in leaf nodes).
     u32 value_size() const;
 
-    // Returns the size (in bytes) of every key in the tree (stored in internal nodes).
+    /// Returns the size (in bytes) of every key in the tree (stored in internal nodes).
     u32 key_size() const;
 
     /// Returns the maximum number of children in an internal node.
@@ -412,6 +412,7 @@ public:
     /// \post `empty()`.
     void clear();
 
+    /// Prints debugging information to the output stream.
     void dump(std::ostream& os) const;
 
     /// Perform validation of the tree's structure. Basic invariants, such as the

@@ -6,7 +6,6 @@
 #include <prequel/math.hpp>
 #include <prequel/detail/deferred.hpp>
 
-#include <boost/intrusive_ptr.hpp>
 #include <boost/intrusive/list.hpp>
 #include <boost/intrusive/unordered_set.hpp>
 #include <boost/intrusive/set.hpp>
@@ -15,7 +14,6 @@
 #include <fmt/format.h>
 
 #include <exception>
-#include <iosfwd>
 #include <type_traits>
 
 #ifdef PREQUEL_TRACE_IO
@@ -35,36 +33,19 @@ namespace {
 struct block;
 struct block_cache;
 struct block_dirty_set;
-struct block_map;
 struct block_pool;
 
-/// A block instance represents a block from disk
-/// that has been loaded into memory.
-///
-/// Blocks are reference counted: if their refcount
-/// drops to zero, they will be flushed to disk.
-/// Note that they will only be  written if they have been
-/// marked as dirty prior to their destruction.
-///
-/// All instances with a refcount greater than zero
-/// are stored in an (intrusive) hash map,
-/// indexed by their block index. This enables us to always
-/// return the same instance for the same index.
-/// Recently used blocks are additionally kept in a LRU-Cache.
-///
-/// Block instances that have been "destroyed" (i.e. their refcount has become zero)
-/// are linked to together in a free list and will be reused for
-/// future allocations.
-struct block final : public detail::block_handle_impl {
+/*
+ * Represents a block loaded from disk into memory.
+ * A block is either pinned or in the cache.
+ *
+ * Dirty blocks are written back to disk before they are removed
+ * from main memory.
+ */
+struct block {
 public:
     /// The engine this block belongs to.
     file_engine_impl* const m_engine;
-
-    /// Number of references to this block.
-    u32 m_refcount = 0;
-
-    /// True if the block contains unwritten changes.
-    bool m_dirty = false;
 
     /// Index of the block within the file.
     u64 m_index = 0;
@@ -72,11 +53,15 @@ public:
     /// Block sized data array.
     byte* m_data = nullptr;
 
+    /// True if the block is referenced from the outside.
+    /// It must not be dropped from memory until it is unpinned by the application.
+    bool m_pinned = false;
+
     /// Used by the free list in block_pool.
     boost::intrusive::list_member_hook<> m_free_hook;
 
     /// Used by the block_cache.
-    boost::intrusive::list_member_hook<> m_lru_hook;
+    boost::intrusive::list_member_hook<> m_cache_hook;
 
     /// Used by the block_map.
     boost::intrusive::unordered_set_member_hook<> m_map_hook;
@@ -98,48 +83,20 @@ public:
         // The block must not be in any of the containers
         // when it is being reset.
         PREQUEL_ASSERT(!m_free_hook.is_linked(), "in free list");
-        PREQUEL_ASSERT(!m_lru_hook.is_linked(), "in lru list");
+        PREQUEL_ASSERT(!m_cache_hook.is_linked(), "in lru list");
         PREQUEL_ASSERT(!m_map_hook.is_linked(), "in block map");
         PREQUEL_ASSERT(!m_dirty_hook.is_linked(), "in dirty list");
 
         m_index = 0;
-        m_dirty = false;
         // Not zeroing the data array because it will
         // be overwritten by a read() anyway.
     }
 
-    void ref() noexcept {
-        ++m_refcount;
-        PREQUEL_ASSERT(m_refcount >= 1, "invalid refcount");
-    }
-
-    inline void unref() noexcept;
-
-    /// Marks this block as dirty.
-    inline void set_dirty() noexcept;
-
-    friend void intrusive_ptr_add_ref(block* b) {
-        b->ref();
-    }
-
-    friend void intrusive_ptr_release(block* b) {
-        b->unref();
-    }
-
-public:
-    // Interface implementation (detail::block_handle_impl)
-
-    void handle_ref() override { ref(); }
-    void handle_unref() override { unref(); }
-
-    u64 index() const noexcept override { return m_index; }
-
-    const byte* data() const noexcept override { return m_data; }
-
-    byte* writable_data() override {
-        set_dirty();
-        return m_data;
-    }
+    u64 index() const { return m_index; }
+    byte* data() const { return m_data; }
+    bool dirty() const { return m_dirty_hook.is_linked(); }
+    bool cached() const { return m_cache_hook.is_linked(); }
+    bool pinned() const { return m_pinned; }
 };
 
 // Blocks are indexed by their block index.
@@ -151,29 +108,23 @@ struct block_key {
     }
 };
 
-/// Keeps the N most recently used blocks in a linked list.
-/// Membership in the cache counts as an additional reference,
-/// keeping the block alive for further use.
+/// Caches uses blocks in main memory. Blocks in the cache must not be pinned.
 struct block_cache {
 private:
     using list_t = boost::intrusive::list<
         block,
         boost::intrusive::member_hook<
-            block, boost::intrusive::list_member_hook<>, &block::m_lru_hook
+            block, boost::intrusive::list_member_hook<>, &block::m_cache_hook
         >
     >;
 
 private:
-    /// Maximum number of cached blocks.
-    u32 m_max_size;
-
     /// Linked list of cached blocks (intrusive).
     /// The most recently used block is at the front.
     list_t m_list;
 
 public:
-    /// Construct a new cache with the given capacity.
-    explicit block_cache(u32 max_size) noexcept;
+    explicit block_cache() noexcept;
 
     ~block_cache();
 
@@ -181,34 +132,29 @@ public:
 
     /// True if the block is in the cache.
     bool contains(block& blk) const noexcept {
-        return blk.m_lru_hook.is_linked();
+        return blk.m_cache_hook.is_linked();
     }
 
-    /// Marks the block as used, inserting it into the cache
-    /// if necessary. The block will be at the head of the list.
-    /// If the  cache is full, the least recently used block
-    /// will be removed.
-    void use(block& blk) noexcept;
+    /// Inserts the block into the cache. The block must not be cached already.
+    void add(block& blk) noexcept;
 
-    u32 max_size() const noexcept { return m_max_size; }
+    /// Removes the block from the cache. The block must be cached.
+    void remove(block& blk) noexcept;
 
-    u32 size() const noexcept { return static_cast<u32>(m_list.size()); }
+    /// Returns a pointer to the block that should be evicted next.
+    /// Does not remove that block.
+    block* lru_candidate() noexcept;
+
+    size_t size() const noexcept { return m_list.size(); }
 
     block_cache(const block_cache&) = delete;
     block_cache& operator=(const block_cache&) = delete;
 
 private:
-    void insert(block& blk) noexcept;
 
-    static void dispose(block* blk) noexcept;
 };
 
-/// A hash map that indexes all used blocks.
-/// Blocks can be retrieved by specifying their block index.
-///
-/// Once a block's reference count reaches zero,
-/// it will be removed from this map.
-/// Note: Membership does *not* count towards the ref count.
+/// A map that indexes all live block instances.
 struct block_map {
     struct block_index_hash {
         size_t operator()(u64 index) const noexcept {
@@ -254,15 +200,16 @@ public:
 
     void clear() noexcept;
 
+    template<typename Disposer>
+    void dispose(Disposer&& d);
+
     /// Insert a block into the map.
-    /// Note: does *not* affect the block's reference count.
     ///
     /// \pre The block must not be stored already.
     /// \pre The block's index must be unique.
     void insert(block& blk) noexcept;
 
     /// Removes a block from the map.
-    /// Note: does *not* affect the block's reference count.
     ///
     /// \pre `contains(blk)`.
     void remove(block& blk) noexcept;
@@ -277,58 +224,13 @@ public:
     }
 
     /// Returns the number of blocks in this map.
-    u32 size() const noexcept { return static_cast<u32>(m_map.size()); }
+    size_t size() const noexcept { return m_map.size(); }
 
     block_map(const block_map&) = delete;
     block_map& operator=(const block_map&) = delete;
 };
 
-/// Stores reuseable block instances.
-struct block_pool {
-private:
-    using list_t = boost::intrusive::list<
-        block,
-        boost::intrusive::member_hook<
-            block, boost::intrusive::list_member_hook<>, &block::m_free_hook
-        >
-    >;
-
-private:
-    /// List of free blocks.
-    list_t m_list;
-
-public:
-    block_pool();
-
-    ~block_pool();
-
-    /// Add a block to the pool for future use.
-    /// The pool takes ownership of this block.
-    /// The block must not already be in this pool.
-    ///
-    /// \pre The block's refcount must be zero.
-    void add(block& blk) noexcept;
-
-    /// Removes a single block instance from the pool.
-    /// The block is owned by the caller.
-    /// Returns a nullptr if the pool is empty.
-    block* remove() noexcept;
-
-    /// The number of block instances in the pool
-    u32 size() const noexcept { return static_cast<u32>(m_list.size()); }
-
-    /// True iff the pool is empty.
-    bool empty() const noexcept { return m_list.empty(); }
-
-    void clear() noexcept;
-
-    block_pool(const block_pool&) = delete;
-    block_pool& operator=(const block_pool&) = delete;
-
-private:
-    static void dispose(block* blk) noexcept;
-};
-
+/// Indexes dirty blocks.
 struct block_dirty_set {
 private:
     // Set of dirty blocks, indexed by block index.
@@ -371,6 +273,51 @@ public:
     block_dirty_set& operator=(const block_dirty_set&) = delete;
 };
 
+/// Stores reuseable block instances.
+struct block_pool {
+private:
+    using list_t = boost::intrusive::list<
+        block,
+        boost::intrusive::member_hook<
+            block, boost::intrusive::list_member_hook<>, &block::m_free_hook
+        >
+    >;
+
+private:
+    /// List of free blocks.
+    list_t m_list;
+
+public:
+    block_pool();
+
+    ~block_pool();
+
+    /// Add a block to the pool for future use.
+    /// The pool takes ownership of this block.
+    /// The block must not already be in this pool.
+    void add(block* blk) noexcept;
+
+    /// Removes a single block instance from the pool.
+    /// The block is owned by the caller.
+    /// Returns a nullptr if the pool is empty.
+    block* remove() noexcept;
+
+    /// The number of block instances in the pool
+    size_t size() const noexcept { return m_list.size(); }
+
+    /// True iff the pool is empty.
+    bool empty() const noexcept { return m_list.empty(); }
+
+    /// Removes all block instances from the pool and deletes them.
+    void clear() noexcept;
+
+    block_pool(const block_pool&) = delete;
+    block_pool& operator=(const block_pool&) = delete;
+
+private:
+    static void dispose(block* blk) noexcept;
+};
+
 } // namespace
 
 class file_engine_impl {
@@ -378,12 +325,16 @@ private:
     /// Underlying I/O-object.
     file* m_file;
 
-    /// Cache size + a bit of a safety buffer
-    /// if the application needs to pin 1 or more blocks.
-    u32 m_capacity;
-
     /// Size of a single block. Must be a power of two.
     u32 m_block_size;
+
+    /// Maximum number of used blocks (pinned + cached).
+    /// Can be violated if there are too many pinned blocks.
+    size_t m_max_blocks;
+
+    /// Maximum number of block instances (used + pooled).
+    /// Slightly larger than m_max_blocks to avoid trashing on new/delete.
+    size_t m_max_pooled_blocks;
 
     /// Contains previously allocated instances that
     /// can be reused for future blocks.
@@ -401,14 +352,8 @@ private:
     /// Performance metrics.
     file_engine_stats m_stats;
 
-    /// An exception from an earlier write operation
-    /// that has to be rethrown in the next read or flush operation.
-    /// These exceptions have to be stored here because they cannot
-    /// be reported from the block handle's (noexcept) destructor.
-    std::exception_ptr m_write_error;
-
 public:
-    explicit file_engine_impl(file& fd, u32 block_size, u32 cache_size);
+    explicit file_engine_impl(file& fd, u32 block_size, size_t cache_size);
 
     ~file_engine_impl();
 
@@ -418,81 +363,33 @@ public:
 
     const file_engine_stats& stats() const noexcept { return m_stats; }
 
-    /// Access the block if it's cached, otherwise return an invalid pointer.
-    boost::intrusive_ptr<block> access(u64 index);
-
-    /// Reads the block at the given address and returns a handle to it.
-    /// No actual I/O is performed if the block is already in memory.
-    ///
-    /// In-memory blocks are managed using automatic reference counting.
-    /// A block will remain accessible for as long as there are handles
-    /// that refer to it.
-    ///
-    /// Throws if an I/O error occurs.
-    boost::intrusive_ptr<block> read(u64 index);
-
-    /// Similar to `read()`, but no actual I/O is performed when the block
-    /// is not already in memory. Instead, the block's content is zeroed.
-    ///
-    /// This is useful for "reading" a newly allocated block, where the caller
-    /// already knows that the contents can be ignored.
-    ///
-    /// \note If the block was already in memory, its contents will be overwritten
-    /// with zeroes as well.
-    ///
-    /// \note Blocks read using this function are dirty by default,
-    /// as their content does not necessarily reflect the state on disk.
-    ///
-    /// Throws if an I/O error occurs (this can still happen if the new block
-    /// evicts an old block from the cache).
-    boost::intrusive_ptr<block> overwrite_zero(u64 index);
-
-    /// Like `overwrite(index)`, but sets the content to that of `data`.
-    /// Data must be at least `block_size()` bytes long.
-    boost::intrusive_ptr<block> overwrite(u64 index, const byte* data);
+    block* pin(u64 index, bool initialize);
+    void unpin(u64 index, block* blk) noexcept;
+    void dirty(u64 index, block* blk);
+    void flush(u64 index, block* blk);
 
     /// Writes all dirty blocks back to disk.
     /// Throws if an I/O error occurs.
-    ///
-    /// \note Flushing does *not* perform a `sync()` on the underlying file,
-    /// it merely writes all pending data to the file using `write()`.
     void flush();
 
     file_engine_impl(const file_engine_impl&) = delete;
     file_engine_impl& operator=(const file_engine_impl&) = delete;
 
 private:
-    friend block;
+    /// Removes a cached block from main memory.
+    /// Writes the block if it's dirty.
+    void evict_block(block* blk);
 
-    template<typename ReadAction>
-    boost::intrusive_ptr<block> read_impl(u64 index, ReadAction&& read);
-
-    /// Adds the block to the set of dirty blocks.
-    void add_dirty_set(block& blk) noexcept;
-
-    /// Tests whether the block is in the dirty set.
-    bool in_dirty_set(block& blk) const noexcept { return m_dirty.contains(blk); }
-
-    /// Write a single block back to disk (throws).
-    /// Does nothing if the block isn't marked as dirty.
-    void flush_block(block& blk);
-
-    /// Called when the refcount of a block reaches zero.
-    /// The block will be written to disk (if necessary).
-    /// Blocks are reused for future allocations.
-    void finalize_block(block& blk) noexcept;
+    /// Write a single block back to disk.
+    void flush_block(block* blk);
 
     /// Returns a new block instance, possibly
     /// from the free list.
-    block& allocate_block();
+    block* allocate_block();
 
     /// Deallocates a block (or puts it into the free list
     /// for later use).
-    void free_block(block& blk) noexcept;
-
-    /// Rethrows a stored write error.
-    /// Clears the error so it won't be thrown again.
-    void rethrow_write_error();
+    void free_block(block* blk) noexcept;
 };
 
 block::block(file_engine_impl* engine)
@@ -507,23 +404,6 @@ block::~block() {
     std::free(m_data);
 }
 
-inline void block::unref() noexcept {
-    PREQUEL_ASSERT(m_refcount >= 1, "invalid refcount");
-    if (--m_refcount == 0) {
-        m_engine->finalize_block(*this);
-    }
-}
-
-inline void block::set_dirty() noexcept {
-    if (!m_dirty) {
-        PREQUEL_ASSERT(!m_engine->in_dirty_set(*this), "Must not be in the dirty set since m_dirty is false.");
-        m_engine->add_dirty_set(*this);
-        m_dirty = true;
-    } else {
-        PREQUEL_ASSERT(m_engine->in_dirty_set(*this), "Must keep dirty flag and set membership in sync.");
-    }
-}
-
 // --------------------------------
 //
 //   block cache
@@ -531,9 +411,8 @@ inline void block::set_dirty() noexcept {
 //
 // --------------------------------
 
-block_cache::block_cache(u32 max_size) noexcept
-    : m_max_size(max_size)
-    , m_list()
+block_cache::block_cache() noexcept
+    : m_list()
 {}
 
 block_cache::~block_cache()
@@ -543,39 +422,25 @@ block_cache::~block_cache()
 
 void block_cache::clear() noexcept
 {
-    m_list.clear_and_dispose(dispose);
+    m_list.clear();
 }
 
-void block_cache::use(block& blk) noexcept
+void block_cache::add(block& blk) noexcept
 {
-    if (!contains(blk)) {
-        insert(blk);
-        return;
-    }
-
-    // Move the block to the front of the list.
-    auto iter = m_list.iterator_to(blk);
-    m_list.splice(m_list.begin(), m_list, iter);
-}
-
-void block_cache::insert(block& blk) noexcept
-{
-    PREQUEL_ASSERT(!contains(blk), "must not be stored in the cache.");
-    PREQUEL_ASSERT(m_list.size() <= m_max_size, "invalid cache size.");
-
-    // Add the block at the front and increment its reference count.
+    PREQUEL_ASSERT(!contains(blk), "Must not be stored in the cache.");
     m_list.push_front(blk);
-    blk.ref();
-
-    // Remove the least recently used element if the cache is full.
-    while (m_list.size() > m_max_size) {
-        m_list.pop_back_and_dispose(dispose);
-    }
 }
 
-void block_cache::dispose(block* blk) noexcept
+void block_cache::remove(block& blk) noexcept
 {
-    blk->unref();
+    PREQUEL_ASSERT(contains(blk), "Must be stored in the cache.");
+
+    auto iter = m_list.iterator_to(blk);
+    m_list.erase(iter);
+}
+
+block* block_cache::lru_candidate() noexcept {
+    return m_list.size() == 0 ? nullptr : &m_list.back();
 }
 
 // --------------------------------
@@ -599,6 +464,11 @@ block_map::~block_map()
 void block_map::clear() noexcept
 {
     m_map.clear();
+}
+
+template<typename Disposer>
+void block_map::dispose(Disposer&& d) {
+    m_map.clear_and_dispose(std::forward<Disposer>(d));
 }
 
 void block_map::insert(block& blk) noexcept
@@ -648,11 +518,12 @@ void block_pool::clear() noexcept
     m_list.clear_and_dispose(dispose);
 }
 
-void block_pool::add(block& blk) noexcept
+void block_pool::add(block* blk) noexcept
 {
-    PREQUEL_ASSERT(blk.m_refcount == 0, "block must not be referenced.");
-    PREQUEL_ASSERT(!blk.m_free_hook.is_linked(), "block must not be in the pool.");
-    m_list.push_back(blk);
+    PREQUEL_ASSERT(!blk->pinned() && !blk->cached(), "Block must not be referenced.");
+    PREQUEL_ASSERT(!blk->dirty(), "Block must not be dirty.");
+    PREQUEL_ASSERT(!blk->m_free_hook.is_linked(), "Block must not be in the pool.");
+    m_list.push_back(*blk);
 }
 
 block* block_pool::remove() noexcept
@@ -691,12 +562,11 @@ void block_dirty_set::clear() noexcept
 
 void block_dirty_set::add(block& blk) noexcept
 {
-    if (!contains(blk)) {
-        auto pair = m_set.insert(blk);
-        PREQUEL_ASSERT(pair.second, "Insertion must have succeeded "
-                                  "because the block was not dirty.");
-        unused(pair);
-    }
+    PREQUEL_ASSERT(!contains(blk), "Block was already marked as dirty.");
+    auto pair = m_set.insert(blk);
+    PREQUEL_ASSERT(pair.second, "Insertion must have succeeded "
+                                "because the block was not dirty.");
+    unused(pair);
 }
 
 void block_dirty_set::remove(block& blk) noexcept
@@ -713,13 +583,14 @@ void block_dirty_set::remove(block& blk) noexcept
 //
 // --------------------------------
 
-file_engine_impl::file_engine_impl(file& fd, u32 block_size, u32 cache_size)
+file_engine_impl::file_engine_impl(file& fd, u32 block_size, size_t cache_size)
     : m_file(&fd)
-    , m_capacity(cache_size + 32)
     , m_block_size(block_size)
+    , m_max_blocks(cache_size)
+    , m_max_pooled_blocks((cache_size + 8) < cache_size ? size_t(-1) : (cache_size + 8))
     , m_pool()
-    , m_blocks(m_capacity)
-    , m_cache(cache_size)
+    , m_blocks(m_max_blocks)
+    , m_cache()
     , m_stats()
 {
     PREQUEL_CHECK(is_pow2(block_size), "block size must be a power of two.");
@@ -727,192 +598,157 @@ file_engine_impl::file_engine_impl(file& fd, u32 block_size, u32 cache_size)
 
 file_engine_impl::~file_engine_impl()
 {
-#ifdef PREQUEL_DEBUG
-    for (block& b : m_blocks) {
-        // The engine is going to be destroyed; the user must not have
-        // any remaining block handles. However, the LRU cache may
-        // still hold some blocks.
-        PREQUEL_ASSERT(b.m_refcount == 1 && m_cache.contains(b),
-                    "Blocks must not be referenced when the engine is destroyed.");
-
-    }
-#endif
-
     // Make an attempt to flush pending IO.
     try {
         flush();
     } catch (...) {}
 
-    // All blocks are forced to be clean.
-    // Clearing the cache removes the last reference to the blocks
-    // and prompts a call to finalize_block, which does no I/O
-    // and puts the blocks into the pool, which deletes them all inside clear().
     m_dirty.clear();
     m_cache.clear();
-    m_blocks.clear();
+    m_blocks.dispose([](block* blk) {
+        delete blk;
+    });
     m_pool.clear();
 }
 
-boost::intrusive_ptr<block> file_engine_impl::access(u64 index)
+block* file_engine_impl::pin(u64 index, bool initialize)
 {
-    block* blk = m_blocks.find(index);
-    return boost::intrusive_ptr<block>(blk);
-}
-
-boost::intrusive_ptr<block> file_engine_impl::read(u64 index)
-{
-    return read_impl(index, [&](byte* data) {
-        PREQUEL_PRINT_READ(index);
-        m_file->read(index * m_block_size, data, m_block_size);
-        ++m_stats.reads;
-    });
-}
-
-boost::intrusive_ptr<block> file_engine_impl::overwrite_zero(u64 index)
-{
-    // The read function is a no-op. Everything else is the same as in read().
-    auto blk = read_impl(index, [&](byte*) {});
-
-    std::memset(blk->m_data, 0, m_block_size);
-    blk->set_dirty();
-    return blk;
-}
-
-boost::intrusive_ptr<block> file_engine_impl::overwrite(u64 index, const byte* data)
-{
-    auto blk = read_impl(index, [&](byte*) {});
-
-    std::memcpy(blk->m_data, data, m_block_size);
-    blk->set_dirty();
-    return blk;
-}
-
-template<typename ReadAction>
-boost::intrusive_ptr<block> file_engine_impl::read_impl(u64 index, ReadAction&& read) {
-    rethrow_write_error();
-
+    // Check the cache.
     if (block* blk = m_blocks.find(index)) {
+        if (blk->pinned()) {
+            PREQUEL_THROW(bad_argument(
+                fmt::format("Block is already pinned (index {})", index)
+            ));
+        }
+
+        PREQUEL_ASSERT(blk->cached(), "Unpinned blocks in memory are always in the cache.");
         ++m_stats.cache_hits;
-        return boost::intrusive_ptr<block>(blk);
+        m_cache.remove(*blk);
+
+        blk->m_pinned = true;
+        return blk;
     }
 
-    // TODO: make room in the cache *here* instead of calling use() below.
+    // We need to allocate a new block instance; fix the cache.
+    while (m_blocks.size() > m_max_blocks) {
+        block* evict = m_cache.lru_candidate();
+        if (!evict)
+            break;
 
-    block& blk = allocate_block();
+        evict_block(evict);
+    }
+
+    block* blk = allocate_block();
     detail::deferred guard = [&]{
         free_block(blk);
     };
 
     {
-        // TODO: We can rehash `m_blocks` here if it gets too full.
-        blk.m_index = index;
-        read(blk.m_data);
+        blk->m_index = index;
+        if (initialize) {
+            PREQUEL_PRINT_READ(index);
+            m_file->read(index * m_block_size, blk->m_data, m_block_size);
+            ++m_stats.reads;
+        }
     }
     guard.disable();
 
-    boost::intrusive_ptr<block> result(&blk);
-    m_blocks.insert(blk);
-    m_cache.use(blk);       // This can cause a block write (and therefore an error) for a
-                            // block that is evicted from the cache.
-    rethrow_write_error();
-    return result;
+    blk->m_pinned = true;
+    m_blocks.insert(*blk);
+    return blk;
+}
+
+void file_engine_impl::unpin(u64 index, block* blk) noexcept {
+    PREQUEL_ASSERT(blk && blk->pinned(), "Block was not pinned");
+    PREQUEL_ASSERT(blk->index() == index, "Inconsistent block and block index.");
+    unused(index);
+
+    blk->m_pinned = false;
+    m_cache.add(*blk);
+}
+
+void file_engine_impl::dirty(u64 index,block* blk) {
+    PREQUEL_ASSERT(blk && blk->pinned(), "Block was not pinned");
+    PREQUEL_ASSERT(blk->index() == index, "Inconsistent block and block index.");
+    unused(index);
+
+    if (!blk->dirty()) {
+        m_dirty.add(*blk);
+    }
+}
+
+void file_engine_impl::flush(u64 index,block* blk) {
+    PREQUEL_ASSERT(blk && blk->pinned(), "Block was not pinned");
+    PREQUEL_ASSERT(blk->index() == index, "Inconsistent block and block index.");
+    unused(index);
+
+    if (blk->dirty()) {
+        flush_block(blk);
+    }
 }
 
 void file_engine_impl::flush()
 {
-    rethrow_write_error();
-
     for (auto i = m_dirty.begin(), e = m_dirty.end();
          i != e; )
     {
         // Compute successor iterator here, flush_block will remove
         // the block from the dirty set and invalidate `i`.
         auto n = std::next(i);
-        flush_block(*i);
+        flush_block(&*i);
         i = n;
     }
     m_file->sync();
 
     PREQUEL_ASSERT(m_dirty.begin() == m_dirty.end(),
-                "no dirty blocks can remain.");
+                   "no dirty blocks can remain.");
 }
 
-void file_engine_impl::add_dirty_set(block& blk) noexcept {
-    m_dirty.add(blk);
-}
-
-void file_engine_impl::flush_block(block& blk)
+void file_engine_impl::evict_block(block* blk)
 {
-    PREQUEL_ASSERT(m_dirty.contains(blk),
-                 "Block must be registered as dirty.");
-    PREQUEL_ASSERT(blk.m_dirty,
-                 "Block must be marked as dirty, too.");
-
-    PREQUEL_PRINT_WRITE(blk.m_index);
-    m_file->write(blk.m_index * m_block_size, blk.m_data, m_block_size);
-    m_dirty.remove(blk);
-    blk.m_dirty = false;
-    ++m_stats.writes;
-}
-
-void file_engine_impl::finalize_block(block& blk) noexcept
-{
-    PREQUEL_ASSERT(blk.m_refcount == 0, "refcount must be zero");
-    PREQUEL_ASSERT(blk.m_engine == this, "block belongs to wrong engine");
-
-    try {
-        if (blk.m_dirty) {
-            flush_block(blk);
-        }
-    } catch (...) {
-        // Because this function is called from a noexcept context (the block handle's
-        // destructor), we don't have a place where we can report the issue.
-        // Therefore we cache the error and report it at the next opportunity (read or flush).
-        // TODO: block index should be stored as well. Nested exception?
-        if (!m_write_error) {
-            m_write_error = std::current_exception();
-        }
-        m_dirty.remove(blk); // XXX See comment below.
+    PREQUEL_ASSERT(blk->cached(), "The block must be cached.");
+    if (blk->dirty()) {
+        flush_block(blk);
     }
 
-    // TODO: Blocks with write errors are deleted form memory == data loss.
-    // Think of a better error handling scheme. For example, the user could be notified
-    // so that he can take a custom action to "rescue" the data.
-    m_blocks.remove(blk);
+    m_cache.remove(*blk);
+    m_blocks.remove(*blk);
     free_block(blk);
 }
 
-block& file_engine_impl::allocate_block()
+void file_engine_impl::flush_block(block* blk)
+{
+    PREQUEL_ASSERT(m_dirty.contains(*blk), "Block must be registered as dirty.");
+
+    PREQUEL_PRINT_WRITE(blk->index());
+    m_file->write(blk->m_index * m_block_size, blk->m_data, m_block_size);
+    m_dirty.remove(*blk);
+    ++m_stats.writes;
+}
+
+block* file_engine_impl::allocate_block()
 {
     block* blk = m_pool.remove();
     if (!blk) {
         blk = new block(this);
     }
-    return *blk;
+    return blk;
 }
 
 // Add to pool or delete depending on the number of blocks in memory.
-void file_engine_impl::free_block(block& blk) noexcept
+void file_engine_impl::free_block(block* blk) noexcept
 {
-    if (m_blocks.size() + m_pool.size() < m_capacity) {
-        blk.reset();
+    if (m_blocks.size() + m_pool.size() < m_max_pooled_blocks) {
+        blk->reset();
         m_pool.add(blk);
     } else {
-        delete &blk;
-    }
-}
-
-void file_engine_impl::rethrow_write_error()
-{
-    if (m_write_error) {
-        auto error = std::exchange(m_write_error, std::exception_ptr());
-        std::rethrow_exception(std::move(error));
+        delete blk;
     }
 }
 
 } // namespace detail
 
-file_engine::file_engine(file& fd, u32 block_size, u32 cache_size)
+file_engine::file_engine(file& fd, u32 block_size, size_t cache_size)
     : engine(block_size)
     , m_impl(std::make_unique<detail::file_engine_impl>(fd, block_size, cache_size))
 {}
@@ -933,27 +769,30 @@ void file_engine::do_grow(u64 n) {
     fd().truncate(new_size_bytes);
 }
 
-block_handle file_engine::do_access(block_index index) {
-    if (boost::intrusive_ptr<detail::block> blk = impl().access(index.value())) {
-        return block_handle(this, blk.get());
-    }
-    return block_handle();
-}
-
-block_handle file_engine::do_read(block_index index) {
-    return block_handle(this, impl().read(index.value()).get());
-}
-
-block_handle file_engine::do_overwrite_zero(block_index index) {
-    return block_handle(this, impl().overwrite_zero(index.value()).get());
-}
-
-block_handle file_engine::do_overwrite(block_index index, const byte* data) {
-    return block_handle(this, impl().overwrite(index.value(), data).get());
-}
-
 void file_engine::do_flush() {
     impl().flush();
+}
+
+
+engine::pin_result file_engine::do_pin(block_index index, bool initialize) {
+    detail::block* blk = impl().pin(index.value(), initialize);
+
+    pin_result result;
+    result.data = blk->data();
+    result.cookie = reinterpret_cast<uintptr_t>(blk);
+    return result;
+}
+
+void file_engine::do_unpin(block_index index, uintptr_t cookie) noexcept {
+    impl().unpin(index.value(), reinterpret_cast<detail::block*>(cookie));
+}
+
+void file_engine::do_dirty(block_index index, uintptr_t cookie) {
+    impl().dirty(index.value(), reinterpret_cast<detail::block*>(cookie));
+}
+
+void file_engine::do_flush(block_index index, uintptr_t cookie) {
+    impl().flush(index.value(), reinterpret_cast<detail::block*>(cookie));
 }
 
 detail::file_engine_impl& file_engine::impl() const {

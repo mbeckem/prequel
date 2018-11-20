@@ -11,35 +11,62 @@
 
 namespace prequel {
 
+class block_handle;
+class engine;
+
 namespace detail {
 
-// Note: This part can be made more efficient by
-// using vtable + void pointers. For mmap, the void pointer
-// can be the mapped pointer itself.
-class block_handle_impl {
+class block_handle_manager;
+
+/*
+ * References a block from some engine that has been pinned into memory.
+ * The engine manages these objects (through refcounting) and unpins
+ * the blocks once all references to them have been dropped.
+ *
+ * Note that the acutal implementation of this is within a subclass in the cpp file,
+ * this (unusual) design allows us to expose the frequently accessed data members
+ * in the header file and keep the heavy boost headers used for the intrusive
+ * datastructures hidden in the implementation file.
+ */
+class block_handle_base {
+protected:
+    ~block_handle_base() = default;
+
+    block_handle_base() = default;
+
 public:
-    block_handle_impl(const block_handle_impl&) = delete;
-    block_handle_impl& operator=(const block_handle_impl&) = delete;
+    block_handle_base(const block_handle_base&) = delete;
+    block_handle_base& operator=(const block_handle_base&) = delete;
 
-    virtual void handle_ref() = 0;
+    void inc_ref() noexcept {
+        ++m_refcount;
+    }
 
-    virtual void handle_unref() = 0;
+    void dec_ref() noexcept; // "delete this" is possible
 
-    virtual u64 index() const noexcept = 0;
+    engine* get_engine() const noexcept { return m_engine; }
 
-    virtual const byte* data() const noexcept = 0;
+    block_index index() const noexcept { return m_index; }
 
-    // Must either throw an exception or update this instance in such a way
-    // that the data pointer can be written to.
-    // Making a block writable might involve moving the block in memory to
-    // protect existing readers from side effects.
-    virtual byte* writable_data() = 0;
+    const byte* data() const noexcept { return m_data; }
+    byte* writable_data();
+    void flush();
 
 protected:
-    block_handle_impl() = default;
+    // Number of references. Block is unpinned and handle is deleted when this reaches 0.
+    u32 m_refcount = 0;
 
-    // Call handle_unref() from the outside. Nonvirtual!
-    ~block_handle_impl() = default;
+    // The engine that owns this block.
+    engine* m_engine = nullptr;
+
+    // Index of the block within the engine.
+    block_index m_index;
+
+    // Block data is kept alive by the underlying engine until it is unpinned.
+    byte* m_data = nullptr;
+
+    // Opaque value from the underlying engine.
+    uintptr_t m_cookie = 0;
 };
 
 } // namespace detail
@@ -58,44 +85,42 @@ public:
     /// Constructor used by the block engine.
     /// The handle object takes ownership of the pointer.
     /// \pre `base != nullptr`.
-    block_handle(engine* eng, prequel::detail::block_handle_impl* base)
-        : m_engine(eng)
-        , m_impl(base)
+    explicit block_handle(detail::block_handle_base* base)
+        : m_impl(base)
     {
-        PREQUEL_ASSERT(eng, "Null engine.");
         PREQUEL_ASSERT(base, "Null implementation.");
-        base->handle_ref();
+        m_impl->inc_ref();
     }
 
     block_handle(const block_handle& other)
-        : m_engine(other.m_engine)
-        , m_impl(other.m_impl)
+        : m_impl(other.m_impl)
     {
         if (m_impl)
-            m_impl->handle_ref();
+            m_impl->inc_ref();
     }
 
     block_handle(block_handle&& other) noexcept
-        : m_engine(std::exchange(other.m_engine, nullptr))
-        , m_impl(std::exchange(other.m_impl, nullptr))
+        : m_impl(std::exchange(other.m_impl, nullptr))
     {}
 
     ~block_handle() {
         if (m_impl)
-            m_impl->handle_unref();
+            m_impl->dec_ref();
     }
 
     block_handle& operator=(const block_handle& other) {
-        block_handle hnd(other);
-        *this = std::move(hnd);
+        if (other.m_impl)
+            other.m_impl->inc_ref();
+        if (m_impl)
+            m_impl->dec_ref();
+        m_impl = other.m_impl;
         return *this;
     }
 
     block_handle& operator=(block_handle&& other) noexcept {
         if (this != &other) {
             if (m_impl)
-                m_impl->handle_unref();
-            m_engine = std::exchange(other.m_engine, nullptr);
+                m_impl->dec_ref();
             m_impl = std::exchange(other.m_impl, nullptr);
         }
         return *this;
@@ -103,7 +128,7 @@ public:
 
     /// @{
     /// Returns true if this handle is valid, i.e. if it references a block.
-    bool valid() const noexcept { return m_impl; }
+    bool valid() const noexcept { return m_impl != nullptr; }
     explicit operator bool() const noexcept { return valid(); }
     /// @}
 
@@ -111,7 +136,7 @@ public:
     /// \pre `valid()`.
     engine& get_engine() const noexcept {
         check_valid();
-        return *m_engine;
+        return *m_impl->get_engine();
     }
 
     /// Returns the index of this block in the underlying storage engine.
@@ -154,6 +179,12 @@ public:
     byte* writable_data() const {
         check_valid();
         return m_impl->writable_data();
+    }
+
+    /// Flush the contents of this block to secondary storage if they were changed.
+    void flush() const {
+        check_valid();
+        m_impl->flush();
     }
 
     /// Deserialize a value of type T at the given offset.
@@ -204,8 +235,7 @@ private:
     }
 
 private:
-    engine* m_engine = nullptr;
-    detail::block_handle_impl* m_impl = nullptr;
+    detail::block_handle_base* m_impl = nullptr;
 };
 
 /**
@@ -214,18 +244,10 @@ private:
  */
 class engine {
 protected:
-    explicit engine(u32 block_size)
-        : m_block_size(block_size)
-    {
-        if (!is_pow2(block_size)) {
-            PREQUEL_THROW(bad_argument(fmt::format("Block size is not a power of two: {}.", block_size)));
-        }
-        m_block_size_log = log2(block_size);
-        m_offset_mask = m_block_size - 1;
-    }
+    explicit engine(u32 block_size);
 
 public:
-    virtual ~engine() = default;
+    virtual ~engine();
 
     /// Returns the size (in bytes) of every block returned by this engine.
     u32 block_size() const noexcept { return m_block_size; }
@@ -233,28 +255,18 @@ public:
     /// Returns the size of the underlying storage, in blocks.
     /// All block indices in `[0, size())` are valid for
     /// I/O operations.
-    u64 size() const { return do_size(); }
+    u64 size() const;
 
     /// Grows the underyling storage by `n` blocks.
-    void grow(u64 n) {
-        if (n > 0) {
-            return do_grow(n);
-        }
-    }
+    void grow(u64 n);
 
-    /// Returns a handle to the given block if it already loaded into main memory.
-    /// Otherwise returns an invalid handle.
-    block_handle access(block_index index) {
-        PREQUEL_CHECK(index, "Invalid index.");
-        return do_access(index);
-    }
+    /// Writes all dirty blocks back to disk.
+    /// Throws if an I/O error occurs.
+    void flush();
 
     /// Reads the block at the given index and returns a handle to it.
     /// Throws if an I/O error occurs.
-    block_handle read(block_index index) {
-        PREQUEL_CHECK(index, "Invalid index.");
-        return do_read(index);
-    }
+    block_handle read(block_index index);
 
     /// Similar to `read()`, but the block is zeroed instead.
     /// This can save a read operation if the block is not already in memory.
@@ -263,27 +275,14 @@ public:
     /// with zeroes as well.
     ///
     /// Throws if an I/O error occurs.
-    block_handle overwrite_zero(block_index index) {
-        PREQUEL_CHECK(index, "Invalid index.");
-        return do_overwrite_zero(index);
-    }
+    block_handle overwrite_zero(block_index index);
 
     /// Like `zeroed()`, but instead sets the content of the block to `data`.
     ///
     /// Throws if an I/O error occurs.
     ///
     /// \warning `data` must be a pointer to (at least) `block_size()` bytes.
-    block_handle overwrite(block_index index, const byte* data, size_t data_size) {
-        PREQUEL_CHECK(index, "Invalid index.");
-        PREQUEL_CHECK(data_size >= block_size(), "Not enough data.");
-        return do_overwrite(index, data);
-    }
-
-    /// Writes all dirty blocks back to disk.
-    /// Throws if an I/O error occurs.
-    void flush() {
-        do_flush();
-    }
+    block_handle overwrite(block_index index, const byte* data, size_t data_size);
 
     /// Returns the address to the first byte of the given block.
     /// Returns the invalid address if the block index is invalid.
@@ -330,15 +329,68 @@ public:
     engine(const engine&) = delete;
     engine& operator=(const engine&) = delete;
 
+private:
+    friend detail::block_handle_base;
+
+    // Initialize with block data from storage.
+    struct initialize_block_t {};
+
+    // Initialize with zero, without reading from storage.
+    struct initialize_zero_t {
+        void apply(byte* block, u32 block_size) {
+            std::memset(block, 0, block_size);
+        }
+    };
+
+    // Initialize with the given data array, without reading from storage.
+    struct initialize_data_t {
+        const byte* data;
+
+        void apply(byte* block, u32 block_size) {
+            std::memmove(block, data, block_size);
+        }
+    };
+
+    template<typename Initializer>
+    block_handle internal_populate_handle(block_index index, Initializer&& init);
+    void internal_flush_handle(detail::block_handle_base* handle);
+    void internal_dirty_handle(detail::block_handle_base* handle);
+    void internal_release_handle(detail::block_handle_base* handle) noexcept;
+
+    detail::block_handle_manager& handle_manager() const;
+
 protected:
     virtual u64 do_size() const = 0;
     virtual void do_grow(u64 n) = 0;
-    virtual block_handle do_access(block_index index) = 0;
-    virtual block_handle do_read(block_index index) = 0;
-    virtual block_handle do_overwrite_zero(block_index index) = 0;
-    virtual block_handle do_overwrite(block_index index, const byte* data) = 0;
     virtual void do_flush() = 0;
 
+protected:
+    struct pin_result {
+        // Block data storage. Remains valid until the block is unpinned.
+        byte* data = nullptr;
+
+        // Opaque value. Will be passed back to the engine when the block is modified.
+        uintptr_t cookie = 0;
+    };
+
+    // Pins the block with the given index into memory.
+    // The block data must stay valid until do_unpin() has been called with the same index,
+    // at which point the engine subclass may release the storage.
+    //
+    // If `initialize` is false, then the engine subclass does not have to initalize the block data (e.g.
+    // by reading from disk). The data will initialized by the caller instead.
+    virtual pin_result do_pin(block_index index, bool initialize) = 0;
+
+    // Called exactly once for every pin call.
+    virtual void do_unpin(block_index index, uintptr_t cookie) noexcept = 0;
+
+    // Marks the block storage as dirty. Only called for pinned blocks.
+    virtual void do_dirty(block_index index, uintptr_t cookie) = 0;
+
+    // Flush the block with the given index. Only called for pinned blocks.
+    virtual void do_flush(block_index index, uintptr_t cookie) = 0;
+
+protected:
     // log_2 (block_size)
     u32 block_size_log() const { return m_block_size_log; }
 
@@ -349,6 +401,8 @@ private:
     u32 m_block_size;
     u32 m_block_size_log;
     u32 m_offset_mask;
+
+    std::unique_ptr<detail::block_handle_manager> m_handle_manager;
 };
 
 inline u32 block_handle::block_size() const noexcept {
@@ -369,6 +423,26 @@ inline raw_address block_handle::address(u32 offset_in_block) const noexcept {
     PREQUEL_ASSERT(offset_in_block < block_size(), "Invalid offset in block.");
     return get_engine().to_address(index(), offset_in_block);
 }
+
+namespace detail {
+
+inline void block_handle_base::dec_ref() noexcept {
+    PREQUEL_ASSERT(m_refcount > 0, "Refcount is zero already.");
+    if (--m_refcount == 0) {
+        m_engine->internal_release_handle(this);
+    }
+}
+
+inline byte* block_handle_base::writable_data() {
+    m_engine->internal_dirty_handle(this);
+    return m_data;
+}
+
+inline void block_handle_base::flush() {
+    m_engine->internal_flush_handle(this);
+}
+
+} // namespace detail
 
 } // namespace prequel
 

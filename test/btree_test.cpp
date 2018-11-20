@@ -181,7 +181,7 @@ TEST_CASE("raw btree", "[btree]") {
             REQUIRE(tree.leaf_nodes() == 0);
             REQUIRE(tree.nodes() == 0);
             REQUIRE(tree.byte_size() == 0);
-            REQUIRE(tree.overhead() == 0);
+            REQUIRE(tree.overhead() == 1.0);
 
             auto c1 = tree.create_cursor();
             REQUIRE(c1.at_end());

@@ -1,5 +1,6 @@
 #include <prequel/btree.hpp>
 #include <prequel/default_file_format.hpp>
+#include <prequel/hash.hpp>
 #include <prequel/heap.hpp>
 #include <prequel/id_generator.hpp>
 
@@ -15,20 +16,6 @@
 namespace objectdb {
 
 static constexpr uint32_t block_size = 4096;
-
-// fnv1-a hash.
-inline uint64_t fnv_hash(const uint8_t* begin, const uint8_t* end)
-{
-    static const uint64_t magic_prime = 0x00000100000001b3;
-
-    uint64_t hash = 0xcbf29ce484222325;
-    for ( ; begin != end; ++begin) {
-        hash = hash ^ *begin;
-        hash = hash * magic_prime;
-    }
-
-    return hash;
-}
 
 static void load(const prequel::heap& heap, prequel::heap_reference ref, std::string& buffer) {
     buffer.resize(heap.size(ref));
@@ -143,7 +130,7 @@ private:
 
     static uint64_t hash(const std::string& str) {
         const uint8_t* data = reinterpret_cast<const uint8_t*>(str.data());
-        return fnv_hash(data, data + str.size());
+        return prequel::fnv_1a(data, str.size());
     }
 
 private:

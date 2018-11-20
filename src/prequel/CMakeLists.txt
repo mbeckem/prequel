@@ -26,8 +26,12 @@ set(PUBLIC_HEADERS
     ${HEADER_ROOT}/file_engine.hpp
     ${HEADER_ROOT}/formatting.hpp
     ${HEADER_ROOT}/handle.hpp
+    ${HEADER_ROOT}/hash.hpp
+    ${HEADER_ROOT}/hash_table.hpp
     ${HEADER_ROOT}/heap.hpp
+    ${HEADER_ROOT}/identity_key.hpp
     ${HEADER_ROOT}/id_generator.hpp
+    ${HEADER_ROOT}/iteration.hpp
     ${HEADER_ROOT}/list.hpp
     ${HEADER_ROOT}/map.hpp
     ${HEADER_ROOT}/math.hpp
@@ -36,6 +40,7 @@ set(PUBLIC_HEADERS
     ${HEADER_ROOT}/node_allocator.hpp
     ${HEADER_ROOT}/raw_array.hpp
     ${HEADER_ROOT}/raw_btree.hpp
+    ${HEADER_ROOT}/raw_hash_table.hpp
     ${HEADER_ROOT}/raw_list.hpp
     ${HEADER_ROOT}/raw_stack.hpp
     ${HEADER_ROOT}/serialization.hpp
@@ -63,10 +68,12 @@ set(SOURCES
      assert.cpp
      block_index.cpp
      default_allocator.cpp
+     engine.cpp
      exception.cpp
      extent.cpp
      file_engine.cpp
      formatting.cpp
+     hash.cpp
      heap.cpp
      id_generator.cpp
      memory_engine.cpp
@@ -74,6 +81,7 @@ set(SOURCES
      node_allocator.cpp
      raw_array.cpp
      raw_btree.cpp
+     raw_hash_table.cpp
      raw_list.cpp
      raw_stack.cpp
      vfs.cpp
@@ -95,6 +103,9 @@ target_link_libraries(prequel PUBLIC fmt::fmt)
 target_include_directories(prequel PUBLIC "${PROJECT_SOURCE_DIR}/include")
 target_include_directories(prequel PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_include_directories(prequel SYSTEM PUBLIC ${Boost_INCLUDE_DIRS})
+
+# To log file engine block load/stores
+# target_compile_definitions(prequel PRIVATE PREQUEL_TRACE_IO=1)
 
 if (UNIX)
     # TODO: glibc specific

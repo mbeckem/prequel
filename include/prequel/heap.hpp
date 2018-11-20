@@ -92,6 +92,8 @@ private:
  * finds some free space in its existing set of file blocks. If the heap
  * does not find a sufficient amount of free space, a new block will be requested
  * from the allocator.
+ *
+ * TODO: Implementation is not as good as i want it to be. Needs at least a garbage collection step.
  */
 class heap {
 private:

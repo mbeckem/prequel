@@ -51,12 +51,19 @@ public:
      */
     block_index reallocate(block_index block, u64 size, u64 new_size) {
         if (!block) {
-            if (size != 0)
+            if (size != 0) {
                 PREQUEL_THROW(bad_argument("Size must be zero if the block is invalid."));
+            }
             return allocate(new_size);
         }
-        if (size == 0)
+
+        if (size == 0) {
             PREQUEL_THROW(bad_argument("Size of the existing chunk cannot be zero."));
+        }
+
+        if (size == new_size) {
+            return block;
+        }
 
         if (new_size == 0) {
             free(block, size);
@@ -65,7 +72,7 @@ public:
 
         auto result = do_reallocate(block, size, new_size);
         PREQUEL_ASSERT(result, "do_reallocate() returned an invalid block index. "
-                             "Throw an exception instead.");
+                               "Throw an exception instead.");
         return result;
     }
 

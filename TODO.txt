@@ -7,3 +7,7 @@ Open Tasks
 - Implement transactional engine with write ahead log
 
 - Implement Hashtable, Queue and Priority Queue
+
+- Replace c-style callbacks with std::function ones.
+- Rethink some API design decisions that dont make much sense in modern C++,
+  for example functions returning bool and taking an output reference.

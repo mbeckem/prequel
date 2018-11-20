@@ -18,15 +18,6 @@ TEST_CASE("mmap engine test", "[mmap-engine]") {
     engine.grow(blocks);
     REQUIRE(engine.size() == blocks);
 
-    for (int i = 0; i < blocks; ++i) {
-        CAPTURE(i);
-
-        // Blocks really should not be in ram without derefencing them.
-        if (engine.access(block_index(i))) {
-            FAIL("Block loaded?");
-        }
-    }
-
     std::vector<byte> content(block_size);
     for (int i = 0; i < (int) block_size; ++i) {
         content[i] = (byte) i;
@@ -34,19 +25,6 @@ TEST_CASE("mmap engine test", "[mmap-engine]") {
 
     for (int i = 0; i < blocks; ++i) {
         engine.overwrite(block_index(i), content.data(), content.size());
-    }
-
-    for (int i = 0; i < blocks; ++i) {
-        CAPTURE(i);
-
-        block_handle handle = engine.access(block_index(i));
-        if (!handle) {
-            FAIL("Block not in ram.");
-        }
-
-        if (!std::equal(content.begin(), content.end(), handle.data(), handle.data() + block_size)) {
-            FAIL("Content corrupted.");
-        }
     }
 
     for (int i = 0; i < blocks / 2; ++i) {
@@ -69,3 +47,4 @@ TEST_CASE("mmap engine test", "[mmap-engine]") {
         }
     }
 }
+

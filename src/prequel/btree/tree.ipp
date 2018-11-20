@@ -1300,7 +1300,7 @@ inline void tree::visit(bool (*visit_fn)(const raw_btree::node_view& node, void*
 }
 
 inline void tree::validate() const {
-#define ERROR(...) PREQUEL_THROW( \
+#define PREQUEL_ERROR(...) PREQUEL_THROW( \
     corruption_error(fmt::format("validate: " __VA_ARGS__)));
 
     struct context {
@@ -1326,34 +1326,34 @@ inline void tree::validate() const {
 
         void check_key(const context& ctx, const byte* key) {
             if (ctx.lower_key && !tree->key_greater(key, ctx.lower_key))
-                ERROR("Key is not greater than the lower bound.");
+                PREQUEL_ERROR("Key is not greater than the lower bound.");
             if (ctx.upper_key && tree->key_less(ctx.upper_key, key))
-                ERROR("Key is greater than the upper bound.");
+                PREQUEL_ERROR("Key is greater than the upper bound.");
         };
 
         void check_leaf(const context& ctx, const leaf_node& leaf) {
             if (!ctx.lower_key && tree->leftmost() != leaf.index()) {
-                ERROR("Only the leftmost leaf can have an unbounded lower key.");
+                PREQUEL_ERROR("Only the leftmost leaf can have an unbounded lower key.");
             }
             if (tree->leftmost() == leaf.index() && seen_leaf_nodes != 0) {
-                ERROR("The leftmost leaf must be visited first.");
+                PREQUEL_ERROR("The leftmost leaf must be visited first.");
             }
             if (seen_leaf_nodes == tree->leaf_nodes() - 1 && tree->rightmost() != leaf.index()) {
-                ERROR("Expected the rightmost leaf at this index.");
+                PREQUEL_ERROR("Expected the rightmost leaf at this index.");
             }
 
             const u32 size = leaf.get_size();
             if (size == 0) {
-                ERROR("Empty leaf.");
+                PREQUEL_ERROR("Empty leaf.");
             }
             if (size < min_values
                     && leaf.index() != tree->root()
                     && leaf.index() != tree->leftmost()
                     && leaf.index() != tree->rightmost()) {
-                ERROR("Leaf is underflowing.");
+                PREQUEL_ERROR("Leaf is underflowing.");
             }
             if (size > max_values) {
-                ERROR("Leaf is overflowing.");
+                PREQUEL_ERROR("Leaf is overflowing.");
             }
 
             for (u32 i = 0; i < size; ++i) {
@@ -1365,7 +1365,7 @@ inline void tree::validate() const {
                     key_buffer prev;
                     tree->derive_key(leaf.get(i - 1), prev.data());
                     if (!tree->key_less(prev.data(), key.data())) {
-                        ERROR("Leaf entries are not sorted.");
+                        PREQUEL_ERROR("Leaf entries are not sorted.");
                     }
                 }
             }
@@ -1377,13 +1377,13 @@ inline void tree::validate() const {
         void check_internal(const context& ctx, const internal_node& node) {
             const u32 child_count = node.get_child_count();
             if (child_count < min_children && node.index() != tree->root()) {
-                ERROR("Internal node is underflowing.");
+                PREQUEL_ERROR("Internal node is underflowing.");
             }
             if (child_count < 2 && node.index() != tree->root()) {
-                ERROR("Root is too empty.");
+                PREQUEL_ERROR("Root is too empty.");
             }
             if (child_count > max_children) {
-                ERROR("Internal node is overflowing.");
+                PREQUEL_ERROR("Internal node is overflowing.");
             }
 
             check_key(ctx, node.get_key(0));
@@ -1399,7 +1399,7 @@ inline void tree::validate() const {
             for (u32 i = 1; i < child_count - 1; ++i) {
                 check_key(ctx, node.get_key(i));
                 if (!tree->key_less(node.get_key(i - 1), node.get_key(i))) {
-                    ERROR("Internal node entries are not sorted.");
+                    PREQUEL_ERROR("Internal node entries are not sorted.");
                 }
 
                 child_ctx.lower_key = node.get_key(i - 1);
@@ -1425,7 +1425,7 @@ inline void tree::validate() const {
         void run() {
             if (tree->height() != 0) {
                 if (!tree->root()) {
-                    ERROR("Non-empty tree does not have a root.");
+                    PREQUEL_ERROR("Non-empty tree does not have a root.");
                 }
 
                 context ctx;
@@ -1434,20 +1434,20 @@ inline void tree::validate() const {
             }
 
             if (seen_values != tree->size()) {
-                ERROR("Value count does not match the tree's size.");
+                PREQUEL_ERROR("Value count does not match the tree's size.");
             }
             if (seen_leaf_nodes != tree->leaf_nodes()) {
-                ERROR("Leaf node count does not match the tree's state.");
+                PREQUEL_ERROR("Leaf node count does not match the tree's state.");
             }
             if (seen_internal_nodes != tree->internal_nodes()) {
-                ERROR("internal node count does not match the tree's state.");
+                PREQUEL_ERROR("internal node count does not match the tree's state.");
             }
         }
     };
 
     checker(this).run();
 
-#undef ERROR
+#undef PREQUEL_ERROR
 }
 
 inline void tree::free_leaf(block_index leaf) {

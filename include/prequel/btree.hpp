@@ -1,6 +1,7 @@
 #ifndef PREQUEL_BTREE_HPP
 #define PREQUEL_BTREE_HPP
 
+#include <prequel/identity_key.hpp>
 #include <prequel/raw_btree.hpp>
 #include <prequel/serialization.hpp>
 
@@ -10,12 +11,6 @@
 #include <ostream>
 
 namespace prequel {
-
-// TODO: Move somewhere better.
-struct identity_t {
-    template<typename T>
-    T operator()(const T& value) const { return value; }
-};
 
 /**
  * An ordered index for fixed sized values.
@@ -32,8 +27,8 @@ public:
     using value_type = Value;
 
     /// Typedef for the key type, which is the result of applying the `DeriveKey`
-    /// function on a value.
-    using key_type = std::decay_t<std::result_of_t<DeriveKey(Value)>>;
+    /// function to a value.
+    using key_type = remove_cvref_t<std::result_of_t<DeriveKey(Value)>>;
 
 public:
     class anchor {

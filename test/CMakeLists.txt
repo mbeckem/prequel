@@ -8,6 +8,7 @@ set(SOURCES
     default_allocator_test.cpp
     extent_test.cpp
     free_list_test.cpp
+    hash_table_test.cpp
     heap_test.cpp
     id_generator.cpp
     inlined_any_test.cpp
