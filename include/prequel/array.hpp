@@ -99,7 +99,7 @@ public:
     value_type get(u64 index) const {
         serialized_buffer<T> buffer;
         inner.get(index, buffer.data());
-        return deserialized_value<value_type>(buffer.data(), buffer.size());
+        return deserialize<value_type>(buffer.data(), buffer.size());
     }
 
     /**
@@ -113,7 +113,7 @@ public:
      * @throws bad_argument     If the index is out of bounds.
      */
     void set(u64 index, const value_type& value) {
-        auto buffer = serialized_value(value);
+        auto buffer = serialize_to_buffer(value);
         inner.set(index, buffer.data());
     }
 
@@ -140,7 +140,7 @@ public:
      * @post `size == n`.
      */
     void resize(u64 n, const value_type& value = value_type()) {
-        auto buffer = serialized_value(value);
+        auto buffer = serialize_to_buffer(value);
         inner.resize(n, buffer.data());
     }
 
@@ -183,7 +183,7 @@ public:
      * if there is no free capacity remaining.
      */
     void push_back(const value_type& value) {
-        auto buffer = serialized_value(value);
+        auto buffer = serialize_to_buffer(value);
         inner.push_back(buffer.data());
     }
 

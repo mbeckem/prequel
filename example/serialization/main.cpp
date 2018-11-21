@@ -84,16 +84,19 @@ extern "C" void serialize(const sqlite_header_t* hdr, void* buffer, size_t buffe
 
 // Deserializes the provided buffer into an instance of `sqlite_header_t`.
 extern "C" void deserialize(sqlite_header_t* hdr, const void* buffer, size_t buffer_size) {
-    prequel::deserialize(*hdr, static_cast<const prequel::byte*>(buffer), buffer_size);
+    *hdr = prequel::deserialize<sqlite_header_t>(static_cast<const prequel::byte*>(buffer),
+                                                 buffer_size);
 }
 
 // Update in place to see what the generated assembly output looks like.
 extern "C" void update(void* buffer, size_t buffer_size) {
-    sqlite_header_t hdr;
-    prequel::deserialize(hdr, static_cast<const prequel::byte*>(buffer), buffer_size);
+    auto file_size = prequel::deserialize_member<&sqlite_header_t::file_size>(
+        (const prequel::byte*) buffer, buffer_size);
+    static_assert(std::is_same_v<decltype(file_size), u32>);
 
-    hdr.file_size += 10;
-    prequel::serialize(hdr, static_cast<prequel::byte*>(buffer));
+    file_size += 10;
+    prequel::serialize_member<&sqlite_header_t::file_size>(file_size, (prequel::byte*) buffer,
+                                                           buffer_size);
 }
 
 int main() {

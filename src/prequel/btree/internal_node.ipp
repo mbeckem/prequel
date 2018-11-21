@@ -68,7 +68,8 @@ internal_node::set_entries(const byte* keys, const block_index* children, u32 ch
     {
         byte* child_cursor = data + offset_of_child(0);
         for (u32 i = 0; i < child_count; ++i) {
-            child_cursor = prequel::serialize(children[i], child_cursor);
+            prequel::serialize(children[i], child_cursor);
+            child_cursor += serialized_size<block_index>();
         }
     }
     set_child_count(child_count);

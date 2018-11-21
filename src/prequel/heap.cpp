@@ -541,8 +541,7 @@ void heap::visit_object(heap_reference ref, ObjectVisitor&& visitor) const {
         PREQUEL_ASSERT(get_engine().to_offset(address) == 0, "Must be at the start of the block.");
 
         // address points to the u32 header (the size), the object follows.
-        u32 size;
-        read(get_engine(), raw_address_cast<u32>(address), size);
+        u32 size = read(get_engine(), raw_address_cast<u32>(address));
 
         visitor.large_object(address + serialized_size<u32>(), size);
     }

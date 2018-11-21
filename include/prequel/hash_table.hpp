@@ -46,7 +46,7 @@ public:
 
         value_type value(u32 index) const {
             const byte* data = m_inner.value(index);
-            return deserialized_value<value_type>(data);
+            return deserialize<value_type>(data);
         }
 
     private:
@@ -111,17 +111,17 @@ public:
 
     /// Returns true if the table contains the given key.
     bool contains(const key_type& key) const {
-        serialized_buffer<key_type> buffer = serialized_value(key);
+        serialized_buffer<key_type> buffer = serialize_to_buffer(key);
         return m_inner.contains(buffer.data());
     }
 
     /// Attempts to find the value associated with the given key and writes it to `value`
     /// on success. Returns true if the value was found.
     bool find(const key_type& key, value_type& value) const {
-        serialized_buffer<key_type> key_buffer = serialized_value(key);
+        serialized_buffer<key_type> key_buffer = serialize_to_buffer(key);
         serialized_buffer<value_type> value_buffer;
         if (m_inner.find(key_buffer.data(), value_buffer.data())) {
-            value = deserialized_value<value_type>(value_buffer.data());
+            value = deserialize<value_type>(value_buffer.data());
             return true;
         }
         return false;
@@ -136,7 +136,7 @@ public:
         auto wrapped_equals = wrap_equals<CompatibleKeyType>(equals);
         if (m_inner.find_compatible(std::addressof(key), std::ref(wrapped_hasher),
                                     std::ref(wrapped_equals), value_buffer.data())) {
-            value = deserialized_value<value_type>(value_buffer.data());
+            value = deserialize<value_type>(value_buffer.data());
             return true;
         }
         return false;
@@ -146,7 +146,7 @@ public:
     /// Does nothing if a value with the same key already exists.
     /// Returns true if the value was inserted.
     bool insert(const value_type& value) {
-        serialized_buffer<value_type> value_buffer = serialized_value(value);
+        serialized_buffer<value_type> value_buffer = serialize_to_buffer(value);
         return m_inner.insert(value_buffer.data());
     }
 
@@ -154,7 +154,7 @@ public:
     /// existing value with the same key.
     /// Returns true if the value was inserted, false if an old value was overwritten.
     bool insert_or_update(const value_type& value) {
-        serialized_buffer<value_type> value_buffer = serialized_value(value);
+        serialized_buffer<value_type> value_buffer = serialize_to_buffer(value);
         return m_inner.insert_or_update(value_buffer.data());
     }
 
@@ -162,7 +162,7 @@ public:
     /// Returns true if a value existed.
     /// TODO: erase + retrieve?
     bool erase(const key_type& key) {
-        serialized_buffer<key_type> key_buffer = serialized_value(key);
+        serialized_buffer<key_type> key_buffer = serialize_to_buffer(key);
         return m_inner.erase(key_buffer.data());
     }
 
@@ -178,7 +178,7 @@ public:
     template<typename IterFunc>
     void iterate(IterFunc&& fn) const {
         m_inner.iterate([&](const byte* raw_value) {
-            value_type value = deserialized_value<value_type>(raw_value);
+            value_type value = deserialize<value_type>(raw_value);
             return fn(value);
         });
     }
@@ -248,7 +248,7 @@ private:
 
         bool operator()(const void* raw_lhs_key, const byte* raw_rhs_key) const {
             const CompatibleKeyType& lhs = *static_cast<const CompatibleKeyType*>(raw_lhs_key);
-            const key_type rhs = deserialized_value<key_type>(raw_rhs_key);
+            const key_type rhs = deserialize<key_type>(raw_rhs_key);
             return equals(lhs, rhs);
         }
     };
@@ -276,22 +276,22 @@ private:
 
     static void derive_key(const byte* value_buffer, byte* key_buffer, void* user_data) {
         const state_t* state = static_cast<state_t*>(user_data);
-        value_type value = deserialized_value<value_type>(value_buffer);
+        value_type value = deserialize<value_type>(value_buffer);
         key_type key = state->derive_key(value);
         serialize(key, key_buffer);
     }
 
     static u64 key_hash(const byte* key_buffer, void* user_data) {
         const state_t* state = static_cast<state_t*>(user_data);
-        key_type key = deserialized_value<key_type>(key_buffer);
+        key_type key = deserialize<key_type>(key_buffer);
         return state->key_hash(key);
     }
 
     static bool
     key_equal(const byte* left_key_buffer, const byte* right_key_buffer, void* user_data) {
         const state_t* state = static_cast<state_t*>(user_data);
-        key_type lhs = deserialized_value<key_type>(left_key_buffer);
-        key_type rhs = deserialized_value<key_type>(right_key_buffer);
+        key_type lhs = deserialize<key_type>(left_key_buffer);
+        key_type rhs = deserialize<key_type>(right_key_buffer);
         return state->key_equal(lhs, rhs);
     }
 

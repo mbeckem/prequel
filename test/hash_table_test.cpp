@@ -31,7 +31,7 @@ TEST_CASE("hash table basic operations", "[hash-table]") {
         return std::memcmp(left, right, key_size) == 0;
     };
     options.key_hash = [](const byte* key, void*) -> u64 {
-        u64 hash = deserialized_value<i32>(key);
+        u64 hash = deserialize<i32>(key);
         hash *= 64; // Simulate aligned storage
         return fnv_1a(hash);
     };
@@ -53,7 +53,7 @@ TEST_CASE("hash table basic operations", "[hash-table]") {
 
             i32 value = key * 2 + 1;
 
-            std::array<byte, value_size> buffer = serialized_value(std::tuple(key, value));
+            std::array<byte, value_size> buffer = serialize_to_buffer(std::tuple(key, value));
             bool inserted = table.insert(buffer.data());
             if (!inserted)
                 FAIL();
@@ -65,16 +65,15 @@ TEST_CASE("hash table basic operations", "[hash-table]") {
 
             i32 expected_value = key * 2 + 1;
 
-            std::array<byte, key_size> buffer = serialized_value(key);
+            std::array<byte, key_size> buffer = serialize_to_buffer(key);
             std::array<byte, value_size> result_buffer;
 
             bool found = table.find(buffer.data(), result_buffer.data());
             if (!found)
                 FAIL();
 
-            std::tuple<i32, i32> value;
-            deserialize(value, result_buffer.data(), result_buffer.size());
-
+            std::tuple<i32, i32> value =
+                deserialize<std::tuple<i32, i32>>(result_buffer.data(), result_buffer.size());
             if (value != std::tuple(key, expected_value))
                 FAIL();
         }
@@ -87,7 +86,7 @@ TEST_CASE("hash table basic operations", "[hash-table]") {
             if (key % 500 == 0)
                 continue;
 
-            std::array<byte, key_size> key_buffer = serialized_value(key);
+            std::array<byte, key_size> key_buffer = serialize_to_buffer(key);
 
             bool erased = table.erase(key_buffer.data());
             if (!erased)
@@ -103,16 +102,15 @@ TEST_CASE("hash table basic operations", "[hash-table]") {
 
             i32 expected_value = key * 2 + 1;
 
-            std::array<byte, key_size> buffer = serialized_value(key);
+            std::array<byte, key_size> buffer = serialize_to_buffer(key);
             std::array<byte, value_size> result_buffer;
 
             bool found = table.find(buffer.data(), result_buffer.data());
             if (!found)
                 FAIL();
 
-            std::tuple<i32, i32> value;
-            deserialize(value, result_buffer.data(), result_buffer.size());
-
+            std::tuple<i32, i32> value =
+                deserialize<std::tuple<i32, i32>>(result_buffer.data(), result_buffer.size());
             if (value != std::tuple(key, expected_value))
                 FAIL();
         }
@@ -222,14 +220,14 @@ TEST_CASE("compatible hash functions", "[hash-table]") {
     const u64 search = 777 * 888;
     REQUIRE(table.contains(search));
 
-    std::array<byte, 8> compatible = serialized_value(search);
+    std::array<byte, 8> compatible = serialize_to_buffer(search);
 
     u64 found_value = 0;
     bool found = table.find_compatible(
         compatible,
         [&](const auto& key_array) { return fnv_1a(key_array.data(), key_array.size()); },
         [&](const auto& key_array, u64 rhs) {
-            u64 lhs = deserialized_value<u64>(key_array.data());
+            u64 lhs = deserialize<u64>(key_array.data());
             return lhs == rhs;
         },
         found_value);

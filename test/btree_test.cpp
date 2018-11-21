@@ -65,7 +65,7 @@ void check_tree_equals_container(const raw_btree& tree, Container&& c) {
         if (ci == ce)
             FAIL("Too many values in tree (element " << index << ")");
 
-        auto v = deserialized_value<Value>(c.get());
+        auto v = deserialize<Value>(c.get());
         if (v != *ci)
             FAIL("Wrong value, expected " << *ci << " but saw " << v);
     }
@@ -83,7 +83,7 @@ void check_tree_equals_container_reverse(const raw_btree& tree, Container&& c) {
         if (ci == ce)
             FAIL("Too many values in tree (element " << index << ")");
 
-        auto v = deserialized_value<Value>(c.get());
+        auto v = deserialize<Value>(c.get());
         if (v != *ci)
             FAIL("Wrong value, expected " << *ci << " but saw " << v);
     }
@@ -151,13 +151,13 @@ TEST_CASE("raw btree", "[btree]") {
     options.value_size = value_size;
     options.derive_key = [](const byte* value, byte* key, void* user_data) -> void {
         (void) user_data;
-        raw_value v = deserialized_value<raw_value>(value);
+        raw_value v = deserialize<raw_value>(value);
         serialize(v.key, key);
     };
     options.key_less = [](const byte* left_key, const byte* right_key, void* user_data) -> bool {
         (void) user_data;
-        u32 lhs = deserialized_value<u32>(left_key);
-        u32 rhs = deserialized_value<u32>(right_key);
+        u32 lhs = deserialize<u32>(left_key);
+        u32 rhs = deserialize<u32>(right_key);
         return lhs < rhs;
     };
 
@@ -191,7 +191,7 @@ TEST_CASE("raw btree", "[btree]") {
             c1.move_max();
             REQUIRE(c1.at_end());
 
-            auto key = serialized_value(u32(1234));
+            auto key = serialize_to_buffer(u32(1234));
             REQUIRE(!c1.lower_bound(key.data()));
             REQUIRE(c1.at_end());
 
@@ -219,7 +219,7 @@ TEST_CASE("raw btree", "[btree]") {
                 CAPTURE(i);
                 raw_value v{i, i * 2};
                 expected.push_back(v);
-                auto buffer = serialized_value(v);
+                auto buffer = serialize_to_buffer(v);
                 if (!cursor.insert(buffer.data()))
                     FAIL("Failed to insert value with unique key");
             }
@@ -235,7 +235,7 @@ TEST_CASE("raw btree", "[btree]") {
                 INFO("Insert: " << i);
 
                 raw_value v{i, i};
-                auto buffer = serialized_value(v);
+                auto buffer = serialize_to_buffer(v);
                 if (!cursor.insert(buffer.data()))
                     FAIL("Failed to insert value");
             }
@@ -244,11 +244,11 @@ TEST_CASE("raw btree", "[btree]") {
                 INFO("Reinsert: " << i);
 
                 raw_value v{i, i * 2};
-                auto buffer = serialized_value(v);
+                auto buffer = serialize_to_buffer(v);
                 if (cursor.insert(buffer.data()))
                     FAIL("Duplicate value was inserted");
 
-                raw_value w = deserialized_value<raw_value>(cursor.get());
+                raw_value w = deserialize<raw_value>(cursor.get());
                 REQUIRE(v.key == w.key);
                 REQUIRE(w.key == w.count); // Old value.
             }
@@ -267,47 +267,47 @@ TEST_CASE("raw btree", "[btree]") {
             auto cursor = tree.create_cursor();
             for (u32 i = 1000; i < 1500; i += 5) {
                 raw_value v{i, i + 1};
-                auto buffer = serialized_value(v);
+                auto buffer = serialize_to_buffer(v);
                 cursor.insert(buffer.data());
                 cursors.push_back({cursor, v});
             }
 
             auto keep_elem = tree.create_cursor(tree.seek_none);
             {
-                auto key_buffer = serialized_value(u32(1255));
+                auto key_buffer = serialize_to_buffer(u32(1255));
                 keep_elem.lower_bound(key_buffer.data());
-                raw_value v = deserialized_value<raw_value>(keep_elem.get());
+                raw_value v = deserialize<raw_value>(keep_elem.get());
                 REQUIRE(v == raw_value(1255, 1256));
             }
 
             auto keep_min = tree.create_cursor(tree.seek_min);
             {
-                raw_value v = deserialized_value<raw_value>(keep_min.get());
+                raw_value v = deserialize<raw_value>(keep_min.get());
                 REQUIRE(v == raw_value(1000, 1001));
             }
 
             auto keep_max = tree.create_cursor(tree.seek_max);
             {
-                raw_value v = deserialized_value<raw_value>(keep_max.get());
+                raw_value v = deserialize<raw_value>(keep_max.get());
                 REQUIRE(v == raw_value(1495, 1496));
             }
 
             for (u32 i = 900; i < 1600; ++i) {
-                auto buffer = serialized_value(raw_value(i, i * 2));
+                auto buffer = serialize_to_buffer(raw_value(i, i * 2));
                 cursor.insert(buffer.data());
             }
 
-            raw_value old_elem = deserialized_value<raw_value>(keep_elem.get());
+            raw_value old_elem = deserialize<raw_value>(keep_elem.get());
             CHECK(old_elem == raw_value(1255, 1256));
 
-            raw_value old_min = deserialized_value<raw_value>(keep_min.get());
+            raw_value old_min = deserialize<raw_value>(keep_min.get());
             CHECK(old_min == raw_value(1000, 1001));
 
-            raw_value old_max = deserialized_value<raw_value>(keep_max.get());
+            raw_value old_max = deserialize<raw_value>(keep_max.get());
             CHECK(old_max == raw_value(1495, 1496));
 
             for (auto& stable : cursors) {
-                raw_value found = deserialized_value<raw_value>(stable.cursor.get());
+                raw_value found = deserialize<raw_value>(stable.cursor.get());
                 CHECK(found == stable.expected);
             }
 
@@ -321,7 +321,7 @@ TEST_CASE("raw btree", "[btree]") {
 
             auto cursor = tree.create_cursor(tree.seek_none);
             for (auto v : values) {
-                auto buffer = serialized_value(v);
+                auto buffer = serialize_to_buffer(v);
                 if (!cursor.insert(buffer.data()))
                     FAIL("Failed to insert");
             }

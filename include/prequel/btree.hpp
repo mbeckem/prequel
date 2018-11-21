@@ -83,21 +83,21 @@ public:
         /// Seeks to the first value for which `derive_key(value) >= key` is true.
         /// Returns true if such a value was found. Returns false and becomes invalid otherwise.
         bool lower_bound(const key_type& key) {
-            auto buffer = serialized_value(key);
+            auto buffer = serialize_to_buffer(key);
             return inner.lower_bound(buffer.data());
         }
 
         /// Like \ref lower_bound, but seeks to the first value for which
         /// `derive_key(value) > key` returns true.
         bool upper_bound(const key_type& key) {
-            auto buffer = serialized_value(key);
+            auto buffer = serialize_to_buffer(key);
             return inner.upper_bound(buffer.data());
         }
 
         /// Seeks to to value with the given key.
         /// Returns true if such a value was found. Returns false and becomes invalid otherwise.
         bool find(const key_type& key) {
-            auto buffer = serialized_value(key);
+            auto buffer = serialize_to_buffer(key);
             return inner.find(buffer.data());
         }
 
@@ -107,7 +107,7 @@ public:
         /// Returns true if the value was inserted, false otherwise.
         /// The cursor will point to the value in question in any case.
         bool insert(const value_type& value) {
-            auto buffer = serialized_value(value);
+            auto buffer = serialize_to_buffer(value);
             return inner.insert(buffer.data());
         }
 
@@ -116,7 +116,7 @@ public:
         ///
         /// Returns true if the key did not exist.
         bool insert_or_update(const value_type& value) {
-            auto buffer = serialized_value(value);
+            auto buffer = serialize_to_buffer(value);
             return inner.insert_or_update(buffer.data());
         }
 
@@ -127,12 +127,12 @@ public:
 
         /// Returns the current value of this cursor.
         /// Throws an exception if the cursor does not currently point to a valid value.
-        value_type get() const { return deserialized_value<value_type>(inner.get()); }
+        value_type get() const { return deserialize<value_type>(inner.get()); }
 
         /// Replaces the current value with the given one. The old and the new value must have the same key.
         /// Throws an exception if the cursor does not currently point to a valid value.
         void set(const value_type& value) {
-            auto buffer = serialized_value(value);
+            auto buffer = serialize_to_buffer(value);
             inner.set(buffer.data());
         }
 
@@ -171,7 +171,7 @@ public:
         /// The value must be greater than the previous values inserted
         /// into the tree.
         void insert(const value_type& value) {
-            auto buffer = serialized_value(value);
+            auto buffer = serialize_to_buffer(value);
             inner.insert(buffer.data());
         }
 
@@ -312,28 +312,28 @@ public:
     /// Seek to the given key within this tree. The cursor will be invalid
     /// if the key was not found, otherwise it will point to the found value.
     cursor find(const key_type& key) const {
-        auto buffer = serialized_value(key);
+        auto buffer = serialize_to_buffer(key);
         return cursor(m_inner.find(buffer.data()));
     }
 
     /// Seek to the smallest key `lb` with `lb >= key`. The cursor will be invalid
     /// if no such key exists within this tree.
     cursor lower_bound(const key_type& key) const {
-        auto buffer = serialized_value(key);
+        auto buffer = serialize_to_buffer(key);
         return cursor(m_inner.lower_bound(buffer.data()));
     }
 
     /// Seek to the smallest key `lb` with `lb > key`. The cursor will be invalid
     /// if no such key exists within this tree.
     cursor upper_bound(const key_type& key) const {
-        auto buffer = serialized_value(key);
+        auto buffer = serialize_to_buffer(key);
         return cursor(m_inner.upper_bound(buffer.data()));
     }
 
     /// Attempts to insert the given value into the tree. The tree will not be modified
     /// if a value with the same key already exists.
     insert_result insert(const value_type& value) {
-        auto buffer = serialized_value(value);
+        auto buffer = serialize_to_buffer(value);
         auto result = m_inner.insert(buffer.data());
         return insert_result(cursor(std::move(result.position)), result.inserted);
     }
@@ -341,7 +341,7 @@ public:
     /// Inserts the value into the tree. If a value with the same key already exists,
     /// it will be overwritten.
     insert_result insert_or_update(const value_type& value) {
-        auto buffer = serialized_value(value);
+        auto buffer = serialize_to_buffer(value);
         auto result = m_inner.insert_or_update(buffer.data());
         return insert_result(cursor(std::move(result.position)), result.inserted);
     }
@@ -372,14 +372,12 @@ public:
         // For internal nodes.
         u32 child_count() const { return m_inner.child_count(); }
         u32 key_count() const { return m_inner.key_count(); }
-        key_type key(u32 index) const { return deserialized_value<key_type>(m_inner.key(index)); }
+        key_type key(u32 index) const { return deserialize<key_type>(m_inner.key(index)); }
         block_index child(u32 index) const { return m_inner.child(index); }
 
         // For leaf nodes.
         u32 value_count() const { return m_inner.value_count(); }
-        value_type value(u32 index) const {
-            return deserialized_value<value_type>(m_inner.value(index));
-        }
+        value_type value(u32 index) const { return deserialize<value_type>(m_inner.value(index)); }
 
     private:
         friend class btree;
@@ -425,14 +423,14 @@ private:
 
     static void derive_key(const byte* value_buffer, byte* key_buffer, void* user_data) {
         const state_t* state = reinterpret_cast<const state_t*>(user_data);
-        value_type value = deserialized_value<value_type>(value_buffer);
+        value_type value = deserialize<value_type>(value_buffer);
         serialize(state->derive(value), key_buffer);
     }
 
     static bool key_less(const byte* lhs_buffer, const byte* rhs_buffer, void* user_data) {
         const state_t* state = reinterpret_cast<const state_t*>(user_data);
-        key_type lhs = deserialized_value<key_type>(lhs_buffer);
-        key_type rhs = deserialized_value<key_type>(rhs_buffer);
+        key_type lhs = deserialize<key_type>(lhs_buffer);
+        key_type rhs = deserialize<key_type>(rhs_buffer);
         return state->less(lhs, rhs);
     }
 

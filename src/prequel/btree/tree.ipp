@@ -224,13 +224,14 @@ inline u32 tree::upper_bound(const internal_node& internal, const byte* search_k
 // Insert a new value into the btree. Leave the cursor pointing to the position where the value
 // was inserted. Do nothing if a value with the same key already existed (the cursor is still repositioned, though).
 //
-// 1.   Walk down the stack and split nodes that are full. This ensures that we can always insert a new entry if we need to.
+// 1.   Walk down the stack and split internal nodes that are full. This ensures that we can always insert a new entry if we need to.
 //      It saves some effort to walk back up the stack in the case that a node has been split and its parent is full.
 //      It might be more performant in the future than the alternative because we dont have to lock nodes
 //      for an extended period of time and just modify them once. (but node locks are in the very remote future).
+//      Note that this in only done for internal nodes, leaf nodes at the lowest level are not split in advance.
 // 2.   Perform lower bound search at every node. When we reached the leaf we either found a place
 //      where we can insert the new value or we found an existing value with the same key.
-//      We can insert if we want to without any complications because of (1).
+//      The leaf might be full and may therefore have to be split. Inserting a new leaf always succeeds because of (1).
 // 3.   Keep cursors updated in the meantime. Every time a record is inserted or a node is split we must
 //      ensure that the existing cursors keep pointing to their old values.
 //

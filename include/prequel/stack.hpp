@@ -86,14 +86,14 @@ public:
     T top() const {
         serialized_buffer<T> buffer;
         m_inner.top(buffer.data());
-        return deserialized_value<T>(buffer.data());
+        return deserialize_from_buffer<T>(buffer);
     }
 
     /**
      * Pushes the value onto the stack.
      */
     void push(const T& value) {
-        auto buffer = serialized_value(value);
+        auto buffer = serialize_to_buffer(value);
         m_inner.push(buffer.data());
     }
 

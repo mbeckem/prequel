@@ -48,22 +48,10 @@ static_assert(detail::use_trivial_serializer<std::array<char[32], 5>>());
 static_assert(!detail::use_trivial_serializer<u32>());
 static_assert(!detail::use_trivial_serializer<test1>());
 
-template<typename T>
-auto make_serialized(const T& value) {
-    std::array<byte, serialized_size<T>()> buffer;
-    serialize(value, buffer.data());
-    return buffer;
-}
-
-template<typename T>
-T make_deserialized(const std::array<byte, serialized_size<T>()>& buffer) {
-    T value;
-    deserialize(value, buffer.data());
-    return value;
-}
-
 TEST_CASE("roundtrips", "[serialization]") {
-    auto rt = [](auto value) { return make_deserialized<decltype(value)>(make_serialized(value)); };
+    auto rt = [](auto value) {
+        return deserialize_from_buffer<decltype(value)>(serialize_to_buffer(value));
+    };
 
 #define ROUND_TRIP(type, v) REQUIRE(type(v) == rt(type(v)));
 
@@ -149,18 +137,18 @@ TEST_CASE("binary representation", "[serialization]") {
     // Test little endian representation
 
     SECTION("8 bit") {
-        auto buffer = make_serialized(u8(0xe7));
+        auto buffer = serialize_to_buffer(u8(0xe7));
         REQUIRE(buffer.size() == 1);
         REQUIRE(buffer[0] == 0xe7);
     }
     SECTION("16 bit") {
-        auto buffer = make_serialized(u16(0xc97b));
+        auto buffer = serialize_to_buffer(u16(0xc97b));
         REQUIRE(buffer.size() == 2);
         REQUIRE(buffer[0] == 0xc9);
         REQUIRE(buffer[1] == 0x7b);
     }
     SECTION("32 bit") {
-        auto buffer = make_serialized(u32(0x7b7c7d7e));
+        auto buffer = serialize_to_buffer(u32(0x7b7c7d7e));
         REQUIRE(buffer.size() == 4);
         REQUIRE(buffer[0] == 0x7b);
         REQUIRE(buffer[1] == 0x7c);
@@ -168,7 +156,7 @@ TEST_CASE("binary representation", "[serialization]") {
         REQUIRE(buffer[3] == 0x7e);
     }
     SECTION("64 bit") {
-        auto buffer = make_serialized(u64(0x7b7c7d7e7f808182ULL));
+        auto buffer = serialize_to_buffer(u64(0x7b7c7d7e7f808182ULL));
         REQUIRE(buffer.size() == 8);
         REQUIRE(buffer[0] == 0x7b);
         REQUIRE(buffer[1] == 0x7c);
@@ -180,26 +168,26 @@ TEST_CASE("binary representation", "[serialization]") {
         REQUIRE(buffer[7] == 0x82);
     }
     SECTION("bool (1 byte)") {
-        auto buffer = make_serialized(true);
+        auto buffer = serialize_to_buffer(true);
         REQUIRE(buffer.size() == 1);
         REQUIRE(buffer[0] == 1);
 
-        buffer = make_serialized(false);
+        buffer = serialize_to_buffer(false);
         REQUIRE(buffer[0] == 0);
     }
     SECTION("8 bit (signed)") {
-        auto buffer = make_serialized(i8(-25));
+        auto buffer = serialize_to_buffer(i8(-25));
         REQUIRE(buffer.size() == 1);
         REQUIRE(buffer[0] == 0xe7);
     }
     SECTION("16 bit (signed)") {
-        auto buffer = make_serialized(i16(-13957));
+        auto buffer = serialize_to_buffer(i16(-13957));
         REQUIRE(buffer.size() == 2);
         REQUIRE(buffer[0] == 0xc9);
         REQUIRE(buffer[1] == 0x7b);
     }
     SECTION("32 bit (signed)") {
-        auto buffer = make_serialized(i32(-881033858));
+        auto buffer = serialize_to_buffer(i32(-881033858));
         REQUIRE(buffer.size() == 4);
         REQUIRE(buffer[0] == 0xcb);
         REQUIRE(buffer[1] == 0x7c);
@@ -207,7 +195,7 @@ TEST_CASE("binary representation", "[serialization]") {
         REQUIRE(buffer[3] == 0x7e);
     }
     SECTION("64 bit (signed)") {
-        auto buffer = make_serialized(i64(-3784011604639579774LL));
+        auto buffer = serialize_to_buffer(i64(-3784011604639579774LL));
         REQUIRE(buffer.size() == 8);
         REQUIRE(buffer[0] == 0xcb);
         REQUIRE(buffer[1] == 0x7c);
@@ -221,12 +209,12 @@ TEST_CASE("binary representation", "[serialization]") {
 }
 
 TEST_CASE("tuple serialization", "[serialization]") {
-    auto buffer = make_serialized(std::tuple<u8, u32, u8>(0xa0, 0x7b7c7d7e, 0xa1));
+    auto buffer = serialize_to_buffer(std::tuple<u8, u32, u8>(0xa0, 0x7b7c7d7e, 0xa1));
     REQUIRE(buffer.size() == 6);
 
-    auto m1 = make_serialized(u8(0xa0));
-    auto m2 = make_serialized(u32(0x7b7c7d7e));
-    auto m3 = make_serialized(u8(0xa1));
+    auto m1 = serialize_to_buffer(u8(0xa0));
+    auto m2 = serialize_to_buffer(u32(0x7b7c7d7e));
+    auto m3 = serialize_to_buffer(u8(0xa1));
 
     REQUIRE(buffer[0] == m1.at(0));
     REQUIRE(std::equal(&buffer[1], &buffer[5], m2.begin(), m2.end()));
@@ -250,13 +238,13 @@ TEST_CASE("optional serialization", "[serialization]") {
     REQUIRE(prequel::serialized_size<opt_t>() == 13); // 1 byte + size(test_t)
 
     {
-        auto buffer = prequel::serialized_value(opt_t());
+        auto buffer = prequel::serialize_to_buffer(opt_t());
         REQUIRE(buffer.size() == 13);
 
         std::array<byte, 13> expected{};
         REQUIRE(std::equal(buffer.begin(), buffer.end(), expected.begin(), expected.end()));
 
-        opt_t parsed = prequel::deserialized_value<opt_t>(buffer.data(), buffer.size());
+        opt_t parsed = prequel::deserialize<opt_t>(buffer.data(), buffer.size());
         REQUIRE(!parsed);
     }
 
@@ -265,7 +253,7 @@ TEST_CASE("optional serialization", "[serialization]") {
         test.a = 5;
         test.b = 1982738911232LL;
 
-        auto buffer = prequel::serialized_value(opt_t(test));
+        auto buffer = prequel::serialize_to_buffer(opt_t(test));
         REQUIRE(buffer.size() == 13);
 
         std::array<byte, 13> expected{};
@@ -273,7 +261,7 @@ TEST_CASE("optional serialization", "[serialization]") {
         prequel::serialize(test, expected.data() + 1);
         REQUIRE(std::equal(buffer.begin(), buffer.end(), expected.begin(), expected.end()));
 
-        opt_t parsed = prequel::deserialized_value<opt_t>(buffer.data());
+        opt_t parsed = prequel::deserialize<opt_t>(buffer.data());
         REQUIRE(parsed);
         REQUIRE(*parsed == test);
     }
@@ -300,7 +288,7 @@ TEST_CASE("variant serialization", "[serialization]") {
     REQUIRE(prequel::serialized_size<variant_t>() == 13); // 1 + serialized_size(point)
 
     {
-        auto buffer = prequel::serialized_value(variant_t(point{1, 2, -1}));
+        auto buffer = prequel::serialize_to_buffer(variant_t(point{1, 2, -1}));
         REQUIRE(buffer.size() == 13);
 
         std::array<byte, 13> expected{};
@@ -309,13 +297,12 @@ TEST_CASE("variant serialization", "[serialization]") {
 
         REQUIRE(std::equal(buffer.begin(), buffer.end(), expected.begin(), expected.end()));
 
-        variant_t v;
-        deserialize(v, buffer.data());
+        variant_t v = deserialize<variant_t>(buffer.data(), buffer.size());
         REQUIRE(std::get<point>(v) == point{1, 2, -1});
     }
 
     {
-        auto buffer = prequel::serialized_value(variant_t(i32(-55)));
+        auto buffer = prequel::serialize_to_buffer(variant_t(i32(-55)));
         REQUIRE(buffer.size() == 13);
 
         std::array<byte, 13> expected{};
@@ -324,13 +311,12 @@ TEST_CASE("variant serialization", "[serialization]") {
 
         REQUIRE(std::equal(buffer.begin(), buffer.end(), expected.begin(), expected.end()));
 
-        variant_t v;
-        deserialize(v, buffer.data());
+        variant_t v = deserialize<variant_t>(buffer.data(), buffer.size());
         REQUIRE(std::get<i32>(v) == -55);
     }
 
     {
-        auto buffer = prequel::serialized_value(variant_t(double(123.1234)));
+        auto buffer = prequel::serialize_to_buffer(variant_t(double(123.1234)));
         REQUIRE(buffer.size() == 13);
 
         std::array<byte, 13> expected{};
@@ -339,8 +325,7 @@ TEST_CASE("variant serialization", "[serialization]") {
 
         REQUIRE(std::equal(buffer.begin(), buffer.end(), expected.begin(), expected.end()));
 
-        variant_t v;
-        deserialize(v, buffer.data());
+        variant_t v = deserialize<variant_t>(buffer.data(), buffer.size());
         REQUIRE(std::get<double>(v) == 123.1234);
     }
 }
@@ -353,12 +338,12 @@ TEST_CASE("array serialization", "[serialization]") {
             0xa2b2d2d2,
         };
 
-        auto buffer = make_serialized(data);
+        auto buffer = serialize_to_buffer(data);
         REQUIRE(buffer.size() == 12);
 
-        auto m1 = make_serialized(u32(0xa0b0c0d0));
-        auto m2 = make_serialized(u32(0xa1b1c1d1));
-        auto m3 = make_serialized(u32(0xa2b2d2d2));
+        auto m1 = serialize_to_buffer(u32(0xa0b0c0d0));
+        auto m2 = serialize_to_buffer(u32(0xa1b1c1d1));
+        auto m3 = serialize_to_buffer(u32(0xa2b2d2d2));
 
         REQUIRE(std::equal(&buffer[0], &buffer[4], m1.begin(), m1.end()));
         REQUIRE(std::equal(&buffer[4], &buffer[8], m2.begin(), m2.end()));
@@ -373,13 +358,13 @@ TEST_CASE("array serialization", "[serialization]") {
             0xa3b3,
         };
 
-        auto buffer = make_serialized(data);
+        auto buffer = serialize_to_buffer(data);
         REQUIRE(buffer.size() == 8);
 
-        auto m1 = make_serialized(u16(0xa0b0));
-        auto m2 = make_serialized(u16(0xa1b1));
-        auto m3 = make_serialized(u16(0xa2b2));
-        auto m4 = make_serialized(u16(0xa3b3));
+        auto m1 = serialize_to_buffer(u16(0xa0b0));
+        auto m2 = serialize_to_buffer(u16(0xa1b1));
+        auto m3 = serialize_to_buffer(u16(0xa2b2));
+        auto m4 = serialize_to_buffer(u16(0xa3b3));
 
         REQUIRE(std::equal(&buffer[0], &buffer[2], m1.begin(), m1.end()));
         REQUIRE(std::equal(&buffer[2], &buffer[4], m2.begin(), m2.end()));
@@ -417,29 +402,29 @@ TEST_CASE("struct serialization", "[serialization]") {
     REQUIRE(serialized_size(complex) == 17);
 
     SECTION("empty") {
-        auto buffer = make_serialized(empty);
+        auto buffer = serialize_to_buffer(empty);
         REQUIRE(buffer.size() == 0);
     }
 
     SECTION("simple") {
-        auto buffer = make_serialized(simple);
-        auto back = make_deserialized<simple_t>(buffer);
+        auto buffer = serialize_to_buffer(simple);
+        auto back = deserialize_from_buffer<simple_t>(buffer);
 
         REQUIRE(back.x == simple.x);
         REQUIRE(back.y == simple.y);
 
-        auto minus_one = make_serialized(i32(-1));
-        auto one = make_serialized(i32(1));
+        auto minus_one = serialize_to_buffer(i32(-1));
+        auto one = serialize_to_buffer(i32(1));
 
         REQUIRE(std::equal(&buffer[0], &buffer[4], minus_one.begin(), minus_one.end()));
         REQUIRE(std::equal(&buffer[4], &buffer[8], one.begin(), one.end()));
     }
 
     SECTION("complex") {
-        auto buffer = make_serialized(complex);
+        auto buffer = serialize_to_buffer(complex);
 
-        auto s = make_serialized(simple);
-        auto m = make_serialized(u8(-1));
+        auto s = serialize_to_buffer(simple);
+        auto m = serialize_to_buffer(u8(-1));
 
         REQUIRE(std::equal(&buffer[0], &buffer[8], s.begin(), s.end()));
         REQUIRE(std::equal(&buffer[8], &buffer[16], s.begin(), s.end()));
@@ -447,7 +432,7 @@ TEST_CASE("struct serialization", "[serialization]") {
     }
 
     SECTION("address") {
-        auto buffer = make_serialized(address<u64>(raw_address(0x1000)));
+        auto buffer = serialize_to_buffer(address<u64>(raw_address(0x1000)));
         REQUIRE(buffer.size() == 8);
     }
 }
@@ -595,11 +580,10 @@ TEST_CASE("complex struct", "[serialization]") {
     hdr.user_version = 42;
     hdr.application_id = 777;
 
-    auto buffer = make_serialized(hdr);
+    auto buffer = serialize_to_buffer(hdr);
 
     size_t size_offset = serialized_offset<&sqlite_header_t::default_page_cache_size>();
-    u32 page_cache_size = 0;
-    deserialize(page_cache_size, buffer.data() + size_offset);
+    u32 page_cache_size = deserialize<u32>(buffer.data() + size_offset);
     REQUIRE(page_cache_size == 128);
 }
 
@@ -667,8 +651,7 @@ TEST_CASE("custom serializer", "[serialization]") {
             }
 
             static void deserialize(entry_t& e, const byte* b) {
-                u64 val;
-                prequel::deserialize(val, b);
+                u64 val = prequel::deserialize<u64>(b);
                 if (val & free_bit) {
                     e.free.free = 1;
                     e.free.next = val;
@@ -685,7 +668,9 @@ TEST_CASE("custom serializer", "[serialization]") {
     REQUIRE(sizeof(entry_t) == sizeof(u64));
     REQUIRE(serialized_size<entry_t>() == serialized_size<u64>());
 
-    auto rt = [](auto value) { return make_deserialized<decltype(value)>(make_serialized(value)); };
+    auto rt = [](auto value) {
+        return deserialize_from_buffer<decltype(value)>(serialize_to_buffer(value));
+    };
 
 #define ROUND_TRIP(v) REQUIRE(v == rt(v));
 
@@ -704,14 +689,14 @@ TEST_CASE("custom serializer", "[serialization]") {
 
 TEST_CASE("nested objects", "[serialization]") {
     struct v1 {
-        u32 a = 0;
+        u32 a = -4;
 
         struct v2 {
-            u32 b = 0;
+            u32 b = 99;
             byte c = 1;
             struct v3 {
                 u64 d = 5;
-                u64 e = 0;
+                u64 e = -444;
 
                 static constexpr auto get_binary_format() {
                     return make_binary_format(&v3::d, &v3::e);
@@ -726,6 +711,55 @@ TEST_CASE("nested objects", "[serialization]") {
         static constexpr auto get_binary_format() { return make_binary_format(&v1::a, &v1::v2_); }
     } v1_;
 
-    size_t offset = serialized_offset<&v1::v2_, &v1::v2::v3_, &v1::v2::v3::e>();
+    constexpr size_t offset = serialized_offset<&v1::v2_, &v1::v2::v3_, &v1::v2::v3::e>();
     REQUIRE(offset == 17);
+
+    auto buffer = serialize_to_buffer(v1_);
+
+    REQUIRE(deserialize_member<&v1::a>(buffer.data(), buffer.size()) == u32(-4));
+    REQUIRE(deserialize_member<&v1::v2_, &v1::v2::c>(buffer.data(), buffer.size()) == byte(1));
+    REQUIRE(deserialize_member<&v1::v2_, &v1::v2::v3_, &v1::v2::v3::e>(buffer.data(), buffer.size())
+            == u64(-444));
+
+    serialize_member<&v1::v2_, &v1::v2::b>(-1, buffer.data(), buffer.size());
+
+    auto value = deserialize<v1>(buffer.data());
+    REQUIRE(value.v2_.b == u32(-1));
+}
+
+TEST_CASE("non default constructible", "[serialization]") {
+    struct test_inner {
+        i32 y = 0;
+
+        test_inner(i32 y)
+            : y(y) {}
+
+        test_inner(deserialization_tag) {}
+
+        static constexpr auto get_binary_format() { return make_binary_format(&test_inner::y); }
+    };
+
+    struct test_outer {
+        i32 x = 0;
+        test_inner inner;
+
+        test_outer(i32 x, i32 y)
+            : x(x)
+            , inner(y) {}
+
+        test_outer(deserialization_tag t)
+            : inner(t) {}
+
+        static constexpr auto get_binary_format() {
+            return make_binary_format(&test_outer::x, &test_outer::inner);
+        }
+    };
+
+    REQUIRE(serialized_size<test_outer>() == 8);
+
+    auto buffer = serialize_to_buffer(test_outer(3, -1234));
+    auto value = deserialize_from_buffer<test_outer>(buffer);
+
+    REQUIRE(value.x == 3);
+    REQUIRE(value.inner.y == -1234);
 }

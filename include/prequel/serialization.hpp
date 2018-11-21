@@ -28,12 +28,18 @@ template<typename T>
 constexpr size_t serialized_size(T&&);
 
 template<typename T>
-byte* serialize(const T& v, byte* buffer);
+void serialize(const T& v, byte* buffer);
 
 template<typename T>
-const byte* deserialize(T& v, const byte* buffer);
+T deserialize(const byte* buffer);
 
 namespace detail {
+
+template<typename T>
+byte* serialize_impl(const T& v, byte* buffer);
+
+template<typename T>
+const byte* deserialize_impl(T& v, const byte* buffer);
 
 // True if the type is a C-style array
 template<typename T>
@@ -79,8 +85,10 @@ template<typename T>
 struct trivial_serializer {
     static constexpr size_t serialized_size = sizeof(T);
 
+    PREQUEL_ALWAYS_INLINE
     static void serialize(const T& v, byte* b) { std::memcpy(b, std::addressof(v), sizeof(T)); }
 
+    PREQUEL_ALWAYS_INLINE
     static void deserialize(T& v, const byte* b) { std::memcpy(std::addressof(v), b, sizeof(T)); }
 };
 
@@ -103,11 +111,15 @@ struct big_endian_serializer {
 
     static constexpr size_t serialized_size = sizeof(T);
 
+    PREQUEL_ALWAYS_INLINE
+    PREQUEL_FLATTEN
     static void serialize(T v, byte* b) {
         boost::endian::native_to_big_inplace(v);
         std::memcpy(b, &v, sizeof(T));
     }
 
+    PREQUEL_ALWAYS_INLINE
+    PREQUEL_FLATTEN
     static void deserialize(T& v, const byte* b) {
         std::memcpy(&v, b, sizeof(T));
         boost::endian::big_to_native_inplace(v);
@@ -147,15 +159,19 @@ struct float_serializer {
 
     static constexpr size_t serialized_size = sizeof(T);
 
+    PREQUEL_ALWAYS_INLINE
+    PREQUEL_FLATTEN
     static void serialize(T value, byte* b) {
         U num;
         std::memcpy(&num, &value, sizeof(T));
-        prequel::serialize(num, b);
+        serialize_impl(num, b);
     }
 
+    PREQUEL_ALWAYS_INLINE
+    PREQUEL_FLATTEN
     static void deserialize(T& value, const byte* b) {
         U num;
-        prequel::deserialize(num, b);
+        deserialize_impl(num, b);
         std::memcpy(&value, &num, sizeof(T));
     }
 };
@@ -169,8 +185,10 @@ template<>
 struct default_serializer<bool> {
     static constexpr size_t serialized_size = 1;
 
+    PREQUEL_ALWAYS_INLINE
     static void serialize(bool v, byte* b) { b[0] = v; }
 
+    PREQUEL_ALWAYS_INLINE
     static void deserialize(bool& v, const byte* b) { v = b[0]; }
 };
 
@@ -179,15 +197,17 @@ template<typename T, size_t N>
 struct default_serializer<T[N]> {
     static constexpr size_t serialized_size = N * prequel::serialized_size<T>();
 
+    PREQUEL_ALWAYS_INLINE
     static void serialize(const T (&v)[N], byte* b) {
         for (size_t i = 0; i < N; ++i) {
-            b = prequel::serialize(v[i], b);
+            b = serialize_impl(v[i], b);
         }
     }
 
+    PREQUEL_ALWAYS_INLINE
     static void deserialize(T (&v)[N], const byte* b) {
         for (size_t i = 0; i < N; ++i) {
-            b = prequel::deserialize(v[i], b);
+            b = deserialize_impl(v[i], b);
         }
     }
 };
@@ -197,15 +217,17 @@ template<typename T, size_t N>
 struct default_serializer<std::array<T, N>> {
     static constexpr size_t serialized_size = N * prequel::serialized_size<T>();
 
+    PREQUEL_ALWAYS_INLINE
     static void serialize(const std::array<T, N>& v, byte* b) {
         for (size_t i = 0; i < N; ++i) {
-            b = prequel::serialize(v[i], b);
+            b = serialize_impl(v[i], b);
         }
     }
 
+    PREQUEL_ALWAYS_INLINE
     static void deserialize(std::array<T, N>& v, const byte* b) {
         for (size_t i = 0; i < N; ++i) {
-            b = prequel::deserialize(v[i], b);
+            b = deserialize_impl(v[i], b);
         }
     }
 };
@@ -216,14 +238,16 @@ struct default_serializer<std::pair<T1, T2>> {
     static constexpr size_t serialized_size =
         prequel::serialized_size<T1>() + prequel::serialized_size<T2>();
 
+    PREQUEL_ALWAYS_INLINE
     static void serialize(const std::pair<T1, T2>& v, byte* b) {
-        b = prequel::serialize(v.first, b);
-        prequel::serialize(v.second, b);
+        b = serialize_impl(v.first, b);
+        serialize_impl(v.second, b);
     }
 
+    PREQUEL_ALWAYS_INLINE
     static void deserialize(std::pair<T1, T2>& v, const byte* b) {
-        b = prequel::deserialize(v.first, b);
-        prequel::deserialize(v.second, b);
+        b = deserialize_impl(v.first, b);
+        deserialize_impl(v.second, b);
     }
 };
 
@@ -233,12 +257,14 @@ template<typename... T>
 struct default_serializer<std::tuple<T...>> {
     static constexpr size_t serialized_size = (prequel::serialized_size<T>() + ...);
 
+    PREQUEL_ALWAYS_INLINE
     static void serialize(const std::tuple<T...>& v, byte* b) {
-        tuple_for_each(v, [&](const auto& elem) { b = prequel::serialize(elem, b); });
+        tuple_for_each(v, [&](const auto& elem) { b = serialize_impl(elem, b); });
     }
 
+    PREQUEL_ALWAYS_INLINE
     static void deserialize(std::tuple<T...>& v, const byte* b) {
-        tuple_for_each(v, [&](auto& elem) { b = prequel::deserialize(elem, b); });
+        tuple_for_each(v, [&](auto& elem) { b = deserialize_impl(elem, b); });
     }
 };
 
@@ -260,25 +286,27 @@ template<typename T>
 struct default_serializer<std::optional<T>> {
     static constexpr size_t serialized_size = 1 + prequel::serialized_size<T>();
 
+    PREQUEL_ALWAYS_INLINE
     static void serialize(const std::optional<T>& v, byte* b) {
         if (v) {
             b[0] = 1;
-            prequel::serialize(*v, b + 1);
+            serialize_impl(*v, b + 1);
         } else {
             std::memset(b, 0, serialized_size);
         }
     }
 
+    PREQUEL_ALWAYS_INLINE
     static void deserialize(std::optional<T>& v, const byte* b) {
         if (b[0] == 0) {
             v = std::nullopt;
         } else if (b[0] == 1) {
             T value;
-            prequel::deserialize(value, b + 1);
+            deserialize_impl(value, b + 1);
             v = std::move(value);
         } else {
-            PREQUEL_THROW(
-                corruption_error(fmt::format("Invalid value for the has_value flag: {}", b[0])));
+            PREQUEL_THROW(corruption_error(
+                fmt::format("Invalid has_value flag (expected 0 or 1): {}", (int) b[0])));
         }
     }
 };
@@ -297,6 +325,7 @@ struct default_serializer<std::variant<T...>> {
 
     static constexpr size_t serialized_size = 1 + max_size<T...>();
 
+    PREQUEL_ALWAYS_INLINE
     static void serialize(const std::variant<T...>& v, byte* b) {
         if (v.valueless_by_exception())
             PREQUEL_THROW(bad_argument("Cannot serialize a valueless_by_exception variant."));
@@ -311,12 +340,12 @@ struct default_serializer<std::variant<T...>> {
 
         switch (which) {
 // Don't make the compiler generate a god damn function pointer table for this.
-#define PREQUEL_DETAIL_VARIANT_CASE(i)             \
-case i: {                                          \
-    if constexpr (i < alternatives) {              \
-        b = prequel::serialize(std::get<i>(v), b); \
-        break;                                     \
-    }                                              \
+#define PREQUEL_DETAIL_VARIANT_CASE(i)         \
+case i: {                                      \
+    if constexpr (i < alternatives) {          \
+        b = serialize_impl(std::get<i>(v), b); \
+        break;                                 \
+    }                                          \
 }
 
             PREQUEL_DETAIL_VARIANT_CASE(0)
@@ -343,6 +372,7 @@ case i: {                                          \
         std::memset(b, 0, end - b);
     }
 
+    PREQUEL_ALWAYS_INLINE
     static void deserialize(std::variant<T...>& v, const byte* b) {
         const byte which = b[0];
         ++b;
@@ -361,7 +391,7 @@ case i: {                                          \
 case i: {                                                        \
     if constexpr (i < alternatives) {                            \
         std::variant_alternative_t<i, std::variant<T...>> value; \
-        prequel::deserialize(value, b);                          \
+        deserialize_impl(value, b);                              \
         v.template emplace<i>(std::move(value));                 \
         break;                                                   \
     }                                                            \
@@ -420,17 +450,19 @@ struct binary_format_serializer {
 
     static constexpr size_t serialized_size = compute_serialized_size();
 
+    PREQUEL_ALWAYS_INLINE
     static void serialize(const T& v, byte* b) {
-        detail::tuple_for_each(format.fields(), [&](auto field) {
+        detail::tuple_for_each(format.fields(), [&](auto field) PREQUEL_ALWAYS_INLINE {
             const auto& ref = get_member(v, field);
-            b = prequel::serialize(ref, b);
+            b = serialize_impl(ref, b);
         });
     }
 
+    PREQUEL_ALWAYS_INLINE
     static void deserialize(T& v, const byte* b) {
-        detail::tuple_for_each(format.fields(), [&](auto field) {
+        detail::tuple_for_each(format.fields(), [&](auto field) PREQUEL_ALWAYS_INLINE {
             auto& ref = get_member(v, field);
-            b = prequel::deserialize(ref, b);
+            b = deserialize_impl(ref, b);
         });
     }
 };
@@ -445,8 +477,10 @@ struct explicit_serializer {
     // cannot define static data members (even if they are constexpr...)
     static constexpr size_t serialized_size = impl::serialized_size();
 
+    PREQUEL_ALWAYS_INLINE
     static void serialize(const T& v, byte* b) { return impl::serialize(v, b); }
 
+    PREQUEL_ALWAYS_INLINE
     static void deserialize(T& v, const byte* b) { return impl::deserialize(v, b); }
 };
 
@@ -485,6 +519,10 @@ constexpr auto which_serializer() {
     }
 }
 
+/*
+ * Select the appropriate serializer implementation for the given type,
+ * based on the return value of the which_serializer() function.
+ */
 template<typename T, serializer_kind Kind = which_serializer<T>()>
 struct select_serializer;
 
@@ -510,6 +548,18 @@ struct select_serializer<T, serializer_kind::explicit_serialization> {
 
 template<typename T>
 using serializer_t = typename select_serializer<remove_cvref_t<T>>::type;
+
+template<typename T>
+inline byte* serialize_impl(const T& v, byte* buffer) {
+    detail::serializer_t<T>::serialize(v, buffer);
+    return buffer + serialized_size(v);
+}
+
+template<typename T>
+inline const byte* deserialize_impl(T& v, const byte* buffer) {
+    serializer_t<T>::deserialize(v, buffer);
+    return buffer + serialized_size(v);
+}
 
 } // namespace detail
 
@@ -554,6 +604,100 @@ constexpr size_t serialized_size(T&&) {
     return serialized_size<T>();
 }
 
+/// Serializes `v` into the provided `buffer`, which
+/// must be at least `serialized_size(v)` bytes long.
+///
+/// \ingroup serialization
+template<typename T>
+PREQUEL_ALWAYS_INLINE inline void serialize(const T& v, byte* buffer) {
+    detail::serialize_impl(v, buffer);
+}
+
+/// Serializes `v` into the provided `buffer`, which
+/// must be at least `serialized_size(v)` bytes long.
+///
+/// A debug-mode assertion checks that the buffer is large enough.
+///
+/// \ingroup serialization
+template<typename T>
+PREQUEL_ALWAYS_INLINE inline void serialize(const T& v, byte* buffer, size_t buffer_size) {
+    PREQUEL_ASSERT(buffer_size >= serialized_size(v), "The provided buffer is too small.");
+    unused(buffer_size);
+    serialize(v, buffer);
+}
+
+/**
+ * Deserialization functions have to construct a valid instance of an object
+ * in order to fill its state, even if the object type is not default constructible.
+ *
+ * Non default-constructible classes will be passed an instance of this class.
+ * They should construct themselves into an arbitrary state - they will be overwritten
+ * by the deserialized values immediately, anyway.
+ *
+ * Example:
+ *      struct example {
+ *          // non default-constructible for normal code, for whatever reason
+ *          example() = delete;
+ *
+ *          // the other object follows isn't default constructible either, but
+ *          // follows the same convention. just forward the tag.
+ *          example(prequel::serialization_tag t)
+ *              : other(t)
+ *          {}
+ *
+ *
+ *          int x = 0;
+ *          other_non_default_constructible_class other;
+ *      };
+ *
+ *      // Given a byte buffer that contains a serialized object:
+ *      const byte* buffer = ...;
+ *
+ *      // We can still obtain the deserialized value.
+ *      example ex = deserialize<example>(buffer);
+ */
+class deserialization_tag {
+private:
+    template<typename T>
+    friend T deserialize(const byte* buffer);
+
+    deserialization_tag() = default;
+};
+
+/// Deserializes `v` from the provided `buffer`, which
+/// must be at least `serialized_size(v)` bytes long.
+///
+/// \ingroup serialization
+template<typename T>
+inline T deserialize(const byte* buffer) {
+    if constexpr (std::is_default_constructible_v<T>) {
+        T v;
+        detail::deserialize_impl(v, buffer);
+        return v;
+    } else if constexpr (std::is_constructible_v<T, deserialization_tag>) {
+        T v(deserialization_tag{});
+        detail::deserialize_impl(v, buffer);
+        return v;
+    } else {
+        static_assert(always_false<T>::value,
+                      "The type must be either default-constructible or constructible using "
+                      "a deserialization tag.");
+    }
+}
+
+/// Deserializes `v` from the provided `buffer`, which
+/// must be at least `serialized_size(v)` bytes long.
+///
+/// A debug-mode assertion checks that the buffer is large enough.
+///
+/// \ingroup serialization
+template<typename T>
+inline T deserialize(const byte* buffer, const size_t buffer_size) {
+    PREQUEL_ASSERT(buffer_size >= serialized_size<T>(), "The provided buffer is too small.");
+    unused(buffer_size);
+    return deserialize<T>(buffer);
+}
+
 /// A stack allocated buffer large enough to hold the serialized representation
 /// of values of type T.
 ///
@@ -561,84 +705,20 @@ constexpr size_t serialized_size(T&&) {
 template<typename T>
 using serialized_buffer = std::array<byte, serialized_size<T>()>;
 
-/// Serializes `v` into the provided `buffer`, which
-/// must be at least `serialized_size(v)` bytes long.
-///
-/// \ingroup serialization
-template<typename T>
-byte* serialize(const T& v, byte* buffer) {
-    detail::serializer_t<T>::serialize(v, buffer);
-    return buffer + serialized_size(v);
-}
-
-/// Serializes `v` into the provided `buffer`, which
-/// must be at least `serialized_size(v)` bytes long.
-///
-/// A debug-mode assertion checks that the buffer is large enough.
-///
-/// \ingroup serialization
-template<typename T>
-byte* serialize(const T& v, byte* buffer, size_t buffer_size) {
-    PREQUEL_ASSERT(buffer_size >= serialized_size(v), "The provided buffer is too small.");
-
-    unused(buffer_size);
-    return serialize(v, buffer);
-}
-
-/// Deserializes `v` from the provided `buffer`, which
-/// must be at least `serialized_size(v)` bytes long.
-///
-/// \ingroup serialization
-template<typename T>
-const byte* deserialize(T& v, const byte* buffer) {
-    detail::serializer_t<T>::deserialize(v, buffer);
-    return buffer + serialized_size(v);
-}
-
-/// Deserializes `v` from the provided `buffer`, which
-/// must be at least `serialized_size(v)` bytes long.
-///
-/// A debug-mode assertion checks that the buffer is large enough.
-///
-/// \ingroup serialization
-template<typename T>
-const byte* deserialize(T& v, const byte* buffer, const size_t buffer_size) {
-    PREQUEL_ASSERT(buffer_size >= serialized_size(v), "The provided buffer is too small.");
-    unused(buffer_size);
-    return deserialize(v, buffer);
-}
-
 /// Serializes `instance` into a stack-allocated buffer.
 /// \ingroup serialization
 template<typename T>
-serialized_buffer<T> serialized_value(const T& instance) {
-    std::array<byte, serialized_size<T>()> buffer;
+serialized_buffer<T> serialize_to_buffer(const T& instance) {
+    serialized_buffer<T> buffer;
     serialize(instance, buffer.data(), buffer.size());
     return buffer;
 }
 
-/// Deserializes a value of type `T` from a buffer.
-/// The buffer must be large enough to hold the serialized representation
-/// of that value.
-///
+/// Deserializes an instance of type `T` from the stack-allocated buffer.
 /// \ingroup serialization
 template<typename T>
-T deserialized_value(const byte* buffer, size_t buffer_size) {
-    T instance;
-    deserialize(instance, buffer, buffer_size);
-    return instance;
-}
-
-/// Deserializes a value of type `T` from a buffer.
-/// The buffer must be large enough to hold the serialized representation
-/// of that value.
-///
-/// \ingroup serialization
-template<typename T>
-T deserialized_value(const byte* buffer) {
-    T instance;
-    deserialize(instance, buffer);
-    return instance;
+T deserialize_from_buffer(const serialized_buffer<T>& buffer) {
+    return deserialize<T>(buffer.data());
 }
 
 namespace detail {
@@ -689,6 +769,15 @@ constexpr size_t serialized_offset_recursive() {
     }
 }
 
+template<typename... T>
+constexpr auto select_last_member_ptr(T... ptrs) {
+    std::tuple<T...> args(ptrs...);
+    return std::get<std::tuple_size_v<decltype(args)> - 1>(args);
+}
+
+template<auto... MemberPtrs>
+using member_value_type = member_type_t<decltype(select_last_member_ptr(MemberPtrs...))>;
+
 } // namespace detail
 
 /// Returns the byte-offset of the serialized representation of `field`
@@ -728,6 +817,63 @@ constexpr size_t serialized_offset() {
                   "Must pass members pointers.");
     using object_type = object_type_t<decltype(MemberPtr)>;
     return detail::serialized_offset_recursive<object_type, MemberPtr, MemberPtrs...>();
+}
+
+/*
+ * Deserializes only the specified member of the outermost struct.
+ * The buffer must be large enough to hold that structure.
+ */
+template<auto MemberPtr, auto... MemberPtrs>
+auto deserialize_member(const byte* buffer) {
+    static constexpr size_t offset = serialized_offset<MemberPtr, MemberPtrs...>();
+    using member_type = detail::member_value_type<MemberPtr, MemberPtrs...>;
+
+    static constexpr size_t object_size = serialized_size<object_type_t<decltype(MemberPtr)>>();
+    unused(object_size);
+    PREQUEL_ASSERT(offset <= object_size - serialized_size<member_type>(),
+                   "Member offset out of bounds.");
+
+    return deserialize<member_type>(buffer + offset);
+}
+
+/*
+ * Deserializes only the specified member of the outermost struct.
+ * The buffer must be large enough to hold that structure.
+ */
+template<auto MemberPtr, auto... MemberPtrs>
+auto deserialize_member(const byte* buffer, size_t buffer_size) {
+    PREQUEL_ASSERT(buffer_size >= serialized_size<object_type_t<decltype(MemberPtr)>>(),
+                   "Buffer is too small for that type of object.");
+    unused(buffer_size);
+    return deserialize_member<MemberPtr, MemberPtrs...>(buffer);
+}
+
+/*
+ * Serializes only the specified member of the outermost struct.
+ * The buffer must be large enough to hold that structure.
+ */
+template<auto MemberPtr, auto... MemberPtrs>
+void serialize_member(const detail::member_value_type<MemberPtr, MemberPtrs...>& v, byte* buffer) {
+    static constexpr size_t offset = serialized_offset<MemberPtr, MemberPtrs...>();
+    static constexpr size_t object_size = serialized_size<object_type_t<decltype(MemberPtr)>>();
+    unused(object_size);
+    PREQUEL_ASSERT(offset <= object_size - serialized_size<decltype(v)>(),
+                   "Member offset out of bounds.");
+
+    serialize(v, buffer + offset);
+}
+
+/*
+ * Serializes only the specified member of the outermost struct.
+ * The buffer must be large enough to hold that structure.
+ */
+template<auto MemberPtr, auto... MemberPtrs>
+auto serialize_member(const detail::member_value_type<MemberPtr, MemberPtrs...>& v, byte* buffer,
+                      size_t buffer_size) {
+    PREQUEL_ASSERT(buffer_size >= serialized_size<object_type_t<decltype(MemberPtr)>>(),
+                   "Buffer is too small for that type of object.");
+    unused(buffer_size);
+    return serialize_member<MemberPtr, MemberPtrs...>(v, buffer);
 }
 
 } // namespace prequel

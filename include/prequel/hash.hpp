@@ -20,7 +20,7 @@ u64 fnv_1a(const byte* data, size_t length) noexcept;
  */
 template<typename T>
 u64 fnv_1a(const T& value) noexcept {
-    auto buffer = serialized_value(value);
+    auto buffer = serialize_to_buffer(value);
     return fnv_1a(buffer.data(), buffer.size());
 }
 

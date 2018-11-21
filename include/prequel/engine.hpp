@@ -184,18 +184,9 @@ public:
 
     /// Deserialize a value of type T at the given offset.
     template<typename T>
-    void get(u32 offset, T& value) const {
-        PREQUEL_ASSERT(check_range(offset, serialized_size<T>()), "Reading out of bounds.");
-
-        deserialize(value, data() + offset);
-    }
-
-    /// Deserialize a value of type T at the given offset.
-    template<typename T>
     T get(u32 offset) const {
-        T value;
-        get(offset, value);
-        return value;
+        PREQUEL_ASSERT(check_range(offset, serialized_size<T>()), "Reading out of bounds.");
+        return deserialize<T>(data() + offset);
     }
 
     /// Serialize a value and put it at the given offset.

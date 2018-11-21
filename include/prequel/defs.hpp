@@ -10,6 +10,10 @@ namespace prequel {
 /// \defgroup defs Definitions
 /// @{
 
+// TODO: other compilers
+#define PREQUEL_ALWAYS_INLINE __attribute__((always_inline))
+#define PREQUEL_FLATTEN __attribute__((flatten))
+
 using u8 = std::uint8_t;
 using u16 = std::uint16_t;
 using u32 = std::uint32_t;

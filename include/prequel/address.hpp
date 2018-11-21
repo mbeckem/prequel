@@ -280,18 +280,17 @@ void copy(engine& e, raw_address src, raw_address dest, u64 size);
 /// The value must be serializable.
 template<typename T>
 void write(engine& e, address<T> address, const T& value) {
-    serialized_buffer<T> buffer;
-    serialize(value, buffer.data(), buffer.size());
+    serialized_buffer<T> buffer = serialize_to_buffer(value);
     write(e, address.raw(), buffer.data(), buffer.size());
 }
 
 /// Performs a linear read of the given value at the given disk address.
 /// The value must be serializable.
 template<typename T>
-void read(engine& e, address<T> address, T& value) {
+T read(engine& e, address<T> address) {
     serialized_buffer<T> buffer;
     read(e, address.raw(), buffer.data(), buffer.size());
-    deserialize(value, buffer.data(), buffer.size());
+    return deserialize_from_buffer<T>(buffer);
 }
 
 /// @}

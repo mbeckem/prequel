@@ -37,11 +37,11 @@ public:
         static constexpr u32 value_size() { return list::value_size(); }
 
         /// Returns the current value.
-        value_type get() const { return deserialized_value<value_type>(inner.get(), value_size()); }
+        value_type get() const { return deserialize<value_type>(inner.get()); }
 
         /// Replaces the current value with the given argument.
         void set(const value_type& value) {
-            auto buffer = serialized_value(value);
+            auto buffer = serialize_to_buffer(value);
             inner.set(buffer.data());
         }
 
@@ -71,14 +71,14 @@ public:
         /// Inserts the new value *before* the current list element.
         /// The cursor must point to a valid element.
         void insert_before(const value_type& value) {
-            auto buffer = serialized_value(value);
+            auto buffer = serialize_to_buffer(value);
             inner.insert_before(buffer.data());
         }
 
         /// Inserts the new value *after* the current list element.
         /// The cursor must point to a valid element.
         void insert_after(const value_type& value) {
-            auto buffer = serialized_value(value);
+            auto buffer = serialize_to_buffer(value);
             inner.insert_after(buffer.data());
         }
 
@@ -152,13 +152,13 @@ public:
 
     /// Inserts a new element at the beginning of the list.
     void push_front(const T& value) {
-        auto buffer = serialized_value(value);
+        auto buffer = serialize_to_buffer(value);
         inner.push_front(buffer.data());
     }
 
     /// Inserts a new element at the end of the list.
     void push_back(const T& value) {
-        auto buffer = serialized_value(value);
+        auto buffer = serialize_to_buffer(value);
         inner.push_back(buffer.data());
     }
 
@@ -193,9 +193,7 @@ public:
         block_index prev_address() const { return m_inner.prev_address(); }
 
         u32 value_count() const { return m_inner.value_count(); }
-        value_type value(u32 index) const {
-            return deserialized_value<value_type>(m_inner.value(index));
-        }
+        value_type value(u32 index) const { return deserialize<value_type>(m_inner.value(index)); }
 
     private:
         friend class list;
