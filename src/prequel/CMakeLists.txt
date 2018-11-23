@@ -19,6 +19,7 @@ set(PUBLIC_HEADERS
     ${HEADER_ROOT}/btree.hpp
     ${HEADER_ROOT}/default_allocator.hpp
     ${HEADER_ROOT}/default_file_format.hpp
+    ${HEADER_ROOT}/deferred.hpp
     ${HEADER_ROOT}/defs.hpp
     ${HEADER_ROOT}/engine.hpp
     ${HEADER_ROOT}/exception.hpp

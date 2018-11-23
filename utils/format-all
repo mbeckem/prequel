@@ -9,15 +9,10 @@
 #
 # Michael Beckemeyer <m.beckemeyer@gmx.net>
 
-
-
 import os
 import subprocess
 
 from os.path import abspath, join
-
-# subprocess.check_call(args, *, stdin=None, stdout=None, stderr=None, shell=False, cwd=None, timeout=None)
-# find src include example test \( -name "*.cpp" -o -name "*.hpp" -o -name "*.ipp" \) -exec clang-format -style=file -i '{}' \;i
 
 SOURCE_DIRS = ["include", "src", "example", "test"]
 EXTENSIONS = [".hpp", ".cpp", ".ipp"]
