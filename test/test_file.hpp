@@ -1,13 +1,12 @@
 #ifndef TEST_FILE_HPP
 #define TEST_FILE_HPP
 
+#include <prequel/deferred.hpp>
 #include <prequel/file_engine.hpp>
 #include <prequel/handle.hpp>
 #include <prequel/memory_engine.hpp>
 #include <prequel/mmap_engine.hpp>
 #include <prequel/vfs.hpp>
-
-#include <prequel/detail/deferred.hpp>
 
 #include <boost/noncopyable.hpp>
 #include <boost/optional.hpp>

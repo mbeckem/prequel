@@ -74,11 +74,11 @@ public:
             return 0;
 
         // Sets all bits before `index` to zero.
-        auto mask_front = [](block_t block, int index) { return (block >> index) << index; };
+        auto mask_front = [](block_t block, u32 index) { return (block >> index) << index; };
 
         // Sets all bits at `index` and after it to zero.
-        auto mask_back = [](block_t block, int index) {
-            int offset = (bits_per_block - index);
+        auto mask_back = [](block_t block, u32 index) {
+            u32 offset = bits_per_block - index;
             return (block << offset) >> offset;
         };
 
@@ -88,11 +88,11 @@ public:
         size_t result = 0;
 
         // Handle the first block.
-        if (int i = bit_index(begin); i != 0) {
+        if (u32 i = bit_index(begin); i != 0) {
             block_t blk = m_blocks[current_block];
             blk = mask_front(blk, i);
             if (last_block == current_block) {
-                int j = bit_index(end);
+                u32 j = bit_index(end);
                 blk = mask_back(blk, j);
                 return block_popcount(blk);
             }
@@ -107,7 +107,7 @@ public:
         }
 
         // Handle remainder in the last block.
-        if (int i = bit_index(end); i != 0) {
+        if (u32 i = bit_index(end); i != 0) {
             result += block_popcount(mask_back(m_blocks[current_block], i));
         }
         return result;
@@ -121,9 +121,9 @@ public:
 
         // Check current block if not on block boundary.
         size_t b = block_index(n);
-        int i = bit_index(n);
+        u32 i = bit_index(n);
         if (i != 0) {
-            int s = block_ffs(m_blocks[b] >> i);
+            u32 s = block_ffs(m_blocks[b] >> i);
             if (s != 0)
                 return n + s - 1;
             return do_ffs(b + 1);
@@ -140,9 +140,9 @@ public:
         size_t r = [&] {
             // Check current block if not on block boundary.
             size_t b = block_index(n);
-            int i = bit_index(n);
+            u32 i = bit_index(n);
             if (i != 0) {
-                int s = block_ffs((~m_blocks[b]) >> i);
+                u32 s = block_ffs((~m_blocks[b]) >> i);
                 if (s != 0)
                     return n + s - 1;
                 return do_ffz(b + 1);
@@ -157,7 +157,7 @@ private:
     size_t do_ffs(size_t b) const {
         size_t sz = m_blocks.size();
         while (b < sz) {
-            int s = block_ffs(m_blocks[b]);
+            u32 s = block_ffs(m_blocks[b]);
             if (s != 0) {
                 return b * bits_per_block + s - 1;
             }
@@ -170,7 +170,7 @@ private:
     size_t do_ffz(size_t b) const {
         size_t sz = m_blocks.size();
         while (b < sz) {
-            int s = block_ffz(m_blocks[b]);
+            u32 s = block_ffz(m_blocks[b]);
             if (s != 0) {
                 return b * bits_per_block + s - 1;
             }
@@ -180,21 +180,21 @@ private:
         return npos;
     }
 
-    static int block_ffs(block_t b) {
+    static u32 block_ffs(block_t b) {
         // TODO: GCC specific.
-        return __builtin_ffsll(b);
+        return static_cast<u32>(__builtin_ffsll(static_cast<long long>(b)));
     }
 
-    static int block_ffz(block_t b) { return block_ffs(~b); }
+    static u32 block_ffz(block_t b) { return block_ffs(~b); }
 
-    static int block_popcount(block_t b) {
+    static u32 block_popcount(block_t b) {
         // TODO: GCC specific
-        return __builtin_popcountll(b);
+        return static_cast<u32>(__builtin_popcountll(b));
     }
 
     static size_t block_index(size_t bit) { return bit / bits_per_block; }
 
-    static int bit_index(size_t bit) { return bit & (bits_per_block - 1); }
+    static u32 bit_index(size_t bit) { return bit & (bits_per_block - 1); }
 
 private:
     size_t m_bits = 0;

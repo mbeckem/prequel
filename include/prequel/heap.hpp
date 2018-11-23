@@ -151,9 +151,9 @@ private:
         u32 available = 0;
 
         free_map_entry() = default;
-        free_map_entry(block_index block, u32 available)
-            : block(block)
-            , available(available) {}
+        free_map_entry(block_index block_, u32 available_)
+            : block(block_)
+            , available(available_) {}
 
         /// Entries are ordered by the amount of bytes available.
         /// Ties are broken by comparing the block address.

@@ -390,7 +390,7 @@ TEST_CASE("struct serialization", "[serialization]") {
     struct complex_t {
         simple_t v1;
         simple_t v2;
-        u8 v3 = -1;
+        u8 v3 = u8(-1);
 
         static constexpr auto get_binary_format() {
             return make_binary_format(&complex_t::v1, &complex_t::v2, &complex_t::v3);
@@ -676,12 +676,12 @@ TEST_CASE("custom serializer", "[serialization]") {
 
     ROUND_TRIP(entry_t::make_free(0));
     ROUND_TRIP(entry_t::make_free(1));
-    ROUND_TRIP(entry_t::make_free(-1 + (u64(1) << 63)));
+    ROUND_TRIP(entry_t::make_free(u64(-1) + (u64(1) << 63)));
 
     ROUND_TRIP(entry_t::make_object(true, 0));
     ROUND_TRIP(entry_t::make_object(false, 0));
-    ROUND_TRIP(entry_t::make_object(true, -1 + (u64(1) << 62)));
-    ROUND_TRIP(entry_t::make_object(false, -1 + (u64(1) << 62)));
+    ROUND_TRIP(entry_t::make_object(true, u64(-1) + (u64(1) << 62)));
+    ROUND_TRIP(entry_t::make_object(false, u64(-1) + (u64(1) << 62)));
     ROUND_TRIP(entry_t::make_object(true, 123456789ULL));
 
 #undef ROUND_TRIP
@@ -689,14 +689,14 @@ TEST_CASE("custom serializer", "[serialization]") {
 
 TEST_CASE("nested objects", "[serialization]") {
     struct v1 {
-        u32 a = -4;
+        u32 a = u32(-4);
 
         struct v2 {
             u32 b = 99;
             byte c = 1;
             struct v3 {
                 u64 d = 5;
-                u64 e = -444;
+                u64 e = u64(-444);
 
                 static constexpr auto get_binary_format() {
                     return make_binary_format(&v3::d, &v3::e);
@@ -721,7 +721,7 @@ TEST_CASE("nested objects", "[serialization]") {
     REQUIRE(deserialize_member<&v1::v2_, &v1::v2::v3_, &v1::v2::v3::e>(buffer.data(), buffer.size())
             == u64(-444));
 
-    serialize_member<&v1::v2_, &v1::v2::b>(-1, buffer.data(), buffer.size());
+    serialize_member<&v1::v2_, &v1::v2::b>(u32(-1), buffer.data(), buffer.size());
 
     auto value = deserialize<v1>(buffer.data());
     REQUIRE(value.v2_.b == u32(-1));
@@ -731,8 +731,8 @@ TEST_CASE("non default constructible", "[serialization]") {
     struct test_inner {
         i32 y = 0;
 
-        test_inner(i32 y)
-            : y(y) {}
+        test_inner(i32 y_)
+            : y(y_) {}
 
         test_inner(deserialization_tag) {}
 
@@ -743,8 +743,8 @@ TEST_CASE("non default constructible", "[serialization]") {
         i32 x = 0;
         test_inner inner;
 
-        test_outer(i32 x, i32 y)
-            : x(x)
+        test_outer(i32 x_, i32 y)
+            : x(x_)
             , inner(y) {}
 
         test_outer(deserialization_tag t)

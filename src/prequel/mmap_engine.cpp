@@ -50,6 +50,8 @@ public:
 
     byte* access_block(u64 block_index) const;
 
+    void dirty(u64 block_index);
+
     void flush();
 
 private:
@@ -58,6 +60,9 @@ private:
 private:
     /// The file handle.
     file* m_file = nullptr;
+
+    /// True if the file was opened in read-only mode.
+    bool m_read_only = false;
 
     /// Block size associated with the file.
     u32 m_block_size = 0;
@@ -75,6 +80,7 @@ private:
 
 mmap_engine_impl::mmap_engine_impl(file& fd, u32 block_size)
     : m_file(&fd)
+    , m_read_only(m_file->read_only())
     , m_block_size(block_size) {
     if (mmap_chunk_size % m_block_size != 0) {
         PREQUEL_THROW(bad_argument("mmap chunk size must be a multiple of the block size."));
@@ -98,10 +104,22 @@ mmap_engine_impl::~mmap_engine_impl() {
 }
 
 void mmap_engine_impl::grow(u64 n) {
+    if (PREQUEL_UNLIKELY(m_read_only))
+        PREQUEL_THROW(
+            io_error("The file cannot be resized because it was opened in read-only mode."));
+
     u64 new_size_blocks = checked_add(size(), n);
     u64 new_size_bytes = checked_mul<u64>(new_size_blocks, m_block_size);
     m_file->truncate(new_size_bytes);
     update_mappings(new_size_bytes);
+}
+
+void mmap_engine_impl::dirty(u64 block_index) {
+    unused(block_index);
+
+    if (PREQUEL_UNLIKELY(m_read_only))
+        PREQUEL_THROW(
+            io_error("The file cannot be written to because it was opened in read-only mode."));
 }
 
 void mmap_engine_impl::flush() {
@@ -109,10 +127,6 @@ void mmap_engine_impl::flush() {
     for (void* mapping : m_mappings) {
         v.memory_sync(mapping, mmap_chunk_size);
     }
-
-    // Fsync is required for metadata changes (e.g. size of file changed).
-    // memsync should have taken care of the data sync already.
-    m_file->sync();
 }
 
 byte* mmap_engine_impl::access_block(u64 block_index) const {
@@ -192,8 +206,8 @@ void mmap_engine::do_flush(block_index index, uintptr_t cookie) {
     unused(index, cookie);
 }
 void mmap_engine::do_dirty(block_index index, uintptr_t cookie) {
-    // Linux knows.
-    unused(index, cookie);
+    impl().dirty(index.value());
+    unused(cookie);
 }
 
 detail::mmap_engine_impl& mmap_engine::impl() const {

@@ -4,7 +4,7 @@
 #include <prequel/btree/loader.hpp>
 
 #include <prequel/btree/tree.hpp>
-#include <prequel/detail/deferred.hpp>
+#include <prequel/deferred.hpp>
 #include <prequel/exception.hpp>
 
 namespace prequel::detail::btree_impl {
@@ -27,7 +27,7 @@ inline void loader::insert(const byte* values, size_t count) {
     if (m_state == STATE_FINALIZED)
         PREQUEL_THROW(bad_operation("This loader was already finalized."));
 
-    detail::deferred guard = [&] { m_state = STATE_ERROR; };
+    deferred guard = [&] { m_state = STATE_ERROR; };
 
     while (count > 0) {
         if (!m_leaf.valid()) {
@@ -164,7 +164,7 @@ inline void loader::flush_internal(size_t index, proto_internal_node& node, u32 
     PREQUEL_ASSERT(count <= m_internal_max_children, "Too many elements for a tree node.");
 
     internal_node tree_node = m_tree.create_internal();
-    detail::deferred cleanup = [&] { m_tree.free_internal(tree_node.index()); };
+    deferred cleanup = [&] { m_tree.free_internal(tree_node.index()); };
 
     // Copy first `count` entries into the real node, then forward max key and node index
     // to the next level.

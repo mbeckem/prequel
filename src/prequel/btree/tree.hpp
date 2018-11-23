@@ -62,8 +62,8 @@ public:
     }
 
     // Returns key(value)
-    void derive_key(const byte* value, byte* key_buffer) const {
-        return m_options.derive_key(value, key_buffer, m_options.user_data);
+    void derive_key(const byte* value, byte* buffer) const {
+        return m_options.derive_key(value, buffer, m_options.user_data);
     }
 
     // Seek the cursor to the lower bound of key.

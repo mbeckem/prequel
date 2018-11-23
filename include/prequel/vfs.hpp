@@ -20,7 +20,11 @@ public:
 
     virtual ~file();
 
+    /// The virtual file system that this file belongs to.
     prequel::vfs& get_vfs() const { return m_vfs; }
+
+    /// True if the file has been opened in read-only mode.
+    virtual bool read_only() const noexcept = 0;
 
     /// Returns the name of this file (for error reporting only).
     virtual const char* name() const noexcept = 0;
@@ -73,6 +77,9 @@ public:
 
         /// Whether the file should be created if it doesn't exist.
         open_create = 1 << 0,
+
+        /// When open_create is specified: Errors when the file already exists.
+        open_exlusive = 1 << 1
     };
 
 public:
@@ -85,7 +92,7 @@ public:
 
     /// Opens the file at the given path or throws an exception.
     virtual std::unique_ptr<file>
-    open(const char* path, access_t access = read_only, flags_t mode = open_normal) = 0;
+    open(const char* path, access_t access = read_only, int mode = open_normal) = 0;
 
     /// Creates and opens a new temporary file.
     /// The new file will be deleted automatically when it is no longer

@@ -76,8 +76,8 @@ TEST_CASE("copy", "[address]") {
     file_engine e(*file, block_size, 2);
 
     std::vector<byte> test_data(256);
-    for (int i = 0; i < 256; ++i)
-        test_data[i] = i;
+    for (u32 i = 0; i < 256; ++i)
+        test_data[i] = byte(i);
 
     std::vector<byte> mem_file(50 * block_size); // Mirrors file on "disk".
 

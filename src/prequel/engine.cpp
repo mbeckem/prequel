@@ -1,6 +1,6 @@
 #include <prequel/engine.hpp>
 
-#include <prequel/detail/deferred.hpp>
+#include <prequel/deferred.hpp>
 
 #include <boost/intrusive/list.hpp>
 #include <boost/intrusive/list_hook.hpp>
@@ -206,12 +206,12 @@ block_handle engine::internal_populate_handle(block_index index, Initializer&& i
 
     // Prepare a handle for the new block.
     auto handle = manager.allocate();
-    detail::deferred cleanup_handle = [&] { manager.free(handle); };
+    deferred cleanup_handle = [&] { manager.free(handle); };
 
     // Read the block from disk. Don't initialize the contents
     // if we're about to overwrite them anyway.
     pin_result pinned = do_pin(index, !overwrite);
-    detail::deferred cleanup_pin = [&] { do_unpin(index, pinned.cookie); };
+    deferred cleanup_pin = [&] { do_unpin(index, pinned.cookie); };
 
     // Initialize the block contents.
     if constexpr (overwrite) {

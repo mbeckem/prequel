@@ -86,8 +86,8 @@ public:
     // has to compare long strings.
     struct key_equal {
         const prequel::heap& heap;
-        key_equal(const prequel::heap& heap)
-            : heap(heap) {}
+        key_equal(const prequel::heap& heap_)
+            : heap(heap_) {}
 
         bool operator()(const key_t& lhs, const key_t& rhs) const {
             return std::visit(
@@ -212,9 +212,9 @@ private:
         const std::string& data;
         const uint64_t hash;
 
-        search_key(const std::string& data, uint64_t hash)
-            : data(data)
-            , hash(hash) {}
+        search_key(const std::string& data_, uint64_t hash_)
+            : data(data_)
+            , hash(hash_) {}
     };
 
     struct search_key_hash {
@@ -226,8 +226,8 @@ private:
     struct search_key_equals {
         const database* db;
 
-        search_key_equals(const database* db)
-            : db(db) {}
+        search_key_equals(const database* db_)
+            : db(db_) {}
 
         bool operator()(const search_key& lhs, const database_entry::key_t& rhs) const {
             return database_entry::key_equal(db->m_strings)(lhs.data, rhs);

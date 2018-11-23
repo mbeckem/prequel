@@ -199,8 +199,8 @@ private:
 struct compatible_key_t {
     const void* data = nullptr;
 
-    compatible_key_t(const void* data)
-        : data(data) {}
+    compatible_key_t(const void* data_)
+        : data(data_) {}
 };
 
 } // namespace
@@ -234,7 +234,7 @@ static std::tuple<u64, u64> find_bucket_position(u64 bucket_index) {
                                 bucket_index);
     if (pos != bucket_range_size_sums.end()) {
         // bucket index is in the precomputed table.
-        u64 range_index = pos - bucket_range_size_sums.begin();
+        u64 range_index = static_cast<u64>(pos - bucket_range_size_sums.begin());
         u64 range_start = *pos - bucket_range_size(range_index);
         PREQUEL_ASSERT(bucket_index >= range_start
                            && bucket_index < range_start + bucket_range_size(range_index),
@@ -565,7 +565,7 @@ bool raw_hash_table_impl::find(const byte* key, byte* value) const {
     if (!value)
         PREQUEL_THROW(bad_argument("Value is null."));
 
-    return find_impl(key, [&](const byte* key) { return key_hash(key); },
+    return find_impl(key, [&](const byte* k) { return key_hash(k); },
                      [&](const byte* left, const byte* right) { return key_equal(left, right); },
                      value);
 }
@@ -594,7 +594,7 @@ bool raw_hash_table_impl::erase(const byte* key) {
     if (!key)
         PREQUEL_THROW(bad_argument("Key is null."));
 
-    return erase_impl(key, [&](const byte* key) { return key_hash(key); },
+    return erase_impl(key, [&](const byte* k) { return key_hash(k); },
                       [&](const byte* left, const byte* right) { return key_equal(left, right); });
 }
 
@@ -899,7 +899,7 @@ bool raw_hash_table_impl::insert_into_bucket(const bucket_node& primary_bucket, 
     // even if we did not check all other nodes yet.
     bool cached_insert_location = false;
     bucket_node insert_node;
-    u32 insert_index = -1;
+    u32 insert_index = u32(-1);
 
     // Iterate over all nodes in the bucket.
     bucket_node node = primary_bucket;
@@ -982,12 +982,12 @@ bool raw_hash_table_impl::find_in_node(const bucket_node& node, const KeyType& s
      * Binary search. Entries are sorted by hash.
      */
     auto iter = std::lower_bound(identity_iterator<u32>(0), identity_iterator<u32>(size),
-                                 search_hash, [&](u32 index, u64 search_hash) {
+                                 search_hash, [&](u32 index, u64 hash) {
                                      const byte* value = node.get_value(index);
 
                                      derive_key(value, other_key.data());
                                      const u64 other_hash = key_hash(other_key.data());
-                                     return other_hash < search_hash;
+                                     return other_hash < hash;
                                  });
 
     /*

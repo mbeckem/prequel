@@ -34,9 +34,9 @@ bool empty_cursor(T&& list) {
 }
 
 template<typename List, typename Container>
-void check_list_equals_container(List&& ls, Container&& c) {
-    auto ci = c.begin();
-    auto ce = c.end();
+void check_list_equals_container(List&& ls, Container&& cont) {
+    auto ci = cont.begin();
+    auto ce = cont.end();
 
     u64 index = 0;
     for (auto c = ls.create_cursor(ls.seek_first); c; c.move_next(), index++, ci++) {
@@ -298,16 +298,16 @@ TEST_CASE("invalid cursor behaviour", "[list]") {
 
     {
         INFO("Created invalid");
-        auto c = ls.create_cursor(ls.seek_none);
-        REQUIRE(c.raw().value_size() == serialized_size<value_t>());
-        checks(c);
+        auto cursor = ls.create_cursor(ls.seek_none);
+        REQUIRE(cursor.raw().value_size() == serialized_size<value_t>());
+        checks(cursor);
     }
 
     {
         INFO("Default constructed");
-        list<value_t>::cursor c;
-        REQUIRE_THROWS_AS(c.raw().value_size(), bad_cursor); // No impl
-        checks(c);
+        list<value_t>::cursor cursor;
+        REQUIRE_THROWS_AS(cursor.raw().value_size(), bad_cursor); // No impl
+        checks(cursor);
     }
 }
 
@@ -316,9 +316,9 @@ struct point_t {
     i32 y = 0;
 
     point_t() = default;
-    point_t(i32 x, i32 y)
-        : x(x)
-        , y(y) {}
+    point_t(i32 x_, i32 y_)
+        : x(x_)
+        , y(y_) {}
 
     static constexpr auto get_binary_format() {
         return make_binary_format(&point_t::x, &point_t::y);

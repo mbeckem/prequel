@@ -18,7 +18,6 @@ set(PUBLIC_HEADERS
     ${HEADER_ROOT}/block_index.hpp
     ${HEADER_ROOT}/btree.hpp
     ${HEADER_ROOT}/default_allocator.hpp
-    ${HEADER_ROOT}/default_file_format.hpp
     ${HEADER_ROOT}/deferred.hpp
     ${HEADER_ROOT}/defs.hpp
     ${HEADER_ROOT}/engine.hpp
@@ -45,6 +44,7 @@ set(PUBLIC_HEADERS
     ${HEADER_ROOT}/raw_list.hpp
     ${HEADER_ROOT}/raw_stack.hpp
     ${HEADER_ROOT}/serialization.hpp
+    ${HEADER_ROOT}/simple_file_format.hpp
     ${HEADER_ROOT}/stack.hpp
     ${HEADER_ROOT}/type_traits.hpp
     ${HEADER_ROOT}/vfs.hpp
@@ -65,28 +65,29 @@ set(PRIVATE_HEADERS
 )
 
 set(SOURCES
-     address.cpp
-     assert.cpp
-     block_index.cpp
-     default_allocator.cpp
-     engine.cpp
-     exception.cpp
-     extent.cpp
-     file_engine.cpp
-     formatting.cpp
-     hash.cpp
-     heap.cpp
-     id_generator.cpp
-     memory_engine.cpp
-     mmap_engine.cpp
-     node_allocator.cpp
-     raw_array.cpp
-     raw_btree.cpp
-     raw_hash_table.cpp
-     raw_list.cpp
-     raw_stack.cpp
-     vfs.cpp
-     detail/free_list.cpp
+    address.cpp
+    assert.cpp
+    block_index.cpp
+    default_allocator.cpp
+    engine.cpp
+    exception.cpp
+    extent.cpp
+    file_engine.cpp
+    formatting.cpp
+    hash.cpp
+    heap.cpp
+    id_generator.cpp
+    memory_engine.cpp
+    mmap_engine.cpp
+    node_allocator.cpp
+    raw_array.cpp
+    raw_btree.cpp
+    raw_hash_table.cpp
+    raw_list.cpp
+    raw_stack.cpp
+    simple_file_format.cpp
+    vfs.cpp
+    detail/free_list.cpp
 )
 
 if (WIN32)

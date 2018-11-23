@@ -182,10 +182,10 @@ inline void tree::find(const byte* key, cursor& cursor) const {
 inline u32 tree::lower_bound(const leaf_node& leaf, const byte* search_key) const {
     const u32 size = leaf.get_size();
     index_iterator result = std::lower_bound(index_iterator(0), index_iterator(size), search_key,
-                                             [&](u32 i, const byte* search_key) {
+                                             [&](u32 i, const byte* key) {
                                                  key_buffer buffer;
                                                  derive_key(leaf.get(i), buffer.data());
-                                                 return key_less(buffer.data(), search_key);
+                                                 return key_less(buffer.data(), key);
                                              });
     return *result;
 }
@@ -196,17 +196,17 @@ inline u32 tree::lower_bound(const internal_node& internal, const byte* search_k
     const u32 keys = internal.get_child_count() - 1;
     index_iterator result = std::lower_bound(
         index_iterator(0), index_iterator(keys), search_key,
-        [&](u32 i, const byte* search_key) { return key_less(internal.get_key(i), search_key); });
+        [&](u32 i, const byte* key) { return key_less(internal.get_key(i), key); });
     return *result;
 }
 
 inline u32 tree::upper_bound(const leaf_node& leaf, const byte* search_key) const {
     const u32 size = leaf.get_size();
     index_iterator result = std::upper_bound(index_iterator(0), index_iterator(size), search_key,
-                                             [&](const byte* search_key, u32 i) {
+                                             [&](const byte* key, u32 i) {
                                                  key_buffer buffer;
                                                  derive_key(leaf.get(i), buffer.data());
-                                                 return key_less(search_key, buffer.data());
+                                                 return key_less(key, buffer.data());
                                              });
     return *result;
 }
@@ -217,7 +217,7 @@ inline u32 tree::upper_bound(const internal_node& internal, const byte* search_k
     const u32 keys = internal.get_child_count() - 1;
     index_iterator result = std::upper_bound(
         index_iterator(0), index_iterator(keys), search_key,
-        [&](const byte* search_key, u32 i) { return key_less(search_key, internal.get_key(i)); });
+        [&](const byte* key, u32 i) { return key_less(key, internal.get_key(i)); });
     return *result;
 }
 
@@ -1165,8 +1165,8 @@ inline void tree::dump(std::ostream& os) const {
 
     struct visitor {
         std::ostream& os;
-        visitor(std::ostream& os)
-            : os(os) {}
+        visitor(std::ostream& os_)
+            : os(os_) {}
 
         bool operator()(block_index parent, u32 level, const internal_node& node) const {
             const u32 child_count = node.get_child_count();
@@ -1313,8 +1313,8 @@ inline void tree::validate() const {
         u64 seen_leaf_nodes = 0;
         u64 seen_internal_nodes = 0;
 
-        checker(const class tree* tree)
-            : tree(tree) {}
+        checker(const class tree* tree_)
+            : tree(tree_) {}
 
         void check_key(const context& ctx, const byte* key) {
             if (ctx.lower_key && !tree->key_greater(key, ctx.lower_key))

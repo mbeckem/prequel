@@ -84,9 +84,9 @@ TEST_CASE("bitset count", "[bitset]") {
     REQUIRE(b.count(117, 9) == 2);
 
     b.reset();
-    for (int i = 10; i < 64; ++i)
+    for (size_t i = 10; i < 64; ++i)
         b.set(i);
-    for (int i = 64; i < 320; ++i)
+    for (size_t i = 64; i < 320; ++i)
         b.set(i);
     b.set(333);
 

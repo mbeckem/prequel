@@ -51,7 +51,7 @@ public:
 
     size_t size() const {
         // Index of first 0 byte (or max_size).
-        return std::find(std::begin(m_data), std::end(m_data), 0) - std::begin(m_data);
+        return static_cast<size_t>(std::find(std::begin(m_data), std::end(m_data), 0) - std::begin(m_data));
     }
 
     static constexpr auto get_binary_format() {
@@ -124,26 +124,26 @@ struct filesystem_exception : std::runtime_error {
 };
 
 struct path_exception : filesystem_exception {
-    path_exception(const std::string& message, const std::string& path)
-        : filesystem_exception(message)
-        , path(path) {}
+    path_exception(const std::string& message_, const std::string& path_)
+        : filesystem_exception(message_)
+        , path(path_) {}
 
     std::string path;
 };
 
 struct invalid_file_name : path_exception {
-    invalid_file_name(const std::string& path)
-        : path_exception("Invalid filename", path) {}
+    invalid_file_name(const std::string& path_)
+        : path_exception("Invalid filename", path_) {}
 };
 
 struct file_not_found : path_exception {
-    file_not_found(const std::string& path)
-        : path_exception("File not found", path) {}
+    file_not_found(const std::string& path_)
+        : path_exception("File not found", path_) {}
 };
 
 struct invalid_file_offset : path_exception {
-    invalid_file_offset(const std::string& path)
-        : path_exception("Invalid file ofset", path) {}
+    invalid_file_offset(const std::string& path_)
+        : path_exception("Invalid file ofset", path_) {}
 };
 
 class filesystem {

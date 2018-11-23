@@ -59,7 +59,7 @@ TEST_CASE("heap of small objects", "[heap]") {
 
         {
             std::vector<expected_t> new_refs;
-            for (int i = 0; i < 1000; ++i) {
+            for (u32 i = 0; i < 1000; ++i) {
                 heap_reference ref = refs[i].ref;
                 if (i % 5 == 0) {
                     new_refs.push_back(refs[i]);
@@ -120,10 +120,10 @@ TEST_CASE("heap supports large objects", "[heap]") {
         std::vector<expected_t> refs;
 
         size_t total_size = 0;
-        for (int i = 0; i < 100; ++i) {
+        for (u32 i = 0; i < 100; ++i) {
             std::string str(block_size * 2 + (100 * i + i), 0);
             for (size_t j = 0; j < str.size(); ++j) {
-                str[j] = (byte) j;
+                str[j] = (char) j;
             }
 
             heap_reference ref = h.allocate((const byte*) str.data(), str.size());
@@ -149,7 +149,7 @@ TEST_CASE("heap supports large objects", "[heap]") {
         REQUIRE(h.objects_size() == total_size);
         REQUIRE(h.heap_size() >= total_size);
 
-        for (int i = 0; i < 100; ++i) {
+        for (u32 i = 0; i < 100; ++i) {
             if (i % 3 == 0)
                 continue;
 

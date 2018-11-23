@@ -19,25 +19,25 @@ TEST_CASE("mmap engine test", "[mmap-engine]") {
     REQUIRE(engine.size() == blocks);
 
     std::vector<byte> content(block_size);
-    for (int i = 0; i < (int) block_size; ++i) {
+    for (size_t i = 0; i < block_size; ++i) {
         content[i] = (byte) i;
     }
 
-    for (int i = 0; i < blocks; ++i) {
+    for (size_t i = 0; i < blocks; ++i) {
         engine.overwrite(block_index(i), content.data(), content.size());
     }
 
-    for (int i = 0; i < blocks / 2; ++i) {
+    for (size_t i = 0; i < blocks / 2; ++i) {
         engine.overwrite_zero(block_index(i));
     }
 
-    for (int i = 0; i < blocks; ++i) {
+    for (size_t i = 0; i < blocks; ++i) {
         block_handle handle = engine.read(block_index(i));
 
         const byte* data = handle.data();
         if (i < blocks / 2) {
-            for (u32 i = 0; i < block_size; ++i) {
-                if (data[i] != 0)
+            for (u32 j = 0; j < block_size; ++j) {
+                if (data[j] != 0)
                     FAIL("Not zero.");
             }
         } else {

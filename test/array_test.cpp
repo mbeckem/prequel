@@ -42,8 +42,9 @@ TEST_CASE("array basics", "[array]") {
         REQUIRE(array.capacity() >= 1000);
 
         for (i32 i = 0; i < 1000; ++i) {
-            if (i != array[i])
-                FAIL("Unexpected value " << array[i] << ", expected " << i);
+            i32 v = array[u64(i)];
+            if (i != v)
+                FAIL("Unexpected value " << v << ", expected " << i);
         }
 
         for (int i = 0; i < 500; ++i)
@@ -72,12 +73,13 @@ TEST_CASE("array basics", "[array]") {
             array.push_back(i);
 
         for (i32 i = 0; i < 5000; ++i)
-            array.set(i, array.get(i) * 2);
+            array.set(u64(i), array.get(u64(i)) * 2);
 
         for (i32 i = 0; i < 5000; ++i) {
             i32 expected = i * 2;
-            if (array[i] != expected)
-                FAIL("Unexpected value " << array[i] << ", expected " << expected);
+            i32 observed = array[u64(i)];
+            if (observed != expected)
+                FAIL("Unexpected value " << observed << ", expected " << expected);
         };
     }
 
@@ -88,8 +90,8 @@ TEST_CASE("array basics", "[array]") {
 
         REQUIRE(array.size() == 12345);
         for (i32 i = 0, e = array.size(); i != e; ++i) {
-            if (array[i] != 1122334455)
-                FAIL("Unexpected value: " << array[i]);
+            if (array[u64(i)] != 1122334455)
+                FAIL("Unexpected value: " << array[u64(i)]);
         }
 
         array.resize(123);
@@ -132,8 +134,9 @@ TEST_CASE("array state is persistent", "[array]") {
 
         REQUIRE(array.size() == 100000);
         for (int i = 0; i < 100000; ++i) {
-            if (array[i] != i)
-                FAIL("Unexpected value " << array[i] << ", expected " << i);
+            i32 v = array[u64(i)];
+            if (v != i)
+                FAIL("Unexpected value " << v << ", expected " << i);
         }
     }
 }

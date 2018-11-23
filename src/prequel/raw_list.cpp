@@ -653,8 +653,8 @@ static void check_cursor_valid_element(const raw_list_cursor_impl& c) {
     PREQUEL_ASSERT(c.index < c.node.get_size(), "Invalid index.");
 }
 
-raw_list_cursor_impl::raw_list_cursor_impl(raw_list_impl* list)
-    : list(list) {
+raw_list_cursor_impl::raw_list_cursor_impl(raw_list_impl* list_)
+    : list(list_) {
     list->link_cursor(this);
 }
 

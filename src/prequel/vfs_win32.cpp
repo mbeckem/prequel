@@ -18,19 +18,18 @@ class win32_file : public file {
 private:
     HANDLE m_handle;
     std::string m_name;
+    bool m_read_only = false;
 
 public:
-    win32_file(vfs& v, HANDLE handle, std::string name)
+    win32_file(vfs& v, HANDLE handle, std::string name, bool read_only)
         : file(v)
         , m_handle(handle)
-        , m_name(std::move(name)) {}
-
-    win32_file(vfs& v)
-        : file(v)
-        , m_handle(INVALID_HANDLE_VALUE)
-        , m_name() {}
+        , m_name(std::move(name))
+        , m_read_only(read_only) {}
 
     ~win32_file();
+
+    bool read_only() const noexcept override { return m_read_only; }
 
     const char* name() const noexcept override { return m_name.c_str(); }
 
@@ -58,7 +57,7 @@ public:
 
     const char* name() const noexcept override { return "win32_vfs"; }
 
-    std::unique_ptr<file> open(const char* path, access_t access, flags_t flags) override;
+    std::unique_ptr<file> open(const char* path, access_t access, int flags) override;
 
     std::unique_ptr<file> create_temp() override;
 };
@@ -193,7 +192,7 @@ static std::wstring to_utf16(const char* path) {
     return result;
 }
 
-std::unique_ptr<file> win32_vfs::open(const char* path, access_t access, flags_t flags) {
+std::unique_ptr<file> win32_vfs::open(const char* path, access_t access, int flags) {
     PREQUEL_ASSERT(path != nullptr, "path null pointer");
 
     std::wstring utf16_path = to_utf16(path);
@@ -201,6 +200,7 @@ std::unique_ptr<file> win32_vfs::open(const char* path, access_t access, flags_t
     DWORD win_creation = flags & open_create ? OPEN_ALWAYS : OPEN_EXISTING;
     DWORD win_share_mode = FILE_SHARE_READ | FILE_SHARE_WRITE;
     DWORD win_flags = FILE_ATTRIBUTE_NORMAL | FILE_FLAG_RANDOM_ACCESS;
+    // FIXME: Open O_EXCL for win32
 
     HANDLE result = CreateFileW(utf16_path.c_str(), win_access, win_share_mode, NULL, win_creation,
                                 win_flags, NULL);
@@ -211,7 +211,7 @@ std::unique_ptr<file> win32_vfs::open(const char* path, access_t access, flags_t
 
     auto guard = detail::rollback([&] { CloseHandle(result); });
 
-    auto ret = std::make_unique<win32_file>(*this, result, path);
+    auto ret = std::make_unique<win32_file>(*this, result, path, access = read_only);
     guard.commit();
     return ret;
 }

@@ -1,7 +1,7 @@
 #include <prequel/heap.hpp>
 
 #include <prequel/assert.hpp>
-#include <prequel/detail/deferred.hpp>
+#include <prequel/deferred.hpp>
 #include <prequel/engine.hpp>
 #include <prequel/serialization.hpp>
 
@@ -560,12 +560,12 @@ raw_address heap::allocate_large_object(const byte* object, u32 object_size) {
 
     // Allocate a sequence of blocks for the new object.
     const block_index block = allocate_blocks(required_blocks);
-    detail::deferred block_guard = [&] { free_blocks(block, required_blocks); };
+    deferred block_guard = [&] { free_blocks(block, required_blocks); };
 
     // Insert the page into the index.
     auto page_insert_result = m_page_map.insert(page_entry(block, true, required_blocks));
     PREQUEL_ASSERT(page_insert_result.inserted, "The block index was not unique.");
-    detail::deferred page_guard = [&] { page_insert_result.position.erase(); };
+    deferred page_guard = [&] { page_insert_result.position.erase(); };
 
     // Write the header at the start of the first block.
     const address<header> header_address(get_engine().to_address(block));
@@ -642,7 +642,7 @@ raw_address heap::allocate_small_object(const byte* object, u32 object_size) {
 
             // Allocate a new slot for the object.
             const u32 slot_index = page_allocate(page, object_size);
-            detail::deferred slot_guard = [&] { page_free(page, slot_index); };
+            deferred slot_guard = [&] { page_free(page, slot_index); };
 
             const raw_address slot_address = init_at_slot(page, slot_index);
 
@@ -658,7 +658,7 @@ raw_address heap::allocate_small_object(const byte* object, u32 object_size) {
 
     // Allocate a new page for the object.
     const block_index block = allocate_blocks(1);
-    detail::deferred block_guard = [&] { free_blocks(block, 1); };
+    deferred block_guard = [&] { free_blocks(block, 1); };
 
     page_handle page = get_engine().overwrite_zero(block);
     page.init();
@@ -666,11 +666,11 @@ raw_address heap::allocate_small_object(const byte* object, u32 object_size) {
     // Insert the page into the index.
     auto page_insert_result = m_page_map.insert(page_entry(block, false, 1));
     PREQUEL_ASSERT(page_insert_result.inserted, "The block index was not unique.");
-    detail::deferred page_guard = [&] { page_insert_result.position.erase(); };
+    deferred page_guard = [&] { page_insert_result.position.erase(); };
 
     // Allocate a new slot for the object.
     const u32 slot_index = page_allocate(page, object_size);
-    detail::deferred slot_guard = [&] { page_free(page, slot_index); };
+    deferred slot_guard = [&] { page_free(page, slot_index); };
 
     const raw_address slot_address = init_at_slot(page, slot_index);
 
@@ -752,11 +752,11 @@ u32 heap::page_allocate(page_handle& page, u32 object_size) {
         page_header header = page.get_header();
 
         // Initialize the new slot to empty.
-        u32 slot_index = header.slot_count;
+        u32 index = header.slot_count;
         header.slot_count += 1;
-        page.set_slot(slot_index, slot());
+        page.set_slot(index, slot());
         page.set_header(header);
-        return slot_index;
+        return index;
     }();
 
     // Decrement the free pointer to allocate space for the new object.

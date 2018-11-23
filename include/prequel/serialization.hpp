@@ -369,7 +369,7 @@ case i: {                                      \
         }
 
         // Zero the remainder of the variant.
-        std::memset(b, 0, end - b);
+        std::memset(b, 0, static_cast<size_t>(end - b));
     }
 
     PREQUEL_ALWAYS_INLINE

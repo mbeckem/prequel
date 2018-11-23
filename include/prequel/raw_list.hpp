@@ -172,8 +172,8 @@ public:
 
         bool (*visit_fn)(const node_view&, void*) = [](const node_view& node,
                                                        void* user_data) -> bool {
-            func_t* fn = reinterpret_cast<func_t*>(user_data);
-            return (*fn)(node);
+            func_t* fn_ptr = reinterpret_cast<func_t*>(user_data);
+            return (*fn_ptr)(node);
         };
         visit(visit_fn, reinterpret_cast<void*>(std::addressof(fn)));
     }

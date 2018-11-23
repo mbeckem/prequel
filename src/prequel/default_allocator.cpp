@@ -1,6 +1,5 @@
 #include <prequel/default_allocator.hpp>
-
-#include <prequel/detail/deferred.hpp>
+#include <prequel/deferred.hpp>
 
 #include <fmt/ostream.h>
 

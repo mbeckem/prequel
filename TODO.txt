@@ -6,8 +6,10 @@ Open Tasks
 - Better programming model for anchor creation/destruction, for example static create(...) destroy(...) fn.
 - Implement transactional engine with write ahead log
 
-- Implement Hashtable, Queue and Priority Queue
+- Implement Queue and Priority Queue
 
 - Replace c-style callbacks with std::function ones.
 - Rethink some API design decisions that dont make much sense in modern C++,
   for example functions returning bool and taking an output reference.
+
+- Review examples

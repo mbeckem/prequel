@@ -91,17 +91,17 @@ public:
         static_assert(std::is_same_v<object_type_t<decltype(MemberPtr)>, Anchor>,
                       "The member pointer must belong to this type.");
         check_valid();
-        member_type_t<decltype(MemberPtr)>* member = std::addressof(m_anchor->*MemberPtr);
-        return anchor_handle<member_type_t<decltype(MemberPtr)>>(*member, m_flag);
+        member_type_t<decltype(MemberPtr)>* m = std::addressof(m_anchor->*MemberPtr);
+        return anchor_handle<member_type_t<decltype(MemberPtr)>>(*m, m_flag);
     }
 
     /// Returns a handle to some child object of the current anchor object.
     /// The caller *must* ensure that child really is a child (direct or indirect)
     /// of the current object.
     template<typename Child>
-    anchor_handle<Child> child(Child& child) const {
+    anchor_handle<Child> child(Child& ch) const {
         check_valid();
-        return anchor_handle<Child>(child, m_flag);
+        return anchor_handle<Child>(ch, m_flag);
     }
 
     bool valid() const { return m_anchor != nullptr; }

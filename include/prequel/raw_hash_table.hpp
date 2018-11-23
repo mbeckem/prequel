@@ -209,8 +209,8 @@ public:
     template<typename IterFunc>
     void iterate(IterFunc&& fn) const {
         auto callback = [](const byte* value, void* user_data) -> iteration_control {
-            IterFunc& fn = *reinterpret_cast<IterFunc*>(user_data);
-            return fn(value);
+            IterFunc& fn_ref = *reinterpret_cast<IterFunc*>(user_data);
+            return fn_ref(value);
         };
         iterate(+callback, reinterpret_cast<void*>(std::addressof(fn)));
     }

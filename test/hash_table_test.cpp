@@ -12,8 +12,6 @@
 
 using namespace prequel;
 
-static constexpr u32 block_size = 512;
-
 // TODO: Error messages, other operations.
 TEST_CASE("hash table basic operations", "[hash-table]") {
     u32 block_sizes[] = {128, 512, 4096};
@@ -31,7 +29,7 @@ TEST_CASE("hash table basic operations", "[hash-table]") {
         return std::memcmp(left, right, key_size) == 0;
     };
     options.key_hash = [](const byte* key, void*) -> u64 {
-        u64 hash = deserialize<i32>(key);
+        u64 hash = static_cast<u64>(deserialize<i32>(key));
         hash *= 64; // Simulate aligned storage
         return fnv_1a(hash);
     };
@@ -124,7 +122,7 @@ TEST_CASE("hash table basic operations", "[hash-table]") {
 }
 
 TEST_CASE("hash table works well for integer keys", "[hash-table]") {
-    test_file file(block_size);
+    test_file file(512);
 
     default_allocator::anchor alloc_anchor;
     default_allocator alloc(make_anchor_handle(alloc_anchor), file.get_engine());
@@ -134,9 +132,9 @@ TEST_CASE("hash table works well for integer keys", "[hash-table]") {
         i64 value = 0;
 
         entry() = default;
-        entry(i64 key, i64 value)
-            : key(key)
-            , value(value) {}
+        entry(i64 key_, i64 value_)
+            : key(key_)
+            , value(value_) {}
 
         struct derive_key {
             i64 operator()(const entry& e) const { return e.key; }

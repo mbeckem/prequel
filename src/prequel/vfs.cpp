@@ -41,18 +41,19 @@ public:
 
     virtual const char* name() const noexcept override { return "memory"; }
 
-    virtual std::unique_ptr<file>
-    open(const char* path, access_t access = read_only, flags_t mode = open_normal) override;
+    virtual std::unique_ptr<file> open(const char* path, access_t access, int mode) override;
 
     virtual std::unique_ptr<file> create_temp() override;
 };
 
 class memory_file : public file {
 public:
-    memory_file(in_memory_vfs& v, std::string name)
+    memory_file(in_memory_vfs& v, std::string name, bool read_only)
         : file(v)
-        , m_name(std::move(name)) {}
+        , m_name(std::move(name))
+        , m_read_only(read_only) {}
 
+    bool read_only() const noexcept override { return m_read_only; }
     const char* name() const noexcept override { return m_name.c_str(); }
 
     void read(u64 offset, void* buffer, u32 count) override;
@@ -69,6 +70,7 @@ private:
     std::string m_name;
     std::vector<byte> m_data;
     size_t size = 0;
+    bool m_read_only = false; // Doesn't make much sense..
 };
 
 void memory_file::range_check(u64 offset, u32 count) const {
@@ -92,8 +94,10 @@ void memory_file::read(u64 offset, void* buffer, u32 count) {
 void memory_file::write(u64 offset, const void* buffer, u32 count) {
     PREQUEL_ASSERT(buffer != nullptr, "Buffer null pointer");
     PREQUEL_ASSERT(count > 0, "Zero sized write");
-    range_check(offset, count);
+    if (m_read_only)
+        PREQUEL_THROW(io_error("Writing to a file opened in read-only mode."));
 
+    range_check(offset, count);
     auto begin = reinterpret_cast<const byte*>(buffer);
     auto end = begin + count;
     std::copy(begin, end, m_data.data() + offset);
@@ -103,24 +107,23 @@ u64 memory_file::file_size() {
     return m_data.size();
 }
 
-void memory_file::truncate(u64 size) {
-    if (size > std::numeric_limits<size_t>::max())
-        PREQUEL_THROW(io_error(fmt::format("File size too large ({} byte)", size)));
-    m_data.resize(size);
+void memory_file::truncate(u64 sz) {
+    if (sz > std::numeric_limits<size_t>::max())
+        PREQUEL_THROW(io_error(fmt::format("File size too large ({} byte)", sz)));
+    m_data.resize(sz);
 }
 
 void memory_file::close() {
     m_data.clear();
 }
 
-std::unique_ptr<file> in_memory_vfs::open(const char* path, access_t access, flags_t mode) {
-    // TODO: Respect flags
+std::unique_ptr<file> in_memory_vfs::open(const char* path, access_t access, int mode) {
     unused(access, mode);
-    return std::make_unique<memory_file>(*this, path);
+    return std::make_unique<memory_file>(*this, path, access == read_only);
 }
 
 std::unique_ptr<file> in_memory_vfs::create_temp() {
-    return std::make_unique<memory_file>(*this, "unnamed-temporary");
+    return std::make_unique<memory_file>(*this, "unnamed-temporary", false);
 }
 
 vfs& memory_vfs() {

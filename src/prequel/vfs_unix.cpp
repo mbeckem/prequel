@@ -1,7 +1,7 @@
 #include <prequel/vfs.hpp>
 
 #include <prequel/assert.hpp>
-#include <prequel/detail/deferred.hpp>
+#include <prequel/deferred.hpp>
 #include <prequel/exception.hpp>
 #include <prequel/math.hpp>
 
@@ -19,13 +19,16 @@ class unix_file : public file {
 private:
     int m_fd = -1;
     std::string m_name;
+    bool m_read_only;
 
 public:
-    unix_file(unix_vfs& vfs, int fd, std::string name);
+    unix_file(unix_vfs& vfs, int fd, std::string name, bool read_only);
 
     unix_file() = default;
 
     ~unix_file();
+
+    bool read_only() const noexcept override { return m_read_only; }
 
     const char* name() const noexcept override { return m_name.c_str(); }
 
@@ -57,7 +60,7 @@ public:
 
     const char* name() const noexcept override { return "unix_vfs"; }
 
-    std::unique_ptr<file> open(const char* path, access_t access, flags_t mode) override;
+    std::unique_ptr<file> open(const char* path, access_t access, int mode) override;
 
     std::unique_ptr<file> create_temp() override;
 
@@ -84,10 +87,11 @@ static size_t get_pagesize() {
     return static_cast<size_t>(size);
 }
 
-unix_file::unix_file(unix_vfs& v, int fd, std::string name)
+unix_file::unix_file(unix_vfs& v, int fd, std::string name, bool read_only)
     : file(v)
     , m_fd(fd)
-    , m_name(std::move(name)) {}
+    , m_name(std::move(name))
+    , m_read_only(read_only) {}
 
 unix_file::~unix_file() {
     if (m_fd != -1)
@@ -108,7 +112,7 @@ void unix_file::read(u64 offset, void* buffer, u32 count) {
 
     byte* data = reinterpret_cast<byte*>(buffer);
     while (count > 0) {
-        ssize_t n = ::pread(m_fd, data, count, offset);
+        ssize_t n = ::pread(m_fd, data, count, static_cast<off_t>(offset));
         if (n == -1) {
             auto ec = get_errno();
             PREQUEL_THROW(
@@ -121,7 +125,7 @@ void unix_file::read(u64 offset, void* buffer, u32 count) {
         }
 
         count -= n;
-        offset += n;
+        offset += static_cast<u64>(n);
         data += n;
     }
 }
@@ -134,7 +138,7 @@ void unix_file::write(u64 offset, const void* buffer, u32 count) {
 
     const byte* data = reinterpret_cast<const byte*>(buffer);
     while (count > 0) {
-        ssize_t n = ::pwrite(m_fd, data, count, offset);
+        ssize_t n = ::pwrite(m_fd, data, count, static_cast<off_t>(offset));
         if (n == -1) {
             auto ec = get_errno();
             PREQUEL_THROW(
@@ -142,7 +146,7 @@ void unix_file::write(u64 offset, const void* buffer, u32 count) {
         }
 
         count -= n;
-        offset += n;
+        offset += static_cast<u64>(n);
         data += n;
     }
 }
@@ -157,12 +161,13 @@ u64 unix_file::file_size() {
             io_error(fmt::format("Failed to get attributes of `{}`: {}.", name(), ec.message())));
     }
 
-    return st.st_size;
+    return static_cast<u64>(st.st_size);
 }
 
-void unix_file::truncate(u64 size) {
+void unix_file::truncate(u64 sz) {
     check_open();
-    if (::ftruncate(m_fd, size) == -1) {
+
+    if (::ftruncate(m_fd, static_cast<off_t>(sz)) == -1) {
         auto ec = get_errno();
         PREQUEL_THROW(io_error(fmt::format("Failed to truncate `{}`: {}.", name(), ec.message())));
     }
@@ -196,12 +201,14 @@ unix_vfs::unix_vfs() {
     m_page_size = get_pagesize();
 }
 
-std::unique_ptr<file> unix_vfs::open(const char* path, access_t access, flags_t mode) {
+std::unique_ptr<file> unix_vfs::open(const char* path, access_t access, int mode) {
     PREQUEL_ASSERT(path != nullptr, "path null pointer");
 
     int flags = access == read_only ? O_RDONLY : O_RDWR;
     if (mode & open_create) {
         flags |= O_CREAT;
+        if (mode & open_exlusive)
+            flags |= O_EXCL;
     }
     int createmode = S_IRUSR | S_IWUSR;
 
@@ -211,9 +218,9 @@ std::unique_ptr<file> unix_vfs::open(const char* path, access_t access, flags_t 
         PREQUEL_THROW(io_error(fmt::format("Failed to open `{}`: {}.", path, ec.message())));
     }
 
-    detail::deferred guard = [&] { ::close(fd); };
+    deferred guard = [&] { ::close(fd); };
 
-    auto ret = std::make_unique<unix_file>(*this, fd, path);
+    auto ret = std::make_unique<unix_file>(*this, fd, path, access == read_only);
     guard.disable();
     return ret;
 }
@@ -227,14 +234,14 @@ std::unique_ptr<file> unix_vfs::create_temp() {
         PREQUEL_THROW(io_error(fmt::format("Failed to create temporary file: {}.", ec.message())));
     }
 
-    detail::deferred guard = [&] { ::close(fd); };
+    deferred guard = [&] { ::close(fd); };
 
     if (unlink(name.data()) == -1) {
         auto ec = get_errno();
         PREQUEL_THROW(io_error(fmt::format("Failed to unlink temporary file: {}.", ec.message())));
     }
 
-    auto ret = std::make_unique<unix_file>(*this, fd, std::move(name));
+    auto ret = std::make_unique<unix_file>(*this, fd, std::move(name), false);
     guard.disable();
     return ret;
 }
@@ -243,7 +250,11 @@ void* unix_vfs::memory_map(file& f, u64 offset, u64 length) {
     check_vfs(f);
 
     unix_file& uf = static_cast<unix_file&>(f);
-    int prot = PROT_READ | PROT_WRITE; // TODO: Not writable if file is read only
+
+    int prot = PROT_READ;
+    if (!f.read_only())
+        prot |= PROT_WRITE;
+
     int flags = MAP_SHARED;
 
     if (offset > std::numeric_limits<off_t>::max()) {
@@ -301,7 +312,7 @@ bool unix_vfs::memory_in_core(void* addr, u64 length) {
     const size_t npages = (length_rounded + m_page_size - 1) / m_page_size;
     if (npages > max_pages) {
         PREQUEL_THROW(bad_operation(
-            fmt::format("Querying too many pages: {} (current max is {})", npages, max_pages)));
+            fmt::format("Querying too many pages: {} (current max is {}).", npages, max_pages)));
     }
 
     // Query the in-core status of all relevant pages.
@@ -309,7 +320,7 @@ bool unix_vfs::memory_in_core(void* addr, u64 length) {
     std::memset(page_status, 0, sizeof(page_status));
     if (::mincore(reinterpret_cast<void*>(addr_rounded), length_rounded, page_status) == -1) {
         auto ec = get_errno();
-        PREQUEL_THROW(io_error(fmt::format("Failed to call mincore(): {}", ec.message())));
+        PREQUEL_THROW(io_error(fmt::format("Failed to call mincore(): {}.", ec.message())));
     }
 
     // Return true if all relevant pages are in core.

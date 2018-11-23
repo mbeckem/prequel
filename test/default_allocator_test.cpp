@@ -136,7 +136,7 @@ TEST_CASE("default allocator", "[default-allocator]") {
         REQUIRE(alloc.stats().data_total == 0);
 
         std::vector<std::pair<block_index, u64>> allocs;
-        for (int i = 1; i <= 512; ++i) {
+        for (u32 i = 1; i <= 512; ++i) {
             allocs.push_back(std::make_pair(alloc.allocate(i), i));
         }
 

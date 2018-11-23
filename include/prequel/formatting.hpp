@@ -10,7 +10,7 @@ namespace prequel {
 // Format a byte array as a hex string.
 // A linebreak will be inserted between two hex numbers if the amount of numbers
 // in the current line would exceed `numbers_per_line`.
-std::string format_hex(const byte* data, size_t size, size_t numbers_per_line = -1);
+std::string format_hex(const byte* data, size_t size, size_t numbers_per_line = size_t(-1));
 
 } // namespace prequel
 

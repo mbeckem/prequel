@@ -1,8 +1,8 @@
 #include <prequel/btree.hpp>
-#include <prequel/default_file_format.hpp>
 #include <prequel/hash.hpp>
 #include <prequel/heap.hpp>
 #include <prequel/id_generator.hpp>
+#include <prequel/simple_file_format.hpp>
 
 #include <clipp.h>
 
@@ -14,8 +14,6 @@
 #include <tuple>
 
 namespace objectdb {
-
-static constexpr uint32_t block_size = 4096;
 
 static void load(const prequel::heap& heap, prequel::heap_reference ref, std::string& buffer) {
     buffer.resize(heap.size(ref));
@@ -74,10 +72,6 @@ class interned_strings {
     };
 
     // Contains one entry for every interned string.
-    // Note that this table contains *weak* references, i.e.
-    // references to strings in this tree do not count towards
-    // the root set. Entries are removed whenever the garbage collector
-    // destroys as string.
     using tree_type = prequel::btree<entry, entry::derive_key>;
 
 public:
@@ -162,7 +156,7 @@ public:
     using anchor = tree_type::anchor;
 
 public:
-    property_map(prequel::anchor_handle<anchor> anc, prequel::heap& heap, prequel::allocator& alloc)
+    property_map(prequel::anchor_handle<anchor> anc, prequel::allocator& alloc, prequel::heap& heap)
         : m_tree(std::move(anc), alloc)
         , m_heap(heap) {}
 
@@ -449,7 +443,8 @@ private:
 };
 
 class database {
-    struct meta_block {
+public:
+    struct anchor {
         prequel::heap::anchor heap;
         prequel::id_generator::anchor ids;
         interned_strings::anchor strings;
@@ -458,26 +453,24 @@ class database {
         edge_map::anchor edges;
 
         static constexpr auto get_binary_format() {
-            return make_binary_format(&meta_block::heap, &meta_block::ids, &meta_block::strings,
-                                      &meta_block::nodes, &meta_block::properties,
-                                      &meta_block::edges);
+            return make_binary_format(&anchor::heap, &anchor::ids, &anchor::strings, &anchor::nodes,
+                                      &anchor::properties, &anchor::edges);
         }
     };
 
-    using format_type = prequel::default_file_format<meta_block>;
-
 public:
-    database(prequel::file& f, uint32_t cache_size)
-        : m_format(f, cache_size)
-        , m_meta(m_format.get_user_data())
-        , m_heap(m_meta.member<&meta_block::heap>(), m_format.get_allocator())
-        , m_ids(m_meta.member<&meta_block::ids>(), m_format.get_allocator())
-        , m_strings(m_meta.member<&meta_block::strings>(), m_format.get_allocator(), m_heap)
-        , m_nodes(m_meta.member<&meta_block::nodes>(), m_format.get_allocator())
-        , m_properties(m_meta.member<&meta_block::properties>(), m_heap, m_format.get_allocator())
-        , m_edges(m_meta.member<&meta_block::edges>(), m_format.get_allocator()) {}
-
-    auto& engine() { return m_format.get_engine(); }
+    /*
+     * Database constructor requires the database anchor (which again holds the serialized
+     * state of all member datastructures) and an allocator reference.
+     * The allocator is needed by child datastructures when they need to allocate blocks on disk.
+     */
+    explicit database(prequel::anchor_handle<anchor> anchor_, prequel::allocator& alloc)
+        : m_heap(anchor_.member<&anchor::heap>(), alloc)
+        , m_ids(anchor_.member<&anchor::ids>(), alloc)
+        , m_strings(anchor_.member<&anchor::strings>(), alloc, m_heap)
+        , m_nodes(anchor_.member<&anchor::nodes>(), alloc)
+        , m_properties(anchor_.member<&anchor::properties>(), alloc, m_heap)
+        , m_edges(anchor_.member<&anchor::edges>(), alloc) {}
 
     // Creates a new node and returns its id.
     // IDs of nodes that have been deleted can be reused.
@@ -583,7 +576,7 @@ public:
 
     // Deletes the labeled edge between src and dest.
     void unlink_nodes(node_id src, const std::string& label, node_id dest) {
-        if (m_nodes.find(src))
+        if (!m_nodes.find(src))
             throw std::runtime_error("Source node does not exist.");
 
         if (!m_nodes.find(dest))
@@ -607,22 +600,7 @@ public:
         return nodes;
     }
 
-    void debug_print(std::ostream& o) {
-        o << "Allocator state:\n";
-        m_format.get_allocator().dump(o);
-        o << "\n";
-
-        o << "Heap state:\n";
-        m_heap.dump(o);
-    }
-
-    void flush() { m_format.flush(); }
-
 private:
-    format_type m_format;
-
-    prequel::anchor_handle<meta_block> m_meta;
-
     // Data storage (only strings right now).
     prequel::heap m_heap;
 
@@ -730,7 +708,7 @@ void parse(settings& s, int argc, char** argv) {
                             value("label", s.link.label) % "edge label"));
 
     auto cmd_unlink = (command("unlink").set(s.cmd, subcommand::unlink),
-                       "Subcommand link:"
+                       "Subcommand unlink:"
                            % (value("source", s.unlink.source) % "source node id",
                               value("dest", s.unlink.destination) % "destination source id",
                               value("label", s.unlink.label) % "edge label"));
@@ -770,86 +748,103 @@ void parse(settings& s, int argc, char** argv) {
     }
 }
 
+static const prequel::magic_header magic("example-objectdb");
+static const uint32_t version = 1;
+static const uint32_t block_size = 4096;
+
 int main(int argc, char** argv) {
     settings s;
     parse(s, argc, argv);
 
-    // The number of blocks cached in memory.
-    const uint32_t cache_blocks =
-        (uint64_t(s.cache_size) * uint64_t(1 << 20)) / objectdb::block_size;
+    prequel::simple_file_format<objectdb::database::anchor> format(magic, version, block_size);
+    format.cache_size(uint64_t(s.cache_size) * (1 << 20));
+    //format.engine_type(format.mmap_engine);
+    //format.sync_enabled(false);
+    format.open_or_create(s.file.c_str(), [&] { return objectdb::database::anchor(); });
 
-    auto file = prequel::system_vfs().open(s.file.c_str(), prequel::vfs::read_write,
-                                           prequel::vfs::open_create);
-    objectdb::database db(*file, cache_blocks);
+    {
+        objectdb::database::anchor anchor_value = format.get_user_data();
+        prequel::anchor_flag anchor_changed;
 
-    auto print_node = [&](objectdb::node_id node) {
-        std::cout << "Node: " << node.value() << "\n";
+        objectdb::database db(prequel::make_anchor_handle(anchor_value, anchor_changed),
+                              format.get_allocator());
 
-        auto props = db.list_properties(node);
-        std::cout << "Properties: " << (props.empty() ? "None\n" : "\n");
-        for (const auto& [key, value] : props) {
-            std::cout << "    " << key << ": " << value << "\n";
-        }
+        auto print_node = [&](objectdb::node_id node) {
+            std::cout << "Node: " << node.value() << "\n";
 
-        auto edges = db.list_edges(node);
-        std::cout << "Edges: " << (edges.empty() ? "None\n" : "\n");
-        for (const auto& [label, node] : edges) {
-            std::cout << "    " << label << ": " << node.value() << "\n";
-        }
-    };
-
-    try {
-        switch (s.cmd) {
-        case subcommand::create: {
-            auto node = db.create_node();
-            std::cout << "New node: " << node.value() << std::endl;
-            break;
-        }
-        case subcommand::delete_: {
-            db.delete_node(objectdb::node_id(s.delete_.node), s.delete_.force);
-            break;
-        }
-        case subcommand::set: {
-            db.set_property(objectdb::node_id(s.set.node), s.set.name, s.set.value);
-            break;
-        }
-        case subcommand::unset: {
-            db.unset_property(objectdb::node_id(s.unset.node), s.unset.name);
-            break;
-        }
-        case subcommand::link: {
-            db.link_nodes(objectdb::node_id(s.link.source), s.link.label,
-                          objectdb::node_id(s.link.destination));
-            break;
-        }
-        case subcommand::unlink: {
-            db.unlink_nodes(objectdb::node_id(s.unlink.source), s.unlink.label,
-                            objectdb::node_id(s.unlink.destination));
-            break;
-        }
-        case subcommand::print: {
-            print_node(objectdb::node_id(s.print.node));
-            break;
-        }
-        case subcommand::print_all: {
-            auto nodes = db.list_nodes();
-            for (auto node : nodes) {
-                print_node(node);
-                std::cout << "\n";
+            auto props = db.list_properties(node);
+            std::cout << "Properties: " << (props.empty() ? "None\n" : "\n");
+            for (const auto& [key, value] : props) {
+                std::cout << "    " << key << ": " << value << "\n";
             }
-            break;
+
+            auto edges = db.list_edges(node);
+            std::cout << "Edges: " << (edges.empty() ? "None\n" : "\n");
+            for (const auto& [label, dest_node] : edges) {
+                std::cout << "    " << label << ": " << dest_node.value() << "\n";
+            }
+        };
+
+        try {
+            switch (s.cmd) {
+            case subcommand::create: {
+                auto node = db.create_node();
+                std::cout << "New node: " << node.value() << std::endl;
+                break;
+            }
+            case subcommand::delete_: {
+                db.delete_node(objectdb::node_id(s.delete_.node), s.delete_.force);
+                break;
+            }
+            case subcommand::set: {
+                db.set_property(objectdb::node_id(s.set.node), s.set.name, s.set.value);
+                break;
+            }
+            case subcommand::unset: {
+                db.unset_property(objectdb::node_id(s.unset.node), s.unset.name);
+                break;
+            }
+            case subcommand::link: {
+                db.link_nodes(objectdb::node_id(s.link.source), s.link.label,
+                              objectdb::node_id(s.link.destination));
+                break;
+            }
+            case subcommand::unlink: {
+                db.unlink_nodes(objectdb::node_id(s.unlink.source), s.unlink.label,
+                                objectdb::node_id(s.unlink.destination));
+                break;
+            }
+            case subcommand::print: {
+                print_node(objectdb::node_id(s.print.node));
+                break;
+            }
+            case subcommand::print_all: {
+                auto nodes = db.list_nodes();
+                for (auto node : nodes) {
+                    print_node(node);
+                    std::cout << "\n";
+                }
+                break;
+            }
+            case subcommand::debug: {
+                throw std::runtime_error("Not implemented."); // TODO dump function
+                break;
+            }
+            }
+        } catch (const std::exception& e) {
+            std::cerr << "Error: " << e.what() << std::endl;
+            return 1;
         }
-        case subcommand::debug: db.debug_print(std::cout); break;
-        }
-    } catch (const std::exception& e) {
-        std::cerr << "Error: " << e.what() << std::endl;
-        std::exit(1);
+
+        if (anchor_changed)
+            format.set_user_data(anchor_value);
     }
 
-    db.flush();
+    format.flush();
+
     if (s.print_stats) {
         prequel::file_engine_stats stats;
-        if (prequel::file_engine* fe = dynamic_cast<prequel::file_engine*>(&db.engine()))
+        if (prequel::file_engine* fe = dynamic_cast<prequel::file_engine*>(&format.get_engine()))
             stats = fe->stats();
 
         std::cout << "\n"

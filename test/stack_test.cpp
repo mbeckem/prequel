@@ -28,7 +28,7 @@ TEST_CASE("stack", "[stack]") {
     int max = 0;
     {
         stack_t stack(make_anchor_handle(stack_anchor), alloc);
-        max = (stack.node_capacity() * 7) / 2;
+        max = (int) (stack.node_capacity() * 7) / 2;
 
         REQUIRE(stack.empty());
         REQUIRE(stack.size() == 0);

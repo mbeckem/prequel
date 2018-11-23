@@ -41,10 +41,10 @@ static struct stat to_stat(const file_metadata& metadata) {
     memset(&st, 0, sizeof(st));
 
     st.st_mode = S_IFREG | metadata.permissions;
-    st.st_size = metadata.size;
-    st.st_ctim.tv_sec = metadata.ctime;
-    st.st_mtim.tv_sec = metadata.mtime;
-    st.st_atim.tv_sec = std::max(metadata.ctime, metadata.mtime);
+    st.st_size = static_cast<off_t>(metadata.size);
+    st.st_ctim.tv_sec = static_cast<time_t>(metadata.ctime);
+    st.st_mtim.tv_sec = static_cast<time_t>(metadata.mtime);
+    st.st_atim.tv_sec = static_cast<time_t>(std::max(metadata.ctime, metadata.mtime));
 
     return st;
 }
@@ -83,7 +83,7 @@ static int fs_utimens(const char* path, const struct timespec tv[2]) {
         return -EINVAL;
 
     // Ignore atime.
-    fs.update_modification_time(path, tv[1].tv_sec);
+    fs.update_modification_time(path, tv[1].tv_sec < 0 ? u64(0) : static_cast<u64>(tv[1].tv_sec));
     return 0;
 }
 
@@ -153,7 +153,7 @@ fs_read(const char* path, char* buf, size_t size, off_t offset, struct fuse_file
     }
 
     filesystem& fs = filesystem_context();
-    return (int) fs.read(path, offset, reinterpret_cast<byte*>(buf), size);
+    return (int) fs.read(path, static_cast<u64>(offset), reinterpret_cast<byte*>(buf), size);
 }
 
 // Write to a file.
@@ -166,7 +166,7 @@ fs_write(const char* path, const char* buf, size_t size, off_t offset, struct fu
     }
 
     filesystem& fs = filesystem_context();
-    return (int) fs.write(path, offset, reinterpret_cast<const byte*>(buf), size);
+    return (int) fs.write(path, static_cast<u64>(offset), reinterpret_cast<const byte*>(buf), size);
 }
 
 // Change the size of a file.
@@ -176,7 +176,7 @@ static int fs_truncate(const char* path, off_t size) {
     }
 
     filesystem& fs = filesystem_context();
-    fs.resize(path, size);
+    fs.resize(path, static_cast<u64>(size));
     return 0;
 }
 
@@ -252,13 +252,15 @@ enum {
 #define FS_OPTION(t, p) \
     { t, offsetof(options_t, p), 1 }
 
-static const struct fuse_opt option_spec[] = {FS_OPTION("--file=%s", filename),
+static const struct fuse_opt option_spec[] = {
+    FS_OPTION("--file=%s", filename),
 
-                                              FUSE_OPT_KEY("-V", KEY_VERSION),
-                                              FUSE_OPT_KEY("--version", KEY_VERSION),
-                                              FUSE_OPT_KEY("-h", KEY_HELP),
-                                              FUSE_OPT_KEY("--help", KEY_HELP),
-                                              FUSE_OPT_END};
+    FUSE_OPT_KEY("-V", KEY_VERSION),
+    FUSE_OPT_KEY("--version", KEY_VERSION),
+    FUSE_OPT_KEY("-h", KEY_HELP),
+    FUSE_OPT_KEY("--help", KEY_HELP),
+    FUSE_OPT_END
+};
 
 static int option_callback(void* data, const char* arg, int key, struct fuse_args* outargs) {
     (void) data;

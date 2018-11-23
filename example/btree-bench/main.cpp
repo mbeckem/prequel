@@ -1,6 +1,6 @@
 #include <prequel/btree.hpp>
-#include <prequel/default_file_format.hpp>
 #include <prequel/hash_table.hpp>
+#include <prequel/simple_file_format.hpp>
 
 #include <clipp.h>
 #include <fmt/format.h>
@@ -116,6 +116,8 @@ struct anchor {
 
     static constexpr auto get_binary_format() { return make_binary_format(&anchor::container); }
 };
+
+using format_type = simple_file_format<anchor>;
 
 options parse_options(int argc, char** argv) {
     using namespace clipp;
@@ -366,8 +368,8 @@ auto linear_values(Container& container) {
     }
 }
 
-u64 random_key(small_value_tree&, u64 min, u64 max) {
-    std::uniform_int_distribution<u64> dist(min, max);
+i64 random_key(small_value_tree&, i64 min, i64 max) {
+    std::uniform_int_distribution<i64> dist(min, max);
     return dist(rng);
 }
 
@@ -379,23 +381,23 @@ random_key(large_value_tree&, const std::pair<u64, u64>& min, const std::pair<u6
 }
 
 template<typename Func>
-void measure(prequel::engine& engine, Func&& fn) {
+void measure(format_type& format, Func&& fn) {
     high_resolution_clock::time_point start = high_resolution_clock::now();
     u64 ops = 0;
     {
         ops = fn();
         std::cout << "Flushing cached buffers." << std::endl;
-        engine.flush();
+        format.flush();
     }
     high_resolution_clock::time_point end = high_resolution_clock::now();
 
     // Mmap engine does not support read/write stats.
     file_engine_stats stats;
-    if (file_engine* fe = dynamic_cast<file_engine*>(&engine))
+    if (file_engine* fe = dynamic_cast<file_engine*>(&format.get_engine()))
         stats = fe->stats();
     double seconds = std::chrono::duration<double>(end - start).count();
-    double megabytes_read = (stats.reads * engine.block_size()) / double(1 << 20);
-    double megabytes_written = (stats.writes * engine.block_size()) / double(1 << 20);
+    double megabytes_read = (stats.reads * format.block_size()) / double(1 << 20);
+    double megabytes_written = (stats.writes * format.block_size()) / double(1 << 20);
 
     fmt::print(std::cout,
                "Operation complete.\n"
@@ -413,9 +415,8 @@ void measure(prequel::engine& engine, Func&& fn) {
 }
 
 template<typename Container, typename ItemGenerator>
-void run_container_insert(prequel::engine& engine, Container& container, ItemGenerator&& gen,
-                          u64 count) {
-    measure(engine, [&]() {
+void run_container_insert(format_type& format, Container& container, ItemGenerator&& gen, u64 count) {
+    measure(format, [&]() {
         const u64 reporting_interval = std::max(count / 100, u64(1));
 
         if constexpr (std::is_same_v<large_value_tree,
@@ -452,15 +453,15 @@ void run_container_insert(prequel::engine& engine, Container& container, ItemGen
 }
 
 template<typename Container>
-void container_insert(prequel::engine& engine, Container& container,
-                      options::insert_t::which_t mode, u64 count) {
+void container_insert(format_type& format, Container& container, options::insert_t::which_t mode,
+                      u64 count) {
     switch (mode) {
     case options::insert_t::random:
-        run_container_insert(engine, container, random_values(container), count);
+        run_container_insert(format, container, random_values(container), count);
         break;
     case options::insert_t::linear:
         if constexpr (is_tree<Container>()) {
-            run_container_insert(engine, container, linear_values(container), count);
+            run_container_insert(format, container, linear_values(container), count);
         } else {
             throw std::runtime_error("Only trees are supported for linear insertion benchmarks.");
         }
@@ -469,9 +470,9 @@ void container_insert(prequel::engine& engine, Container& container,
 }
 
 template<typename Container>
-void container_bulk_load(prequel::engine& engine, Container& container, u64 count) {
+void container_bulk_load(format_type& format, Container& container, u64 count) {
     if constexpr (is_tree<Container>()) {
-        measure(engine, [&]() {
+        measure(format, [&]() {
             const u64 reporting_interval = std::max(count / 100, u64(1));
 
             auto gen = linear_values(container);
@@ -491,15 +492,15 @@ void container_bulk_load(prequel::engine& engine, Container& container, u64 coun
             return count;
         });
     } else {
-        unused(engine, container, count);
+        unused(format, container, count);
         throw std::runtime_error("Only trees are supported for bulk insertion benchmarks.");
     }
 }
 
 template<typename Container>
-void container_query(prequel::engine& engine, Container& container, u64 count) {
+void container_query(format_type& format, Container& container, u64 count) {
     if constexpr (is_tree<Container>()) {
-        measure(engine, [&]() {
+        measure(format, [&]() {
             if (container.empty()) {
                 throw std::runtime_error("The container is empty.");
             }
@@ -526,12 +527,12 @@ void container_query(prequel::engine& engine, Container& container, u64 count) {
             return count;
         });
     } else {
-        unused(engine, container, count);
+        unused(format, container, count);
         throw std::runtime_error("Query benchmark has not yet been implemented for hash tables.");
     }
 }
 
-void run(prequel::engine& engine, anchor_handle<anchor> container_anchor, allocator& alloc,
+void run(format_type& format, anchor_handle<anchor> container_anchor, allocator& alloc,
          const options& opts) {
     switch (opts.action) {
     case mode::init: {
@@ -577,21 +578,24 @@ void run(prequel::engine& engine, anchor_handle<anchor> container_anchor, alloca
         break;
     case mode::insert:
         container_operation(container_anchor, alloc, [&](auto& container) {
-            container_insert(engine, container, opts.insert.which, opts.insert.count);
+            container_insert(format, container, opts.insert.which, opts.insert.count);
         });
         break;
     case mode::bulk_load:
         container_operation(container_anchor, alloc, [&](auto& container) {
-            container_bulk_load(engine, container, opts.bulk_load.count);
+            container_bulk_load(format, container, opts.bulk_load.count);
         });
         break;
     case mode::query:
         container_operation(container_anchor, alloc, [&](auto& container) {
-            container_query(engine, container, opts.query.count);
+            container_query(format, container, opts.query.count);
         });
         break;
     }
 }
+
+static const prequel::magic_header magic("btree-bench");
+static const uint32_t version = 1;
 
 int main(int argc, char** argv) {
     // Parse command line options.
@@ -603,34 +607,37 @@ int main(int argc, char** argv) {
         return 1;
     }
 
+    // Define the file format.
+    format_type file_format(magic, version, opts.block_size_bytes);
+    file_format.cache_size(u64(opts.cache_size_megabytes) * u64(1 << 20));
+    file_format.engine_type(opts.mmap ? file_format.mmap_engine : file_format.file_engine);
+
     // Open the file in the correct mode and maybe create it.
-    std::unique_ptr<file> input;
     try {
-        input = system_vfs().open(opts.file.c_str(),
-                                  opts.write_mode ? vfs::read_write : vfs::read_only,
-                                  opts.create_mode ? vfs::open_create : vfs::open_normal);
+        if (opts.create_mode) {
+            file_format.create(opts.file.c_str(), anchor());
+        } else {
+            file_format.open(opts.file.c_str(), !opts.write_mode);
+        }
     } catch (const std::exception& e) {
         std::cerr << e.what() << std::endl;
         return 1;
     }
 
-    try {
-        // The number of blocks cached in memory.
-        const u32 block_size = opts.block_size_bytes;
-        const u32 cache_blocks = (u64(opts.cache_size_megabytes) * u64(1 << 20)) / block_size;
+    fmt::print("Using mmap: {}\n", opts.mmap);
 
-        fmt::print("Using mmap: {}\n", opts.mmap);
-        default_file_format<anchor> file_format =
-            opts.mmap ? default_file_format<anchor>::mmap(*input, block_size)
-                      : default_file_format<anchor>(*input, block_size, cache_blocks);
+    try {
+        anchor anchor_value = file_format.get_user_data();
+        prequel::anchor_flag anchor_changed;
 
         file_format.get_allocator().min_chunk(4096);
+        run(file_format, prequel::make_anchor_handle(anchor_value, anchor_changed),
+            file_format.get_allocator(), opts);
 
-        run(file_format.get_engine(), file_format.get_user_data(), file_format.get_allocator(),
-            opts);
+        if (anchor_changed)
+            file_format.set_user_data(anchor_value);
 
         file_format.flush();
-        input->sync();
     } catch (const std::exception& e) {
         std::cerr << "Failed to run: " << e.what() << std::endl;
         return 1;

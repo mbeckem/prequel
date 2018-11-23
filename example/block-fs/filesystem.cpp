@@ -92,7 +92,7 @@ void filesystem::update_modification_time(const char* path, u64 mtime) {
 
     file_entry entry = pos.get();
     entry.metadata.mtime = mtime;
-    entry.metadata.ctime = time(0);
+    entry.metadata.ctime = static_cast<u64>(time(0));
     pos.set(entry);
 }
 
@@ -106,7 +106,7 @@ bool filesystem::create(const char* path, u32 permissions) {
     file_entry new_entry;
     new_entry.metadata.name = name.value();
     new_entry.metadata.permissions = permissions;
-    new_entry.metadata.ctime = new_entry.metadata.mtime = time(0);
+    new_entry.metadata.ctime = new_entry.metadata.mtime = static_cast<u64>(time(0));
 
     // Try to insert it into the directory.
     auto result = m_root.insert(new_entry);
@@ -139,7 +139,7 @@ void filesystem::rename(const char* from, const char* to) {
     // Load the old entry into memory and change the name.
     file_entry new_entry = pos.get();
     new_entry.metadata.name = to_name.value();
-    new_entry.metadata.ctime = time(0);
+    new_entry.metadata.ctime = static_cast<u64>(time(0));
 
     // Insert the new entry (possibly overwrite an existing file with that name)
     // and then delete the old entry.
@@ -199,7 +199,7 @@ size_t filesystem::read(const char* path, u64 offset, byte* buffer, size_t size)
         return 0; // End of file
 
     // Access content of the file and read n bytes.
-    const size_t n = std::min(entry.metadata.size - offset, u64(size));
+    const size_t n = std::min(entry.metadata.size - offset, static_cast<u64>(size));
     prequel::anchor_flag file_changed;
     prequel::extent content(make_anchor_handle(entry.content, file_changed), m_alloc);
     prequel::read(m_engine, m_engine.to_address(content.data()) + offset, buffer, n);

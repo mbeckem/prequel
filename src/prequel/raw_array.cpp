@@ -150,19 +150,19 @@ public:
                 byte* data = handle.writable_data() + calc_offset_in_block(value_size, blk_offset);
 
                 // Number of writable values.
-                const u32 n = std::min(remaining, u64(blk_capacity - blk_offset));
+                const u32 writable = std::min(remaining, u64(blk_capacity - blk_offset));
 
                 if (value) {
-                    for (u32 i = 0; i < n; ++i) {
+                    for (u32 i = 0; i < writable; ++i) {
                         // value might overlap
                         std::memmove(data, value, value_size);
                         data += value_size;
                     }
                 } else {
-                    std::memset(data, 0, n * value_size);
+                    std::memset(data, 0, writable * value_size);
                 }
 
-                remaining -= n;
+                remaining -= writable;
                 blk_index += 1;
                 blk_offset = 0;
             }

@@ -261,9 +261,9 @@ public:
 
         insert_result() = default;
 
-        insert_result(cursor position, bool inserted)
-            : position(std::move(position))
-            , inserted(inserted) {}
+        insert_result(cursor position_, bool inserted_)
+            : position(std::move(position_))
+            , inserted(inserted_) {}
     };
 
     using insert_result_t = insert_result;
@@ -430,8 +430,8 @@ public:
 
         bool (*visit_fn)(const node_view&, void*) = [](const node_view& node,
                                                        void* user_data) -> bool {
-            func_t* fn = reinterpret_cast<func_t*>(user_data);
-            return (*fn)(node);
+            func_t* fn_ptr = reinterpret_cast<func_t*>(user_data);
+            return (*fn_ptr)(node);
         };
         visit(visit_fn, reinterpret_cast<void*>(std::addressof(fn)));
     }

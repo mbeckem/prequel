@@ -30,11 +30,11 @@ struct raw_value {
     u32 count = 0;
 
     raw_value() = default;
-    explicit raw_value(u32 key)
-        : key(key) {}
-    explicit raw_value(u32 key, u32 count)
-        : key(key)
-        , count(count) {}
+    explicit raw_value(u32 key_)
+        : key(key_) {}
+    explicit raw_value(u32 key_, u32 count_)
+        : key(key_)
+        , count(count_) {}
 
     static constexpr auto get_binary_format() {
         return make_binary_format(&raw_value::key, &raw_value::count);
@@ -56,9 +56,9 @@ struct derive_key {
 };
 
 template<typename Value, typename Container>
-void check_tree_equals_container(const raw_btree& tree, Container&& c) {
-    auto ci = c.begin();
-    auto ce = c.end();
+void check_tree_equals_container(const raw_btree& tree, Container&& cont) {
+    auto ci = cont.begin();
+    auto ce = cont.end();
 
     u64 index = 0;
     for (auto c = tree.create_cursor(tree.seek_min); c; c.move_next(), ++index, ++ci) {
@@ -74,11 +74,11 @@ void check_tree_equals_container(const raw_btree& tree, Container&& c) {
 }
 
 template<typename Value, typename Container>
-void check_tree_equals_container_reverse(const raw_btree& tree, Container&& c) {
-    auto ci = c.rbegin();
-    auto ce = c.rend();
+void check_tree_equals_container_reverse(const raw_btree& tree, Container&& cont) {
+    auto ci = cont.rbegin();
+    auto ce = cont.rend();
 
-    u64 index = c.size() - 1;
+    u64 index = cont.size() - 1;
     for (auto c = tree.create_cursor(tree.seek_max); c; c.move_prev(), --index, ++ci) {
         if (ci == ce)
             FAIL("Too many values in tree (element " << index << ")");
@@ -129,7 +129,7 @@ static std::vector<T> generate_numbers(size_t count, i32 seed) {
     std::vector<T> result;
     result.reserve(count);
     for (size_t i = 0; i < count; ++i) {
-        i32 n = dist(rng);
+        T n = dist(rng);
         if (seen.find(n) == seen.end()) {
             seen.insert(n);
             result.push_back(n);
@@ -316,7 +316,7 @@ TEST_CASE("raw btree", "[btree]") {
 
         SECTION("forward iteration") {
             std::vector<raw_value> values;
-            for (i32 i = 5000; i < 6000; ++i)
+            for (u32 i = 5000; i < 6000; ++i)
                 values.push_back(raw_value(i, 10000 + i));
 
             auto cursor = tree.create_cursor(tree.seek_none);
@@ -387,13 +387,13 @@ TEST_CASE("btree detects duplicate keys", "[btree]") {
     simple_tree_test<raw_value, derive_key>([](auto&& tree, u32 block_size) {
         unused(block_size);
 
-        std::vector<i32> numbers = generate_numbers(10000, 12345);
-        for (i32 n : numbers)
+        std::vector<u32> numbers = generate_numbers<u32>(10000, 12345);
+        for (u32 n : numbers)
             tree.insert(raw_value(n, 1));
         tree.validate();
 
         REQUIRE(tree.size() == numbers.size());
-        for (i32 n : numbers) {
+        for (u32 n : numbers) {
             auto [cursor, inserted] = tree.insert(raw_value(n, 2));
             if (cursor.get() != raw_value(n, 1)) {
                 FAIL("Unexpected value " << cursor.get() << ", expected " << raw_value(n, 2));
@@ -403,7 +403,7 @@ TEST_CASE("btree detects duplicate keys", "[btree]") {
             }
         }
 
-        for (i32 n : numbers) {
+        for (u32 n : numbers) {
             auto result = tree.insert_or_update(raw_value(n, 3));
             if (result.position.get() != raw_value(n, 3)) {
                 FAIL("Unexpected value " << result.position.get() << ", expected "

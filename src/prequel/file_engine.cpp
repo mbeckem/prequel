@@ -3,7 +3,7 @@
 #include <prequel/address.hpp>
 #include <prequel/assert.hpp>
 #include <prequel/block_index.hpp>
-#include <prequel/detail/deferred.hpp>
+#include <prequel/deferred.hpp>
 #include <prequel/math.hpp>
 
 #include <boost/intrusive/list.hpp>
@@ -329,6 +329,9 @@ private:
     /// Performance metrics.
     file_engine_stats m_stats;
 
+    /// True if the underlying file was opened in read-only mode.
+    bool m_read_only = false;
+
 public:
     explicit file_engine_impl(file& fd, u32 block_size, size_t cache_size);
 
@@ -546,7 +549,8 @@ file_engine_impl::file_engine_impl(file& fd, u32 block_size, size_t cache_size)
     , m_pool()
     , m_blocks(m_max_blocks)
     , m_cache()
-    , m_stats() {
+    , m_stats()
+    , m_read_only(m_file->read_only()) {
     PREQUEL_CHECK(is_pow2(block_size), "block size must be a power of two.");
 }
 
@@ -588,7 +592,7 @@ block* file_engine_impl::pin(u64 index, bool initialize) {
     }
 
     block* blk = allocate_block();
-    detail::deferred guard = [&] { free_block(blk); };
+    deferred guard = [&] { free_block(blk); };
 
     {
         blk->m_index = index;
@@ -619,6 +623,10 @@ void file_engine_impl::dirty(u64 index, block* blk) {
     PREQUEL_ASSERT(blk->index() == index, "Inconsistent block and block index.");
     unused(index);
 
+    if (PREQUEL_UNLIKELY(m_read_only))
+        PREQUEL_THROW(
+            io_error("The file cannot be written to because it was opened in read-only mode."));
+
     if (!blk->dirty()) {
         m_dirty.add(*blk);
     }
@@ -642,7 +650,6 @@ void file_engine_impl::flush() {
         flush_block(&*i);
         i = n;
     }
-    m_file->sync();
 
     PREQUEL_ASSERT(m_dirty.begin() == m_dirty.end(), "no dirty blocks can remain.");
 }

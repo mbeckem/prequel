@@ -26,10 +26,10 @@ private:
 
         interval() = default;
 
-        interval(value_type begin, value_type end)
-            : begin(begin)
-            , end(end) {
-            PREQUEL_ASSERT(begin <= end, "Invalid interval.");
+        interval(value_type begin_, value_type end_)
+            : begin(begin_)
+            , end(end_) {
+            PREQUEL_ASSERT(begin_ <= end_, "Invalid interval.");
         }
 
         struct key_extract {

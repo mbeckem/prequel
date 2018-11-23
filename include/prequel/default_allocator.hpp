@@ -21,9 +21,9 @@ private:
 
         extent_t() = default;
 
-        extent_t(block_index block, u64 size)
-            : block(block)
-            , size(size) {}
+        extent_t(block_index block_, u64 size_)
+            : block(block_)
+            , size(size_) {}
 
         static constexpr auto get_binary_format() {
             return make_binary_format(&extent_t::block, &extent_t::size);

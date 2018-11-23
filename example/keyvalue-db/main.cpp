@@ -1,6 +1,6 @@
 #include "./database.hpp"
 
-#include <prequel/default_file_format.hpp>
+#include <prequel/simple_file_format.hpp>
 #include <prequel/vfs.hpp>
 
 #include <fmt/format.h>
@@ -8,6 +8,8 @@
 namespace keyvaluedb {
 
 struct database_header {
+    database_header() = default;
+
     database::anchor db;
 
     static constexpr auto get_binary_format() {
@@ -19,23 +21,32 @@ struct settings {
     // Print stats on exit?
     bool print_stats = true;
 
-    // Number of cached blocks in memory.
-    uint32_t cache_blocks = 1024;
+    // Number of megabytes (approx) cached in memory.
+    uint32_t cache_megabytes = 1;
 };
 
 } // namespace keyvaluedb
+
+static const prequel::magic_header magic("example-keyvaluedb");
+static const uint32_t version = 1;
+static const uint32_t block_size = 4096;
 
 int main() {
     using namespace keyvaluedb;
 
     settings s;
 
-    auto file =
-        prequel::memory_vfs().open("tempfile", prequel::vfs::read_write, prequel::vfs::open_create);
-    prequel::default_file_format<database_header> format(*file, 4096, s.cache_blocks);
+    prequel::simple_file_format<database_header> format(magic, version, block_size);
+    format.cache_size(uint64_t(s.cache_megabytes) << 20);
+    format.engine_type(format.file_engine);
+
+    format.open_or_create("keyvalue.db", [&] { return database_header(); });
 
     {
-        database db(format.get_user_data().member<&database_header::db>(), format.get_allocator());
+        database_header header = format.get_user_data();
+        prequel::anchor_flag header_changed;
+
+        database db(prequel::make_anchor_handle(header.db, header_changed), format.get_allocator());
 
         for (int i = 1; i <= 1024; ++i) {
             std::string key = fmt::format("hello {}", i);
@@ -46,6 +57,9 @@ int main() {
         }
 
         db.dump(std::cout);
+
+        if (header_changed)
+            format.set_user_data(header);
     }
     format.flush();
 

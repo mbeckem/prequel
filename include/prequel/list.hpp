@@ -92,8 +92,8 @@ public:
     private:
         friend class list;
 
-        cursor(raw_list::cursor&& inner)
-            : inner(std::move(inner)) {}
+        cursor(raw_list::cursor&& inner_)
+            : inner(std::move(inner_)) {}
 
     private:
         raw_list::cursor inner;

@@ -1,13 +1,50 @@
 #ifndef PREQUEL_DEFERRED_HPP
 #define PREQUEL_DEFERRED_HPP
 
-#include <prequel/detail/deferred.hpp>
+#include <exception>
+#include <type_traits>
+#include <utility>
 
 namespace prequel {
 
-// FIXME move the class here.
-using detail::deferred;
+/// An object that performs some action when the enclosing scope ends.
+///
+/// The deferred class stores a function object and invokes it from its
+/// destructor. The execution of the function object can be disabled by using
+/// the `disable()` member function prior to its destruction.
+template<typename Function>
+class deferred {
+private:
+    Function fn;
+    bool invoke;
 
-}
+public:
+    deferred(const Function& fn_)
+        : fn(fn_)
+        , invoke(true) {}
+
+    deferred(Function&& fn_)
+        : fn(std::move(fn_))
+        , invoke(true) {}
+
+    ~deferred() noexcept(noexcept(fn())) {
+        if (invoke) {
+            try {
+                fn();
+            } catch (...) {
+                if (!std::uncaught_exceptions())
+                    throw;
+            }
+        }
+    }
+
+    /// Once `disable` has been called on a rollback object,
+    /// the rollback function will not be executed upon destruction.
+    void disable() noexcept { invoke = false; }
+
+    deferred(deferred&& other) = delete;
+    deferred& operator=(const deferred&) = delete;
+};
+} // namespace prequel
 
 #endif // PREQUEL_DEFERRED_HPP

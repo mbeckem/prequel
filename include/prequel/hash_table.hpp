@@ -230,8 +230,8 @@ private:
     struct compatible_hash_wrapper {
         const CompatibleKeyHash& hash;
 
-        compatible_hash_wrapper(const CompatibleKeyHash& hash)
-            : hash(hash) {}
+        compatible_hash_wrapper(const CompatibleKeyHash& hash_)
+            : hash(hash_) {}
 
         u64 operator()(const void* raw_key) const {
             const CompatibleKeyType& key = *static_cast<const CompatibleKeyType*>(raw_key);
@@ -243,8 +243,8 @@ private:
     struct compatible_equals_wrapper {
         const CompatibleKeyEquals& equals;
 
-        compatible_equals_wrapper(const CompatibleKeyEquals& equals)
-            : equals(equals) {}
+        compatible_equals_wrapper(const CompatibleKeyEquals& equals_)
+            : equals(equals_) {}
 
         bool operator()(const void* raw_lhs_key, const byte* raw_rhs_key) const {
             const CompatibleKeyType& lhs = *static_cast<const CompatibleKeyType*>(raw_lhs_key);
