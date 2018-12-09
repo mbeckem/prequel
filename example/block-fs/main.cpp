@@ -252,15 +252,13 @@ enum {
 #define FS_OPTION(t, p) \
     { t, offsetof(options_t, p), 1 }
 
-static const struct fuse_opt option_spec[] = {
-    FS_OPTION("--file=%s", filename),
+static const struct fuse_opt option_spec[] = {FS_OPTION("--file=%s", filename),
 
-    FUSE_OPT_KEY("-V", KEY_VERSION),
-    FUSE_OPT_KEY("--version", KEY_VERSION),
-    FUSE_OPT_KEY("-h", KEY_HELP),
-    FUSE_OPT_KEY("--help", KEY_HELP),
-    FUSE_OPT_END
-};
+                                              FUSE_OPT_KEY("-V", KEY_VERSION),
+                                              FUSE_OPT_KEY("--version", KEY_VERSION),
+                                              FUSE_OPT_KEY("-h", KEY_HELP),
+                                              FUSE_OPT_KEY("--help", KEY_HELP),
+                                              FUSE_OPT_END};
 
 static int option_callback(void* data, const char* arg, int key, struct fuse_args* outargs) {
     (void) data;

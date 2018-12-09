@@ -194,9 +194,9 @@ inline u32 tree::lower_bound(const internal_node& internal, const byte* search_k
     PREQUEL_ASSERT(internal.get_child_count() > 1, "Not enough children in this internal node");
     // internal.get_size() is the number of children, not the number of keys.
     const u32 keys = internal.get_child_count() - 1;
-    index_iterator result = std::lower_bound(
-        index_iterator(0), index_iterator(keys), search_key,
-        [&](u32 i, const byte* key) { return key_less(internal.get_key(i), key); });
+    index_iterator result =
+        std::lower_bound(index_iterator(0), index_iterator(keys), search_key,
+                         [&](u32 i, const byte* key) { return key_less(internal.get_key(i), key); });
     return *result;
 }
 
@@ -215,9 +215,9 @@ inline u32 tree::upper_bound(const internal_node& internal, const byte* search_k
     PREQUEL_ASSERT(internal.get_child_count() > 1, "Not enough children in this internal node");
     // internal.get_size() is the number of children, not the number of keys.
     const u32 keys = internal.get_child_count() - 1;
-    index_iterator result = std::upper_bound(
-        index_iterator(0), index_iterator(keys), search_key,
-        [&](const byte* key, u32 i) { return key_less(key, internal.get_key(i)); });
+    index_iterator result =
+        std::upper_bound(index_iterator(0), index_iterator(keys), search_key,
+                         [&](const byte* key, u32 i) { return key_less(key, internal.get_key(i)); });
     return *result;
 }
 

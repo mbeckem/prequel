@@ -135,9 +135,7 @@ public:
     }
 
     /// Returns the index of this block in the underlying storage engine.
-    block_index index() const noexcept {
-        return valid() ? m_impl->index() : block_index();
-    }
+    block_index index() const noexcept { return valid() ? m_impl->index() : block_index(); }
 
     /// Returns the block's size.
     /// \pre `valid()`.

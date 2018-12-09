@@ -51,7 +51,8 @@ public:
 
     size_t size() const {
         // Index of first 0 byte (or max_size).
-        return static_cast<size_t>(std::find(std::begin(m_data), std::end(m_data), 0) - std::begin(m_data));
+        return static_cast<size_t>(std::find(std::begin(m_data), std::end(m_data), 0)
+                                   - std::begin(m_data));
     }
 
     static constexpr auto get_binary_format() {
