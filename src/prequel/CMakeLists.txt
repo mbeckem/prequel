@@ -2,7 +2,6 @@ set(HEADER_ROOT ${PROJECT_SOURCE_DIR}/include/prequel)
 
 set(PUBLIC_HEADERS
     ${HEADER_ROOT}/detail/bitset.hpp
-    ${HEADER_ROOT}/detail/deferred.hpp
     ${HEADER_ROOT}/detail/fix.hpp
     ${HEADER_ROOT}/detail/free_list.hpp
     ${HEADER_ROOT}/detail/inlined_any.hpp
