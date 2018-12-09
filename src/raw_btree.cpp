@@ -1,17 +1,18 @@
 #include <prequel/raw_btree.hpp>
 
-#include <prequel/btree/cursor.hpp>
-#include <prequel/btree/internal_node.hpp>
-#include <prequel/btree/leaf_node.hpp>
-#include <prequel/btree/loader.hpp>
-#include <prequel/btree/tree.hpp>
 #include <prequel/exception.hpp>
 
-#include <prequel/btree/cursor.ipp>
-#include <prequel/btree/internal_node.ipp>
-#include <prequel/btree/leaf_node.ipp>
-#include <prequel/btree/loader.ipp>
-#include <prequel/btree/tree.ipp>
+#include "btree/cursor.hpp"
+#include "btree/internal_node.hpp"
+#include "btree/leaf_node.hpp"
+#include "btree/loader.hpp"
+#include "btree/tree.hpp"
+
+#include "btree/cursor.ipp"
+#include "btree/internal_node.ipp"
+#include "btree/leaf_node.ipp"
+#include "btree/loader.ipp"
+#include "btree/tree.ipp"
 
 namespace prequel {
 

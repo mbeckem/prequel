@@ -1,14 +1,14 @@
 #ifndef PREQUEL_BTREE_TREE_HPP
 #define PREQUEL_BTREE_TREE_HPP
 
+#include "base.hpp"
+#include "cursor.hpp"
+
 #include <prequel/allocator.hpp>
 #include <prequel/anchor_handle.hpp>
 #include <prequel/defs.hpp>
 #include <prequel/engine.hpp>
 #include <prequel/raw_btree.hpp>
-
-#include <prequel/btree/base.hpp>
-#include <prequel/btree/cursor.hpp>
 
 #include <boost/intrusive/list.hpp>
 

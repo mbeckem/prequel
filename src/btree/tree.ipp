@@ -1,7 +1,7 @@
 #ifndef PREQUEL_BTREE_TREE_IPP
 #define PREQUEL_BTREE_TREE_IPP
 
-#include <prequel/btree/tree.hpp>
+#include "tree.hpp"
 
 #include <prequel/detail/fix.hpp>
 #include <prequel/exception.hpp>

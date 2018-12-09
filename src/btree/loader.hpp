@@ -1,10 +1,11 @@
 #ifndef PREQUEL_BTREE_LOADER_HPP
 #define PREQUEL_BTREE_LOADER_HPP
 
+#include "base.hpp"
+#include "internal_node.hpp"
+#include "leaf_node.hpp"
+
 #include <prequel/block_index.hpp>
-#include <prequel/btree/base.hpp>
-#include <prequel/btree/internal_node.hpp>
-#include <prequel/btree/leaf_node.hpp>
 
 #include <memory>
 #include <vector>

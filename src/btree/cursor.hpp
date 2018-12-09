@@ -1,9 +1,10 @@
 #ifndef PREQUEL_BTREE_CURSOR_HPP
 #define PREQUEL_BTREE_CURSOR_HPP
 
-#include <prequel/btree/base.hpp>
-#include <prequel/btree/internal_node.hpp>
-#include <prequel/btree/leaf_node.hpp>
+#include "base.hpp"
+#include "internal_node.hpp"
+#include "leaf_node.hpp"
+
 #include <prequel/defs.hpp>
 
 #include <boost/intrusive/list_hook.hpp>

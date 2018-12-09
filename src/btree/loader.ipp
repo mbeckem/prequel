@@ -1,9 +1,9 @@
 #ifndef PREQUEL_BTREE_LOADER_IPP
 #define PREQUEL_BTREE_LOADER_IPP
 
-#include <prequel/btree/loader.hpp>
+#include "loader.hpp"
+#include "tree.hpp"
 
-#include <prequel/btree/tree.hpp>
 #include <prequel/deferred.hpp>
 #include <prequel/exception.hpp>
 

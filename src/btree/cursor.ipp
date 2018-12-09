@@ -1,9 +1,9 @@
 #ifndef PREQUEL_BTREE_CURSOR_IPP
 #define PREQUEL_BTREE_CURSOR_IPP
 
-#include <prequel/btree/cursor.hpp>
+#include "cursor.hpp"
+#include "tree.hpp"
 
-#include <prequel/btree/tree.hpp>
 #include <prequel/exception.hpp>
 
 namespace prequel::detail::btree_impl {

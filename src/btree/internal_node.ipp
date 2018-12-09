@@ -1,7 +1,7 @@
 #ifndef PREQUEL_BTREE_INTERNAL_NODE_IPP
 #define PREQUEL_BTREE_INTERNAL_NODE_IPP
 
-#include <prequel/btree/internal_node.hpp>
+#include "internal_node.hpp"
 
 namespace prequel::detail::btree_impl {
 

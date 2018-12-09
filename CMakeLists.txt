@@ -48,5 +48,5 @@ find_package(fmt REQUIRED)
 
 add_subdirectory(doc)
 add_subdirectory(example)
-add_subdirectory(src/prequel)
+add_subdirectory(src)
 add_subdirectory(test)

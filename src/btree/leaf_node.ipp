@@ -1,7 +1,7 @@
 #ifndef PREQUEL_BTREE_LEAF_NODE_IPP
 #define PREQUEL_BTREE_LEAF_NODE_IPP
 
-#include <prequel/btree/leaf_node.hpp>
+#include "leaf_node.hpp"
 
 namespace prequel::detail::btree_impl {
 
