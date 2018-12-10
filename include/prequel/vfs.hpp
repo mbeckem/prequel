@@ -45,6 +45,10 @@ public:
     /// Returns the size of the file, in bytes.
     virtual u64 file_size() = 0;
 
+    /// Returns the maximum file size, in bytes. Platforms that do not have an inherent
+    /// maximum file size simple return the maximum value.
+    virtual u64 max_file_size() = 0;
+
     /// Resizes the file to the given number of bytes.
     virtual void truncate(u64 size) = 0;
 

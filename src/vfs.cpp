@@ -60,6 +60,7 @@ public:
     void read(u64 offset, void* buffer, u32 count) override;
     void write(u64 offset, const void* buffer, u32 count) override;
     u64 file_size() override;
+    u64 max_file_size() override { return u64(-1); }
     void truncate(u64 size) override;
     void sync() override {}
     void close() override;
