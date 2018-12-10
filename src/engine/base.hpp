@@ -1,8 +1,8 @@
 #ifndef PREQUEL_ENGINE_BASE_HPP
 #define PREQUEL_ENGINE_BASE_HPP
 
-#include <prequel/defs.hpp>
 #include <prequel/assert.hpp>
+#include <prequel/defs.hpp>
 
 #include <fmt/format.h>
 

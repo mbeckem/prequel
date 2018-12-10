@@ -44,9 +44,7 @@ public:
 
     /// Returns a pointer to the block that should be evicted next.
     /// Does not remove that block.
-    block* lru_candidate() noexcept {
-        return m_list.size() == 0 ? nullptr : &m_list.back();
-    }
+    block* lru_candidate() noexcept { return m_list.size() == 0 ? nullptr : &m_list.back(); }
 
     /// Returns the current number of cached blocks.
     size_t size() const noexcept { return m_list.size(); }
@@ -56,8 +54,8 @@ public:
 
 private:
     using list_t = boost::intrusive::list<
-        block, boost::intrusive::member_hook<
-            block, boost::intrusive::list_member_hook<>, &block::m_cache_hook>>;
+        block, boost::intrusive::member_hook<block, boost::intrusive::list_member_hook<>,
+                                             &block::m_cache_hook>>;
 
 private:
     /// Linked list of cached blocks (intrusive).

@@ -25,7 +25,8 @@ public:
         PREQUEL_ASSERT(!contains(blk), "Block was already marked as dirty.");
 
         auto pair = m_set.insert(*blk);
-        PREQUEL_ASSERT(pair.second, "Insertion must have succeeded because the block was not dirty.");
+        PREQUEL_ASSERT(pair.second,
+                       "Insertion must have succeeded because the block was not dirty.");
         unused(pair);
     }
 

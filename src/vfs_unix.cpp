@@ -106,8 +106,7 @@ unix_file::unix_file(unix_vfs& v, int fd, std::string path, bool read_only)
     : file(v)
     , m_fd(fd)
     , m_path(std::move(path))
-    , m_read_only(read_only)
-{
+    , m_read_only(read_only) {
     PREQUEL_ASSERT(m_fd != -1, "Invalid file descriptor.");
     struct stat st = get_stat(m_path.c_str(), m_fd);
     m_block_size = st.st_blksize;

@@ -45,7 +45,9 @@ public:
     bool empty() const noexcept { return m_list.empty(); }
 
     /// Removes all block instances from the pool and deletes them.
-    void clear() noexcept { m_list.clear_and_dispose([](block* blk) { delete blk; }); }
+    void clear() noexcept {
+        m_list.clear_and_dispose([](block* blk) { delete blk; });
+    }
 
     block_pool(const block_pool&) = delete;
     block_pool& operator=(const block_pool&) = delete;
