@@ -29,6 +29,9 @@ public:
     /// Returns the name of this file (for error reporting only).
     virtual const char* name() const noexcept = 0;
 
+    /// The block size of the underlying I/O device.
+    virtual u32 block_size() const noexcept = 0;
+
     /// Reads exactly `count` bytes at the given offset
     /// into the provided buffer.
     virtual void read(u64 offset, void* buffer, u32 count) = 0;
@@ -79,7 +82,12 @@ public:
         open_create = 1 << 0,
 
         /// When open_create is specified: Errors when the file already exists.
-        open_exlusive = 1 << 1
+        open_exlusive = 1 << 1,
+
+        /// Open the file in direct mode, if possible. Direct I/O mode must obey platform
+        /// restriction. For example on linux, all reads and writes must be aligned to the native
+        /// block size.
+        open_direct = 1 << 2
     };
 
 public:
@@ -100,6 +108,7 @@ public:
     ///
     /// TODO: Specifiy in which directory the file is to be created?
     /// TODO: Temporary directories?
+    /// TODO: Take a restricted subset of open flags (such as open_direct)
     virtual std::unique_ptr<file> create_temp() = 0;
 
     /// Maps a portion of the file into the process address space.

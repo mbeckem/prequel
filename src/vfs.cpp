@@ -55,6 +55,7 @@ public:
 
     bool read_only() const noexcept override { return m_read_only; }
     const char* name() const noexcept override { return m_name.c_str(); }
+    u32 block_size() const noexcept override { return 4096; }
 
     void read(u64 offset, void* buffer, u32 count) override;
     void write(u64 offset, const void* buffer, u32 count) override;

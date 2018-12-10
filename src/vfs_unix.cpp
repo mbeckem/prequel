@@ -16,13 +16,8 @@ namespace prequel {
 class unix_vfs;
 
 class unix_file : public file {
-private:
-    int m_fd = -1;
-    std::string m_name;
-    bool m_read_only;
-
 public:
-    unix_file(unix_vfs& vfs, int fd, std::string name, bool read_only);
+    unix_file(unix_vfs& vfs, int fd, std::string path, bool read_only);
 
     unix_file() = default;
 
@@ -30,7 +25,9 @@ public:
 
     bool read_only() const noexcept override { return m_read_only; }
 
-    const char* name() const noexcept override { return m_name.c_str(); }
+    const char* name() const noexcept override { return m_path.c_str(); }
+
+    u32 block_size() const noexcept override { return m_block_size; }
 
     int fd() const;
 
@@ -48,6 +45,14 @@ public:
 
 private:
     void check_open() const;
+
+private:
+    friend unix_vfs;
+
+    int m_fd = -1;
+    std::string m_path;
+    bool m_read_only = false;
+    u32 m_block_size = 0;
 };
 
 class unix_vfs : public vfs {
@@ -87,11 +92,26 @@ static size_t get_pagesize() {
     return static_cast<size_t>(size);
 }
 
-unix_file::unix_file(unix_vfs& v, int fd, std::string name, bool read_only)
+static struct stat get_stat(const char* path, int fd) {
+    struct stat st;
+    if (::fstat(fd, &st) == -1) {
+        auto ec = get_errno();
+        PREQUEL_THROW(
+            io_error(fmt::format("Failed to get attributes of `{}`: {}.", path, ec.message())));
+    }
+    return st;
+}
+
+unix_file::unix_file(unix_vfs& v, int fd, std::string path, bool read_only)
     : file(v)
     , m_fd(fd)
-    , m_name(std::move(name))
-    , m_read_only(read_only) {}
+    , m_path(std::move(path))
+    , m_read_only(read_only)
+{
+    PREQUEL_ASSERT(m_fd != -1, "Invalid file descriptor.");
+    struct stat st = get_stat(m_path.c_str(), m_fd);
+    m_block_size = st.st_blksize;
+}
 
 unix_file::~unix_file() {
     if (m_fd != -1)
@@ -153,14 +173,7 @@ void unix_file::write(u64 offset, const void* buffer, u32 count) {
 
 u64 unix_file::file_size() {
     check_open();
-
-    struct stat st;
-    if (::fstat(m_fd, &st) == -1) {
-        auto ec = get_errno();
-        PREQUEL_THROW(
-            io_error(fmt::format("Failed to get attributes of `{}`: {}.", name(), ec.message())));
-    }
-
+    struct stat st = get_stat(m_path.c_str(), m_fd);
     return static_cast<u64>(st.st_size);
 }
 
@@ -210,6 +223,9 @@ std::unique_ptr<file> unix_vfs::open(const char* path, access_t access, int mode
         if (mode & open_exlusive)
             flags |= O_EXCL;
     }
+    if (mode & open_direct) {
+        flags |= O_DIRECT;
+    }
     int createmode = S_IRUSR | S_IWUSR;
 
     int fd = ::open(path, flags, createmode);
@@ -217,10 +233,9 @@ std::unique_ptr<file> unix_vfs::open(const char* path, access_t access, int mode
         auto ec = get_errno();
         PREQUEL_THROW(io_error(fmt::format("Failed to open `{}`: {}.", path, ec.message())));
     }
-
     deferred guard = [&] { ::close(fd); };
 
-    auto ret = std::make_unique<unix_file>(*this, fd, path, access == read_only);
+    auto ret = std::make_unique<unix_file>(*this, fd, path, false);
     guard.disable();
     return ret;
 }
@@ -233,7 +248,6 @@ std::unique_ptr<file> unix_vfs::create_temp() {
         auto ec = get_errno();
         PREQUEL_THROW(io_error(fmt::format("Failed to create temporary file: {}.", ec.message())));
     }
-
     deferred guard = [&] { ::close(fd); };
 
     if (unlink(name.data()) == -1) {
