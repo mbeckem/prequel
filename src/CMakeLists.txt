@@ -61,6 +61,16 @@ set(PRIVATE_HEADERS
     btree/loader.ipp
     btree/tree.hpp
     btree/tree.ipp
+
+    engine/base.hpp
+    engine/block.hpp
+    engine/block.ipp
+    engine/block_cache.hpp
+    engine/block_dirty_set.hpp
+    engine/block_map.hpp
+    engine/block_pool.hpp
+    engine/file_engine.hpp
+    engine/file_engine.ipp
 )
 
 set(SOURCES

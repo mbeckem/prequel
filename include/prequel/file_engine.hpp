@@ -9,11 +9,11 @@
 
 namespace prequel {
 
-namespace detail {
+namespace detail::engine_impl {
 
-class file_engine_impl;
+class file_engine;
 
-} // namespace detail
+} // namespace detail::engine_impl
 
 /// Contains performance statistics for a single engine.
 struct file_engine_stats {
@@ -64,10 +64,10 @@ private:
     void do_flush(block_index index, uintptr_t cookie) override;
 
 private:
-    detail::file_engine_impl& impl() const;
+    detail::engine_impl::file_engine& impl() const;
 
 private:
-    std::unique_ptr<detail::file_engine_impl> m_impl;
+    std::unique_ptr<detail::engine_impl::file_engine> m_impl;
 };
 
 } // namespace prequel

@@ -245,6 +245,9 @@ public:
     void flush();
 
     /// Reads the block at the given index and returns a handle to it.
+    /// No actual I/O is performed if the block is already being referenced; a block handle
+    /// pointing to the same block in memory will be returned in that case.
+    ///
     /// Throws if an I/O error occurs.
     block_handle read(block_index index);
 
@@ -257,9 +260,13 @@ public:
     /// Throws if an I/O error occurs.
     block_handle overwrite_zero(block_index index);
 
-    /// Like `zeroed()`, but instead sets the content of the block to `data`.
+    /// Similar to `read()`, but the block is overwritten with the new data instead.
+    /// This can save a read operation if the block is not already in memory.
     ///
     /// Throws if an I/O error occurs.
+    ///
+    /// \note If the block was already in memory, its contents will be overwritten
+    /// with zeroes as well.
     ///
     /// \warning `data` must be a pointer to (at least) `block_size()` bytes.
     block_handle overwrite(block_index index, const byte* data, size_t data_size);
