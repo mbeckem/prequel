@@ -44,10 +44,10 @@ class raw_hash_table_anchor {
     array<block_index>::anchor bucket_ranges;
 
     static constexpr auto get_binary_format() {
-        return make_binary_format(
-            &raw_hash_table_anchor::step, &raw_hash_table_anchor::size,
-            &raw_hash_table_anchor::primary_buckets, &raw_hash_table_anchor::overflow_buckets,
-            &raw_hash_table_anchor::level, &raw_hash_table_anchor::bucket_ranges);
+        return binary_format(&raw_hash_table_anchor::step, &raw_hash_table_anchor::size,
+                             &raw_hash_table_anchor::primary_buckets,
+                             &raw_hash_table_anchor::overflow_buckets,
+                             &raw_hash_table_anchor::level, &raw_hash_table_anchor::bucket_ranges);
     }
 
     friend binary_format_access;

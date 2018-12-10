@@ -37,8 +37,8 @@ TEST_CASE("instance <-> member", "[address]") {
         u32 f[3] = {7, 8, 9};
 
         static constexpr auto get_binary_format() {
-            return make_binary_format(&test_t::a, &test_t::b, &test_t::c, &test_t::d, &test_t::e,
-                                      &test_t::f);
+            return binary_format(&test_t::a, &test_t::b, &test_t::c, &test_t::d, &test_t::e,
+                                 &test_t::f);
         }
     };
 

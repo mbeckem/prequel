@@ -320,9 +320,7 @@ struct point_t {
         : x(x_)
         , y(y_) {}
 
-    static constexpr auto get_binary_format() {
-        return make_binary_format(&point_t::x, &point_t::y);
-    }
+    static constexpr auto get_binary_format() { return binary_format(&point_t::x, &point_t::y); }
 
     bool operator==(const point_t& v) const { return x == v.x && y == v.y; }
     bool operator!=(const point_t& v) const { return !(*this == v); }

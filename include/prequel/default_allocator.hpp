@@ -26,7 +26,7 @@ private:
             , size(size_) {}
 
         static constexpr auto get_binary_format() {
-            return make_binary_format(&extent_t::block, &extent_t::size);
+            return binary_format(&extent_t::block, &extent_t::size);
         }
 
         bool operator==(const extent_t& other) const {
@@ -80,9 +80,9 @@ public:
         friend class default_allocator;
 
         static constexpr auto get_binary_format() {
-            return make_binary_format(&anchor::meta_freelist, &anchor::meta_total,
-                                      &anchor::meta_free, &anchor::data_total, &anchor::data_free,
-                                      &anchor::extents_by_position, &anchor::extents_by_size);
+            return binary_format(&anchor::meta_freelist, &anchor::meta_total, &anchor::meta_free,
+                                 &anchor::data_total, &anchor::data_free,
+                                 &anchor::extents_by_position, &anchor::extents_by_size);
         }
     };
 

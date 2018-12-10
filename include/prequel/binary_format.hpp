@@ -9,12 +9,52 @@
 
 namespace prequel {
 
-/// \defgroup binary_format Binary Format
-
-/// Stores a series of member data pointers in order to reflect
-/// over the members of a class. Only used at compile time.
-///
-/// \ingroup binary_format
+/**
+ * Describes the binary format of a C++ datatype.
+ * The binary format class internally stores a seriies of member data pointers
+ * in order to reflect over the relevant content of a datatype.
+ * This is required because C++ lacks reflection, so we needed to roll our own.
+ *
+ * In order to implement simple binary serialization for your own C++ datatype,
+ * implement the `static constexpr get_binary_format()` function in your type like
+ * in the following example:
+ *
+ *  \code{.cpp}
+ *      struct my_type {
+ *          u32 a = 0;
+ *          u32 b = 1;
+ *          optional<i32> c;
+ *
+ *          // This function allows the library to understand
+ *          // the layout of the struct.
+ *          static constexpr auto get_binary_format() {
+ *              return binary_format(&my_type::a, &my_type::b, &my_type::c);
+ *          }
+ *      };
+ * \endcode
+ *
+ * The example defines a type with a binary serialization format that contains of
+ * two unsigned 32-bit integers (in big endian format) and an optional signed 32-bit
+ * integer, again in big endian format. The optional type is supported by this library,
+ * as long as the type within the optinal can also be serialized using this library.
+ * When serialized, the size of the struct above is 13 bytes (12 for the three integers,
+ * 1 byte overhead for the optional).
+ *
+ * Important guidelines when using the binary format facilities:
+ * - List every relevant member of your type (i.e. the ones you want serialized) exactly once.
+ *   The library can only serialized members that it knows about, so forgetting a member will
+ *   result in data loss.
+ * - The order in which define the members in the binary_format will specify the exact order in
+ *   which these members will be serialized. For example, the member `b` in the example will
+ *   always start at offset 4, because it is listed after `a`, which occupies offsets 0 to 3.
+ * - All types listed in your binary format must be serializable through this library as well.
+ *   This means that they must either either implement their own `get_binary_format()` function
+ *   or that they have to be otherwise support by this library, like primitive values, arrays, optional<T>,
+ *   variant<T> or entirely custom serialization code.
+ * - Changing the binary format of your types will result in binary incompatibilities when reading
+ *   files created using an old version of your code. Make sure to have a system in place to handle
+ *   changes within your file format.
+ */
 template<typename T, typename... V>
 class binary_format {
 public:
@@ -32,45 +72,13 @@ private:
     std::tuple<V T::*...> m_fields;
 };
 
-/// Create a binary_format that describes a user defined structure.
-/// Use this function to provide the body of the special `get_binary_format()`
-/// static function that enables a type for serialzation.
-///
-/// Example
-/// -------
-///
-/// \code{.cpp}
-///     struct my_type {
-///         u32 a = 0;
-///         u32 b = 1;
-///         my_other_type c;
-///
-///         // This function allows the library to understand
-///         // the layout of the struct. This is required because C++ lacks reflection.
-///         // Every member that shall be serialized must be listed exactly once,
-///         // in any order. The order of the members in this list defines the
-///         // order of the fields on disk and must not change if the binary format
-///         // should remain stable.
-///         //
-///         // All members listed here must be serializable as well. Integer types of fixed
-///         // size (i.e. std::[u]intN_t) and arrays/pairs/tuples of serializable types are
-///         // supported by default.
-///         static constexpr auto get_binary_format() {
-///             return make_binary_format(&my_type::a, &my_type::b, &my_type::c);
-///         }
-///     };
-/// \endcode
-///
-/// \ingroup binary_format
 template<typename T, typename... V>
-constexpr binary_format<T, V...> make_binary_format(V T::*... members) {
-    return binary_format<T, V...>(members...);
-}
+binary_format(V T::*... members)->binary_format<T, V...>;
 
 /// Declare this class as a friend if you wish to keep the `get_binary_format()`
 /// function private.
 ///
-/// \ingroup binary_format
+/// \relates binary_format
 class binary_format_access {
 private:
     template<typename T>
@@ -97,7 +105,7 @@ public:
 
 /// Returns true iff the type implements the get_binary_format() static function.
 ///
-/// \ingroup binary_format
+/// \relates binary_format
 template<typename T>
 constexpr bool has_binary_format() {
     return binary_format_access::has_binary_format<T>();
@@ -106,7 +114,7 @@ constexpr bool has_binary_format() {
 /// Returns a binary format instance that describes the type T.
 /// Results in a compile-time error if T does not implement the get_binary_format() static function.
 ///
-/// \ingroup binary_format
+/// \relates binary_format
 template<typename T>
 constexpr auto get_binary_format() {
     if constexpr (!has_binary_format<T>()) {

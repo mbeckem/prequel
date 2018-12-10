@@ -9,7 +9,7 @@ struct free_list_header {
     u32 size = 0;
 
     static constexpr auto get_binary_format() {
-        return make_binary_format(&free_list_header::next, &free_list_header::size);
+        return binary_format(&free_list_header::next, &free_list_header::size);
     }
 };
 

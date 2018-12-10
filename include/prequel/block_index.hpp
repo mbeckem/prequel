@@ -64,7 +64,7 @@ public:
         return o;
     }
 
-    static constexpr auto get_binary_format() { return make_binary_format(&block_index::m_value); }
+    static constexpr auto get_binary_format() { return binary_format(&block_index::m_value); }
 
 private:
     u64 m_value = invalid_value;

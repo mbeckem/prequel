@@ -78,9 +78,7 @@ private:
 private:
     friend binary_format_access;
 
-    static constexpr auto get_binary_format() {
-        return make_binary_format(&heap_reference::m_value);
-    }
+    static constexpr auto get_binary_format() { return binary_format(&heap_reference::m_value); }
 
 private:
     u64 m_value = invalid_value;
@@ -138,7 +136,7 @@ private:
         };
 
         static constexpr auto get_binary_format() {
-            return make_binary_format(&page_entry::m_value, &page_entry::m_block_count);
+            return binary_format(&page_entry::m_value, &page_entry::m_block_count);
         }
     };
 
@@ -162,7 +160,7 @@ private:
         }
 
         static constexpr auto get_binary_format() {
-            return make_binary_format(&free_map_entry::block, &free_map_entry::available);
+            return binary_format(&free_map_entry::block, &free_map_entry::available);
         }
     };
 
@@ -190,8 +188,8 @@ public:
         u64 blocks_count = 0;
 
         static constexpr auto get_binary_format() {
-            return make_binary_format(&anchor::page_map, &anchor::free_map, &anchor::objects_size,
-                                      &anchor::objects_count, &anchor::blocks_count);
+            return binary_format(&anchor::page_map, &anchor::free_map, &anchor::objects_size,
+                                 &anchor::objects_count, &anchor::blocks_count);
         }
 
         friend heap;

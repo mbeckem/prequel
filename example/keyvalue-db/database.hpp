@@ -47,7 +47,7 @@ public:
         uint64_t hash = 0;
 
         static constexpr auto get_binary_format() {
-            return prequel::make_binary_format(&long_key_t::hash, &long_key_t::ref);
+            return prequel::binary_format(&long_key_t::hash, &long_key_t::ref);
         }
     };
 
@@ -126,7 +126,7 @@ public:
     };
 
     static constexpr auto get_binary_format() {
-        return prequel::make_binary_format(&database_entry::key, &database_entry::value);
+        return prequel::binary_format(&database_entry::key, &database_entry::value);
     }
 };
 
@@ -148,9 +148,7 @@ public:
         friend database;
         friend prequel::binary_format_access;
 
-        static constexpr auto get_binary_format() {
-            return prequel::make_binary_format(&anchor::table);
-        }
+        static constexpr auto get_binary_format() { return prequel::binary_format(&anchor::table); }
     };
 
 public:

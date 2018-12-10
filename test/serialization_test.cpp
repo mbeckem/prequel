@@ -19,7 +19,7 @@ private:
     friend prequel::binary_format_access;
 
     static constexpr auto get_binary_format() {
-        return make_binary_format(&has_format::a, &has_format::b, &has_format::c, &has_format::d);
+        return binary_format(&has_format::a, &has_format::b, &has_format::c, &has_format::d);
     }
 };
 
@@ -32,7 +32,7 @@ struct test1 {
 
     bool operator==(const test1& other) const { return v1 == other.v1 && v2 == other.v2; }
 
-    static constexpr auto get_binary_format() { return make_binary_format(&test1::v1, &test1::v2); }
+    static constexpr auto get_binary_format() { return binary_format(&test1::v1, &test1::v2); }
 };
 
 // Trivial serialization for bytes and byte containers. The compile down to a single memcpy call.
@@ -226,9 +226,7 @@ TEST_CASE("optional serialization", "[serialization]") {
         i32 a = 0;
         i64 b = 1;
 
-        static constexpr auto get_binary_format() {
-            return make_binary_format(&test_t::a, &test_t::b);
-        }
+        static constexpr auto get_binary_format() { return binary_format(&test_t::a, &test_t::b); }
 
         bool operator==(const test_t& other) const { return a == other.a && b == other.b; }
     };
@@ -274,7 +272,7 @@ TEST_CASE("variant serialization", "[serialization]") {
         i32 z = 0;
 
         static constexpr auto get_binary_format() {
-            return make_binary_format(&point::x, &point::y, &point::z);
+            return binary_format(&point::x, &point::y, &point::z);
         }
 
         bool operator==(const point& p) const { return x == p.x && y == p.y && z == p.z; }
@@ -375,7 +373,7 @@ TEST_CASE("array serialization", "[serialization]") {
 
 TEST_CASE("struct serialization", "[serialization]") {
     struct empty_t {
-        static constexpr auto get_binary_format() { return make_binary_format<empty_t>(); }
+        static constexpr auto get_binary_format() { return binary_format<empty_t>(); }
     } empty;
 
     struct simple_t {
@@ -383,7 +381,7 @@ TEST_CASE("struct serialization", "[serialization]") {
         i32 y = 1;
 
         static constexpr auto get_binary_format() {
-            return make_binary_format(&simple_t::x, &simple_t::y);
+            return binary_format(&simple_t::x, &simple_t::y);
         }
     } simple;
 
@@ -393,7 +391,7 @@ TEST_CASE("struct serialization", "[serialization]") {
         u8 v3 = u8(-1);
 
         static constexpr auto get_binary_format() {
-            return make_binary_format(&complex_t::v1, &complex_t::v2, &complex_t::v3);
+            return binary_format(&complex_t::v1, &complex_t::v2, &complex_t::v3);
         }
     } complex;
 
@@ -443,9 +441,7 @@ TEST_CASE("serialized offset of", "[serialization]") {
         u8 y;
         u32 z;
 
-        static constexpr auto get_binary_format() {
-            return make_binary_format(&s1::x, &s1::y, &s1::z);
-        }
+        static constexpr auto get_binary_format() { return binary_format(&s1::x, &s1::y, &s1::z); }
     };
 
     struct s2 {
@@ -455,7 +451,7 @@ TEST_CASE("serialized offset of", "[serialization]") {
         u8 d;
 
         static constexpr auto get_binary_format() {
-            return make_binary_format(&s2::a, &s2::b, &s2::c, &s2::d);
+            return binary_format(&s2::a, &s2::b, &s2::c, &s2::d);
         }
     };
 
@@ -546,7 +542,7 @@ TEST_CASE("complex struct", "[serialization]") {
         u32 sqlite_version_number = 0;
 
         static constexpr auto get_binary_format() {
-            return make_binary_format(
+            return binary_format(
                 &sqlite_header_t::magic, &sqlite_header_t::page_size,
                 &sqlite_header_t::write_version, &sqlite_header_t::read_version,
                 &sqlite_header_t::reserved_at_end,
@@ -698,17 +694,15 @@ TEST_CASE("nested objects", "[serialization]") {
                 u64 d = 5;
                 u64 e = u64(-444);
 
-                static constexpr auto get_binary_format() {
-                    return make_binary_format(&v3::d, &v3::e);
-                }
+                static constexpr auto get_binary_format() { return binary_format(&v3::d, &v3::e); }
             } v3_;
 
             static constexpr auto get_binary_format() {
-                return make_binary_format(&v2::b, &v2::c, &v2::v3_);
+                return binary_format(&v2::b, &v2::c, &v2::v3_);
             }
         } v2_;
 
-        static constexpr auto get_binary_format() { return make_binary_format(&v1::a, &v1::v2_); }
+        static constexpr auto get_binary_format() { return binary_format(&v1::a, &v1::v2_); }
     } v1_;
 
     constexpr size_t offset = serialized_offset<&v1::v2_, &v1::v2::v3_, &v1::v2::v3::e>();
@@ -736,7 +730,7 @@ TEST_CASE("non default constructible", "[serialization]") {
 
         test_inner(deserialization_tag) {}
 
-        static constexpr auto get_binary_format() { return make_binary_format(&test_inner::y); }
+        static constexpr auto get_binary_format() { return binary_format(&test_inner::y); }
     };
 
     struct test_outer {
@@ -751,7 +745,7 @@ TEST_CASE("non default constructible", "[serialization]") {
             : inner(t) {}
 
         static constexpr auto get_binary_format() {
-            return make_binary_format(&test_outer::x, &test_outer::inner);
+            return binary_format(&test_outer::x, &test_outer::inner);
         }
     };
 

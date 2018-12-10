@@ -13,7 +13,7 @@ struct database_header {
     database::anchor db;
 
     static constexpr auto get_binary_format() {
-        return prequel::make_binary_format(&database_header::db);
+        return prequel::binary_format(&database_header::db);
     }
 };
 

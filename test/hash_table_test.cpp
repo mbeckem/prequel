@@ -141,7 +141,7 @@ TEST_CASE("hash table works well for integer keys", "[hash-table]") {
         };
 
         static constexpr auto get_binary_format() {
-            return make_binary_format(&entry::key, &entry::value);
+            return binary_format(&entry::key, &entry::value);
         }
     };
 

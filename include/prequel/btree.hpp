@@ -34,7 +34,7 @@ public:
     class anchor {
         raw_btree::anchor tree;
 
-        static constexpr auto get_binary_format() { return make_binary_format(&anchor::tree); }
+        static constexpr auto get_binary_format() { return binary_format(&anchor::tree); }
 
         friend btree;
         friend binary_format_access;

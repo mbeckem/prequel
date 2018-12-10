@@ -73,7 +73,7 @@ public:
 
     friend std::ostream& operator<<(std::ostream& o, const raw_address& addr);
 
-    static constexpr auto get_binary_format() { return make_binary_format(&raw_address::m_value); }
+    static constexpr auto get_binary_format() { return binary_format(&raw_address::m_value); }
 
 private:
     u64 m_value;
@@ -188,7 +188,7 @@ public:
 
     friend bool operator<(const address& lhs, const address& rhs) { return lhs.m_raw < rhs.m_raw; }
 
-    static constexpr auto get_binary_format() { return make_binary_format(&address::m_raw); }
+    static constexpr auto get_binary_format() { return binary_format(&address::m_raw); }
 
 private:
     raw_address m_raw;

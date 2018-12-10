@@ -23,7 +23,7 @@ public:
             , value(std::move(value)) {}
 
         static constexpr auto get_binary_format() {
-            return make_binary_format(&entry::key, &entry::value);
+            return binary_format(&entry::key, &entry::value);
         }
     };
 
@@ -41,7 +41,7 @@ public:
     class anchor {
         typename tree_type::anchor tree;
 
-        static constexpr auto get_binary_format() { return make_binary_format(&anchor::tree); }
+        static constexpr auto get_binary_format() { return binary_format(&anchor::tree); }
 
         friend map;
         friend binary_format_access;

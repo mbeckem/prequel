@@ -46,8 +46,8 @@ struct raw_btree_anchor {
 
     static constexpr auto get_binary_format() {
         using self = raw_btree_anchor;
-        return make_binary_format(&self::size, &self::leaf_nodes, &self::internal_nodes,
-                                  &self::height, &self::root, &self::leftmost, &self::rightmost);
+        return binary_format(&self::size, &self::leaf_nodes, &self::internal_nodes, &self::height,
+                             &self::root, &self::leftmost, &self::rightmost);
     }
 };
 

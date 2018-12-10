@@ -69,9 +69,8 @@ struct large_value {
                                               //  128 Byte
 
     static constexpr auto get_binary_format() {
-        return make_binary_format(&large_value::key1, &large_value::key2, &large_value::ignored1,
-                                  &large_value::ignored2, &large_value::ignored3,
-                                  &large_value::ignored4);
+        return binary_format(&large_value::key1, &large_value::key2, &large_value::ignored1,
+                             &large_value::ignored2, &large_value::ignored3, &large_value::ignored4);
     }
 
     // Values are indexed by both keys (lexicographically).
@@ -114,7 +113,7 @@ struct anchor {
                  small_value_hash::anchor, large_value_hash::anchor>
         container;
 
-    static constexpr auto get_binary_format() { return make_binary_format(&anchor::container); }
+    static constexpr auto get_binary_format() { return binary_format(&anchor::container); }
 };
 
 using format_type = simple_file_format<anchor>;

@@ -797,7 +797,7 @@ using member_value_type = member_type_t<decltype(select_last_member_ptr(MemberPt
 ///         u8  v3;
 ///
 ///         static constexpr auto get_binary_format() {
-///             return make_binary_format(&container::v1, &container::v2, &container::v3);
+///             return binary_format(&container::v1, &container::v2, &container::v3);
 ///         }
 ///     }
 /// \endcode

@@ -21,7 +21,7 @@ struct raw_anchor {
     raw_btree::anchor tree;
 
     static constexpr auto get_binary_format() {
-        return make_binary_format(&raw_anchor::alloc, &raw_anchor::tree);
+        return binary_format(&raw_anchor::alloc, &raw_anchor::tree);
     }
 };
 
@@ -37,7 +37,7 @@ struct raw_value {
         , count(count_) {}
 
     static constexpr auto get_binary_format() {
-        return make_binary_format(&raw_value::key, &raw_value::count);
+        return binary_format(&raw_value::key, &raw_value::count);
     }
 
     bool operator==(const raw_value& other) const {

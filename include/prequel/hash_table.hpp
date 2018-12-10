@@ -26,7 +26,7 @@ public:
     class anchor {
         raw_hash_table::anchor table;
 
-        static constexpr auto get_binary_format() { return make_binary_format(&anchor::table); }
+        static constexpr auto get_binary_format() { return binary_format(&anchor::table); }
 
         friend hash_table;
         friend binary_format_access;

@@ -43,7 +43,7 @@ private:
     friend binary_format_access;
 
     static constexpr auto get_binary_format() {
-        return make_binary_format(&slot::m_offset, &slot::m_size);
+        return binary_format(&slot::m_offset, &slot::m_size);
     }
 
 private:
@@ -70,8 +70,8 @@ struct page_header {
     u32 free_fragmented = 0;
 
     static constexpr auto get_binary_format() {
-        return make_binary_format(&page_header::slot_count, &page_header::free_ptr,
-                                  &page_header::free_fragmented);
+        return binary_format(&page_header::slot_count, &page_header::free_ptr,
+                             &page_header::free_fragmented);
     }
 };
 

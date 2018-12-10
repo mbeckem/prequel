@@ -32,8 +32,8 @@ struct raw_list_anchor {
     block_index last;
 
     static constexpr auto get_binary_format() {
-        return make_binary_format(&raw_list_anchor::size, &raw_list_anchor::nodes,
-                                  &raw_list_anchor::first, &raw_list_anchor::last);
+        return binary_format(&raw_list_anchor::size, &raw_list_anchor::nodes,
+                             &raw_list_anchor::first, &raw_list_anchor::last);
     }
 };
 

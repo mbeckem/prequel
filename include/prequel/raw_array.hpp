@@ -28,7 +28,7 @@ struct raw_array_anchor {
     u64 size = 0;
 
     static constexpr auto get_binary_format() {
-        return make_binary_format(&raw_array_anchor::storage, &raw_array_anchor::size);
+        return binary_format(&raw_array_anchor::storage, &raw_array_anchor::size);
     }
 };
 

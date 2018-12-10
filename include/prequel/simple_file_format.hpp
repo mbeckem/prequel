@@ -75,7 +75,7 @@ public:
 
     bool operator!=(const magic_header& other) const { return !(*this == other); }
 
-    static constexpr auto get_binary_format() { return make_binary_format(&magic_header::m_magic); }
+    static constexpr auto get_binary_format() { return binary_format(&magic_header::m_magic); }
 
 private:
     std::array<byte, max_size> m_magic{};
@@ -147,7 +147,7 @@ struct simple_file_format_header {
     simple_file_format_header(deserialization_tag) {}
 
     static constexpr auto get_binary_format() {
-        return make_binary_format(
+        return binary_format(
             &simple_file_format_header::magic, &simple_file_format_header::version,
             &simple_file_format_header::flags, &simple_file_format_header::block_size,
             &simple_file_format_header::user_data_size, &simple_file_format_header::alloc);

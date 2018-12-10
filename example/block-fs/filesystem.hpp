@@ -56,7 +56,7 @@ public:
     }
 
     static constexpr auto get_binary_format() {
-        return prequel::make_binary_format(&fixed_string::m_data);
+        return prequel::binary_format(&fixed_string::m_data);
     }
 
     friend bool operator<(const fixed_string& lhs, const fixed_string& rhs) {
@@ -80,9 +80,9 @@ struct file_metadata {
     u64 size = 0;        // In bytes
 
     static constexpr auto get_binary_format() {
-        return prequel::make_binary_format(&file_metadata::name, &file_metadata::permissions,
-                                           &file_metadata::mtime, &file_metadata::ctime,
-                                           &file_metadata::size);
+        return prequel::binary_format(&file_metadata::name, &file_metadata::permissions,
+                                      &file_metadata::mtime, &file_metadata::ctime,
+                                      &file_metadata::size);
     }
 };
 
@@ -92,7 +92,7 @@ struct file_entry {
     prequel::extent::anchor content; // File storage
 
     static constexpr auto get_binary_format() {
-        return prequel::make_binary_format(&file_entry::metadata, &file_entry::content);
+        return prequel::binary_format(&file_entry::metadata, &file_entry::content);
     }
 
     // Files are indexed by name.
@@ -112,8 +112,8 @@ struct master_block {
     directory::anchor root;                   // Root directory tree
 
     static constexpr auto get_binary_format() {
-        return prequel::make_binary_format(&master_block::magic, &master_block::partition_size,
-                                           &master_block::alloc, &master_block::root);
+        return prequel::binary_format(&master_block::magic, &master_block::partition_size,
+                                      &master_block::alloc, &master_block::root);
     }
 
     static fixed_string magic_value() { return fixed_string("PREQUEL_BLOCK_FS_EXAMPLE_1"); }

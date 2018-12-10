@@ -21,7 +21,7 @@ public:
     class anchor {
         raw_list::anchor list;
 
-        static constexpr auto get_binary_format() { return make_binary_format(&anchor::list); }
+        static constexpr auto get_binary_format() { return binary_format(&anchor::list); }
 
         friend class list;
         friend binary_format_access;

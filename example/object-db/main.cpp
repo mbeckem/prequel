@@ -39,9 +39,7 @@ public:
     bool operator==(const node_id& other) const { return m_value == other.m_value; }
     bool operator!=(const node_id& other) const { return m_value != other.m_value; }
 
-    static constexpr auto get_binary_format() {
-        return prequel::make_binary_format(&node_id::m_value);
-    }
+    static constexpr auto get_binary_format() { return prequel::binary_format(&node_id::m_value); }
 };
 
 class interned_strings {
@@ -67,7 +65,7 @@ class interned_strings {
         };
 
         static constexpr auto get_binary_format() {
-            return prequel::make_binary_format(&entry::string, &entry::hash);
+            return prequel::binary_format(&entry::string, &entry::hash);
         }
     };
 
@@ -145,7 +143,7 @@ class property_map {
         };
 
         static constexpr auto get_binary_format() {
-            return make_binary_format(&property::node, &property::name, &property::value);
+            return binary_format(&property::node, &property::name, &property::value);
         }
     };
 
@@ -260,7 +258,7 @@ class edge_map {
             }
 
             static constexpr auto get_binary_format() {
-                return prequel::make_binary_format(&key::source, &key::label, &key::destination);
+                return prequel::binary_format(&key::source, &key::label, &key::destination);
             }
         };
 
@@ -271,7 +269,7 @@ class edge_map {
         };
 
         static constexpr auto get_binary_format() {
-            return prequel::make_binary_format(&edge::source, &edge::label, &edge::destination);
+            return prequel::binary_format(&edge::source, &edge::label, &edge::destination);
         }
     };
 
@@ -286,7 +284,7 @@ public:
         friend prequel::binary_format_access;
 
         static constexpr auto get_binary_format() {
-            return prequel::make_binary_format(&anchor::map, &anchor::reverse_map);
+            return prequel::binary_format(&anchor::map, &anchor::reverse_map);
         }
     };
 
@@ -453,8 +451,8 @@ public:
         edge_map::anchor edges;
 
         static constexpr auto get_binary_format() {
-            return make_binary_format(&anchor::heap, &anchor::ids, &anchor::strings, &anchor::nodes,
-                                      &anchor::properties, &anchor::edges);
+            return binary_format(&anchor::heap, &anchor::ids, &anchor::strings, &anchor::nodes,
+                                 &anchor::properties, &anchor::edges);
         }
     };
 

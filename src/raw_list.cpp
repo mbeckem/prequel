@@ -19,7 +19,7 @@ private:
         u32 size = 0;     // Number of values in this node <= capacity
 
         static constexpr auto get_binary_format() {
-            return make_binary_format(&header::prev, &header::next, &header::size);
+            return binary_format(&header::prev, &header::next, &header::size);
         }
     };
 

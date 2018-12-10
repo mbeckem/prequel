@@ -37,7 +37,7 @@ private:
         };
 
         static constexpr auto get_binary_format() {
-            return make_binary_format(&interval::begin, &interval::end);
+            return binary_format(&interval::begin, &interval::end);
         }
     };
 
@@ -53,7 +53,7 @@ public:
         value_type max = 0;
 
         static constexpr auto get_binary_format() {
-            return make_binary_format(&anchor::tree, &anchor::max);
+            return binary_format(&anchor::tree, &anchor::max);
         }
 
         friend class binary_format_access;

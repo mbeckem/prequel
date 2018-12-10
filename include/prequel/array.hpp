@@ -22,7 +22,7 @@ public:
     class anchor {
         raw_array::anchor array;
 
-        static constexpr auto get_binary_format() { return make_binary_format(&anchor::array); }
+        static constexpr auto get_binary_format() { return binary_format(&anchor::array); }
 
         friend class array;
         friend class binary_format_access;

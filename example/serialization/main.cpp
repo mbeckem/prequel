@@ -54,7 +54,7 @@ struct sqlite_header_t {
     u32 sqlite_version_number = 0;
 
     static constexpr auto get_binary_format() {
-        return prequel::make_binary_format(
+        return prequel::binary_format(
             &sqlite_header_t::magic, &sqlite_header_t::page_size, &sqlite_header_t::write_version,
             &sqlite_header_t::read_version, &sqlite_header_t::reserved_at_end,
 

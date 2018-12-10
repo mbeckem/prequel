@@ -40,7 +40,7 @@ public:
     }
 
     static constexpr auto get_binary_format() {
-        return prequel::make_binary_format(&fixed_string::m_data);
+        return prequel::binary_format(&fixed_string::m_data);
     }
 
     friend bool operator<(const fixed_string& lhs, const fixed_string& rhs) {

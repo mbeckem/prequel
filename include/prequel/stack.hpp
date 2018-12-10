@@ -18,7 +18,7 @@ public:
     class anchor {
         raw_stack::anchor stack;
 
-        static constexpr auto get_binary_format() { return make_binary_format(&anchor::stack); }
+        static constexpr auto get_binary_format() { return binary_format(&anchor::stack); }
 
         friend binary_format_access;
         friend class stack;
