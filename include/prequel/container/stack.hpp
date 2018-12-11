@@ -1,7 +1,7 @@
-#ifndef PREQUEL_STACK_HPP
-#define PREQUEL_STACK_HPP
+#ifndef PREQUEL_CONTAINER_STACK_HPP
+#define PREQUEL_CONTAINER_STACK_HPP
 
-#include <prequel/raw_stack.hpp>
+#include <prequel/container/raw_stack.hpp>
 #include <prequel/serialization.hpp>
 
 #include <fmt/ostream.h>
@@ -135,4 +135,4 @@ private:
 
 } // namespace prequel
 
-#endif // PREQUEL_STACK_HPP
+#endif // PREQUEL_CONTAINER_STACK_HPP

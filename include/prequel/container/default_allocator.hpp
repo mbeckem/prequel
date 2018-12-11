@@ -1,9 +1,9 @@
-#ifndef PREQUEL_DEFAULT_ALLOCATOR2_HPP
-#define PREQUEL_DEFAULT_ALLOCATOR2_HPP
+#ifndef PREQUEL_CONTAINER_DEFAULT_ALLOCATOR_HPP
+#define PREQUEL_CONTAINER_DEFAULT_ALLOCATOR_HPP
 
-#include <prequel/allocator.hpp>
 #include <prequel/binary_format.hpp>
-#include <prequel/btree.hpp>
+#include <prequel/container/allocator.hpp>
+#include <prequel/container/btree.hpp>
 #include <prequel/defs.hpp>
 #include <prequel/detail/free_list.hpp>
 #include <prequel/serialization.hpp>
@@ -146,4 +146,4 @@ private:
 
 } // namespace prequel
 
-#endif // PREQUEL_DEFAULT_ALLOCATOR2_HPP
+#endif // PREQUEL_CONTAINER_DEFAULT_ALLOCATOR_HPP

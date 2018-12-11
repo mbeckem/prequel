@@ -1,7 +1,7 @@
 #ifndef PREQUEL_SIMPLE_FILE_FORMAT_HPP
 #define PREQUEL_SIMPLE_FILE_FORMAT_HPP
 
-#include <prequel/default_allocator.hpp>
+#include <prequel/container/default_allocator.hpp>
 #include <prequel/defs.hpp>
 #include <prequel/exception.hpp>
 #include <prequel/file_engine.hpp>

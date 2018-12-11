@@ -1,7 +1,7 @@
-#ifndef PREQUEL_ARRAY_HPP
-#define PREQUEL_ARRAY_HPP
+#ifndef PREQUEL_CONTAINER_ARRAY_HPP
+#define PREQUEL_CONTAINER_ARRAY_HPP
 
-#include <prequel/raw_array.hpp>
+#include <prequel/container/raw_array.hpp>
 #include <prequel/serialization.hpp>
 
 namespace prequel {
@@ -215,4 +215,4 @@ private:
 
 } // namespace prequel
 
-#endif // PREQUEL_ARRAY_HPP
+#endif // PREQUEL_CONTAINER_ARRAY_HPP

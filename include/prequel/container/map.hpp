@@ -1,5 +1,5 @@
-#ifndef PREQUEL_MAP_HPP
-#define PREQUEL_MAP_HPP
+#ifndef PREQUEL_CONTAINER_MAP_HPP
+#define PREQUEL_CONTAINER_MAP_HPP
 
 #include <prequel/btree.hpp>
 
@@ -60,4 +60,4 @@ private:
 
 } // namespace prequel
 
-#endif // PREQUEL_MAP_HPP
+#endif // PREQUEL_CONTAINER_MAP_HPP

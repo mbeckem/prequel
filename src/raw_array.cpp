@@ -1,7 +1,7 @@
-#include <prequel/raw_array.hpp>
+#include <prequel/container/raw_array.hpp>
 
 #include <prequel/exception.hpp>
-#include <prequel/extent.hpp>
+#include <prequel/container/extent.hpp>
 
 namespace prequel {
 

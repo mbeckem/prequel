@@ -4,11 +4,11 @@
 #include "base.hpp"
 #include "cursor.hpp"
 
-#include <prequel/allocator.hpp>
+#include <prequel/container/allocator.hpp>
 #include <prequel/anchor_handle.hpp>
 #include <prequel/defs.hpp>
 #include <prequel/engine.hpp>
-#include <prequel/raw_btree.hpp>
+#include <prequel/container/raw_btree.hpp>
 
 #include <boost/intrusive/list.hpp>
 

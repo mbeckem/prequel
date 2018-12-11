@@ -1,10 +1,10 @@
 #include <catch.hpp>
 
-#include <prequel/array.hpp>
-#include <prequel/default_allocator.hpp>
+#include <prequel/container/array.hpp>
+#include <prequel/container/default_allocator.hpp>
 #include <prequel/exception.hpp>
 #include <prequel/formatting.hpp>
-#include <prequel/raw_array.hpp>
+#include <prequel/container/raw_array.hpp>
 
 #include "./test_file.hpp"
 

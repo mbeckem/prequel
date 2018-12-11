@@ -1,5 +1,5 @@
-#ifndef PREQUEL_ITERATION_HPP
-#define PREQUEL_ITERATION_HPP
+#ifndef PREQUEL_CONTAINER_ITERATION_HPP
+#define PREQUEL_CONTAINER_ITERATION_HPP
 
 namespace prequel {
 
@@ -16,4 +16,4 @@ enum class iteration_control {
 
 } // namespace prequel
 
-#endif // PREQUEL_ITERATION_HPP
+#endif // PREQUEL_CONTAINER_ITERATION_HPP

@@ -1,7 +1,7 @@
 #include <catch.hpp>
 
-#include <prequel/default_allocator.hpp>
-#include <prequel/heap.hpp>
+#include <prequel/container/default_allocator.hpp>
+#include <prequel/container/heap.hpp>
 
 #include <iostream>
 

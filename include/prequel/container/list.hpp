@@ -1,7 +1,7 @@
-#ifndef PREQUEL_LIST_HPP
-#define PREQUEL_LIST_HPP
+#ifndef PREQUEL_CONTAINER_LIST_HPP
+#define PREQUEL_CONTAINER_LIST_HPP
 
-#include <prequel/raw_list.hpp>
+#include <prequel/container/raw_list.hpp>
 #include <prequel/serialization.hpp>
 
 #include <fmt/ostream.h>
@@ -257,4 +257,4 @@ void list<T>::dump(std::ostream& os) const {
 
 } // namespace prequel
 
-#endif // PREQUEL_LIST_HPP
+#endif // PREQUEL_CONTAINER_LIST_HPP

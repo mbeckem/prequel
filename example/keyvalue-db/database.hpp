@@ -3,8 +3,8 @@
 
 #include "./fixed_string.hpp"
 
-#include <prequel/hash_table.hpp>
-#include <prequel/heap.hpp>
+#include <prequel/container/hash_table.hpp>
+#include <prequel/container/heap.hpp>
 #include <prequel/serialization.hpp>
 
 #include <optional>

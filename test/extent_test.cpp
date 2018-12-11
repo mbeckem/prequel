@@ -1,7 +1,7 @@
 #include <catch.hpp>
 
-#include <prequel/default_allocator.hpp>
-#include <prequel/extent.hpp>
+#include <prequel/container/default_allocator.hpp>
+#include <prequel/container/extent.hpp>
 
 #include "./test_file.hpp"
 

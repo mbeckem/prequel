@@ -1,9 +1,9 @@
-#ifndef PREQUEL_ID_GENERATOR_HPP
-#define PREQUEL_ID_GENERATOR_HPP
+#ifndef PREQUEL_CONTAINER_ID_GENERATOR_HPP
+#define PREQUEL_CONTAINER_ID_GENERATOR_HPP
 
-#include <prequel/allocator.hpp>
+#include <prequel/container/allocator.hpp>
 #include <prequel/anchor_handle.hpp>
-#include <prequel/btree.hpp>
+#include <prequel/container/btree.hpp>
 #include <prequel/defs.hpp>
 #include <prequel/engine.hpp>
 
@@ -92,4 +92,4 @@ private:
 
 } // namespace prequel
 
-#endif // PREQUEL_ID_GENERATOR_HPP
+#endif // PREQUEL_CONTAINER_ID_GENERATOR_HPP

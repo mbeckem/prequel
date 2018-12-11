@@ -8,43 +8,45 @@ set(PUBLIC_HEADERS
     ${HEADER_ROOT}/detail/iter_tools.hpp
     ${HEADER_ROOT}/detail/operators.hpp
 
+    ${HEADER_ROOT}/container/allocator.hpp
+    ${HEADER_ROOT}/container/array.hpp
+    ${HEADER_ROOT}/container/btree.hpp
+    ${HEADER_ROOT}/container/default_allocator.hpp
+    ${HEADER_ROOT}/container/extent.hpp
+    ${HEADER_ROOT}/container/hash_table.hpp
+    ${HEADER_ROOT}/container/heap.hpp
+    ${HEADER_ROOT}/container/id_generator.hpp
+    ${HEADER_ROOT}/container/identity_key.hpp
+    ${HEADER_ROOT}/container/iteration.hpp
+    ${HEADER_ROOT}/container/list.hpp
+    ${HEADER_ROOT}/container/map.hpp
+    ${HEADER_ROOT}/container/node_allocator.hpp
+    ${HEADER_ROOT}/container/raw_array.hpp
+    ${HEADER_ROOT}/container/raw_btree.hpp
+    ${HEADER_ROOT}/container/raw_hash_table.hpp
+    ${HEADER_ROOT}/container/raw_list.hpp
+    ${HEADER_ROOT}/container/raw_stack.hpp
+    ${HEADER_ROOT}/container/stack.hpp
+
     ${HEADER_ROOT}/address.hpp
-    ${HEADER_ROOT}/allocator.hpp
     ${HEADER_ROOT}/anchor_handle.hpp
-    ${HEADER_ROOT}/array.hpp
     ${HEADER_ROOT}/assert.hpp
     ${HEADER_ROOT}/binary_format.hpp
     ${HEADER_ROOT}/block_index.hpp
-    ${HEADER_ROOT}/btree.hpp
-    ${HEADER_ROOT}/default_allocator.hpp
     ${HEADER_ROOT}/deferred.hpp
     ${HEADER_ROOT}/defs.hpp
     ${HEADER_ROOT}/engine.hpp
     ${HEADER_ROOT}/exception.hpp
-    ${HEADER_ROOT}/extent.hpp
     ${HEADER_ROOT}/file_engine.hpp
     ${HEADER_ROOT}/formatting.hpp
     ${HEADER_ROOT}/handle.hpp
     ${HEADER_ROOT}/hash.hpp
-    ${HEADER_ROOT}/hash_table.hpp
-    ${HEADER_ROOT}/heap.hpp
-    ${HEADER_ROOT}/identity_key.hpp
-    ${HEADER_ROOT}/id_generator.hpp
-    ${HEADER_ROOT}/iteration.hpp
-    ${HEADER_ROOT}/list.hpp
-    ${HEADER_ROOT}/map.hpp
     ${HEADER_ROOT}/math.hpp
     ${HEADER_ROOT}/memory_engine.hpp
     ${HEADER_ROOT}/mmap_engine.hpp
-    ${HEADER_ROOT}/node_allocator.hpp
-    ${HEADER_ROOT}/raw_array.hpp
-    ${HEADER_ROOT}/raw_btree.hpp
-    ${HEADER_ROOT}/raw_hash_table.hpp
-    ${HEADER_ROOT}/raw_list.hpp
-    ${HEADER_ROOT}/raw_stack.hpp
     ${HEADER_ROOT}/serialization.hpp
     ${HEADER_ROOT}/simple_file_format.hpp
-    ${HEADER_ROOT}/stack.hpp
+
     ${HEADER_ROOT}/type_traits.hpp
     ${HEADER_ROOT}/vfs.hpp
 )

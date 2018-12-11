@@ -1,13 +1,13 @@
-#ifndef PREQUEL_RAW_HASH_TABLE_HPP
-#define PREQUEL_RAW_HASH_TABLE_HPP
+#ifndef PREQUEL_CONTAINER_RAW_HASH_TABLE_HPP
+#define PREQUEL_CONTAINER_RAW_HASH_TABLE_HPP
 
-#include <prequel/allocator.hpp>
 #include <prequel/anchor_handle.hpp>
-#include <prequel/array.hpp>
 #include <prequel/binary_format.hpp>
+#include <prequel/container/allocator.hpp>
+#include <prequel/container/array.hpp>
+#include <prequel/container/iteration.hpp>
 #include <prequel/defs.hpp>
 #include <prequel/engine.hpp>
-#include <prequel/iteration.hpp>
 
 #include <functional>
 
@@ -87,12 +87,20 @@ struct raw_hash_table_options {
 };
 
 /**
- * \note the hash table will use the k lowest bits in order to determine
- * the hash bucket for a given key (with k getting larger as the table grows).
+ * A hash table is an unordered collection of values.
+ * Keys are derived from values and those keys must be comparable for equality
+ * and hashable to distribute them between the bucket nodes of the hash table.
+ *
+ * A hash table will, on average, require fewer I/O operations than a B-Tree to answer a point query
+ * for a given search key. However, it cannot support range queries nor can it support
+ * a well defined order between its elements.
+ *
+ * \note The hash table will use the k lowest bits in order to determine
+ * the hash bucket for a given key (with k growing larger as the table grows in size).
  * It is therefore crucial that those bits are somewhat uniformly distributed.
  *
  * The FNV-1A hash function has shown good results even for integer keys (it is the default
- * for hash_table<..:>).
+ * for hash_table<...>).
  */
 class raw_hash_table {
 public:
@@ -287,4 +295,4 @@ private:
 
 } // namespace prequel
 
-#endif // PREQUEL_RAW_HASH_TABLE_HPP
+#endif // PREQUEL_CONTAINER_RAW_HASH_TABLE_HPP

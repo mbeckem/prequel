@@ -1,6 +1,6 @@
 #include <catch.hpp>
 
-#include <prequel/default_allocator.hpp>
+#include <prequel/container/default_allocator.hpp>
 #include <prequel/file_engine.hpp>
 
 #include <iostream>

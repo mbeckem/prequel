@@ -2,9 +2,9 @@
 
 #include <prequel/exception.hpp>
 #include <prequel/formatting.hpp>
-#include <prequel/list.hpp>
-#include <prequel/node_allocator.hpp>
-#include <prequel/raw_list.hpp>
+#include <prequel/container/list.hpp>
+#include <prequel/container/node_allocator.hpp>
+#include <prequel/container/raw_list.hpp>
 
 #include <fmt/format.h>
 #include <fmt/ostream.h>

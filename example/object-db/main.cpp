@@ -1,7 +1,7 @@
-#include <prequel/btree.hpp>
+#include <prequel/container/btree.hpp>
 #include <prequel/hash.hpp>
-#include <prequel/heap.hpp>
-#include <prequel/id_generator.hpp>
+#include <prequel/container/heap.hpp>
+#include <prequel/container/id_generator.hpp>
 #include <prequel/simple_file_format.hpp>
 
 #include <clipp.h>
@@ -143,7 +143,7 @@ class property_map {
         };
 
         static constexpr auto get_binary_format() {
-            return binary_format(&property::node, &property::name, &property::value);
+            return prequel::binary_format(&property::node, &property::name, &property::value);
         }
     };
 
@@ -451,7 +451,7 @@ public:
         edge_map::anchor edges;
 
         static constexpr auto get_binary_format() {
-            return binary_format(&anchor::heap, &anchor::ids, &anchor::strings, &anchor::nodes,
+            return prequel::binary_format(&anchor::heap, &anchor::ids, &anchor::strings, &anchor::nodes,
                                  &anchor::properties, &anchor::edges);
         }
     };

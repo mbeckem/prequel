@@ -1,4 +1,4 @@
-#include <prequel/id_generator.hpp>
+#include <prequel/container/id_generator.hpp>
 
 #include <fmt/ostream.h>
 

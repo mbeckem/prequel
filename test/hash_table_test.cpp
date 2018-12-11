@@ -1,10 +1,10 @@
 #include <catch.hpp>
 
-#include <prequel/default_allocator.hpp>
+#include <prequel/container/default_allocator.hpp>
 #include <prequel/formatting.hpp>
 #include <prequel/hash.hpp>
-#include <prequel/hash_table.hpp>
-#include <prequel/raw_hash_table.hpp>
+#include <prequel/container/hash_table.hpp>
+#include <prequel/container/raw_hash_table.hpp>
 
 #include <iostream>
 

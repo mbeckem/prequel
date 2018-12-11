@@ -1,7 +1,7 @@
-#ifndef PREQUEL_NODE_ALLOCATOR_HPP
-#define PREQUEL_NODE_ALLOCATOR_HPP
+#ifndef PREQUEL_CONTAINER_NODE_ALLOCATOR_HPP
+#define PREQUEL_CONTAINER_NODE_ALLOCATOR_HPP
 
-#include <prequel/allocator.hpp>
+#include <prequel/container/allocator.hpp>
 #include <prequel/anchor_handle.hpp>
 #include <prequel/binary_format.hpp>
 #include <prequel/detail/free_list.hpp>
@@ -64,4 +64,4 @@ private:
 
 } // namespace prequel
 
-#endif // PREQUEL_NODE_ALLOCATOR_HPP
+#endif // PREQUEL_CONTAINER_NODE_ALLOCATOR_HPP

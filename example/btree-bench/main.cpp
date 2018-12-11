@@ -1,5 +1,5 @@
-#include <prequel/btree.hpp>
-#include <prequel/hash_table.hpp>
+#include <prequel/container/btree.hpp>
+#include <prequel/container/hash_table.hpp>
 #include <prequel/simple_file_format.hpp>
 
 #include <clipp.h>

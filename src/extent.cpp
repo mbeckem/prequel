@@ -1,4 +1,4 @@
-#include <prequel/extent.hpp>
+#include <prequel/container/extent.hpp>
 
 #include <prequel/exception.hpp>
 

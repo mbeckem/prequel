@@ -2,10 +2,10 @@
 #define PREQUEL_TYPES_HPP
 
 #include <prequel/binary_format.hpp>
-#include <prequel/btree.hpp>
-#include <prequel/default_allocator.hpp>
+#include <prequel/container/btree.hpp>
+#include <prequel/container/default_allocator.hpp>
+#include <prequel/container/extent.hpp>
 #include <prequel/defs.hpp>
-#include <prequel/extent.hpp>
 #include <prequel/file_engine.hpp>
 
 #include <optional>

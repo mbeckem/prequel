@@ -1,8 +1,8 @@
-#ifndef PREQUEL_HEAP_HPP
-#define PREQUEL_HEAP_HPP
+#ifndef PREQUEL_CONTAINER_HEAP_HPP
+#define PREQUEL_CONTAINER_HEAP_HPP
 
-#include <prequel/allocator.hpp>
-#include <prequel/btree.hpp>
+#include <prequel/container/allocator.hpp>
+#include <prequel/container/btree.hpp>
 #include <prequel/defs.hpp>
 #include <prequel/detail/operators.hpp>
 #include <prequel/engine.hpp>
@@ -322,4 +322,4 @@ private:
 
 } // namespace prequel
 
-#endif // PREQUEL_HEAP_HPP
+#endif // PREQUEL_CONTAINER_HEAP_HPP

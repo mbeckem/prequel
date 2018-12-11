@@ -1,5 +1,5 @@
-#ifndef PREQUEL_ALLOCATOR_HPP
-#define PREQUEL_ALLOCATOR_HPP
+#ifndef PREQUEL_CONTAINER_ALLOCATOR_HPP
+#define PREQUEL_CONTAINER_ALLOCATOR_HPP
 
 #include <prequel/block_index.hpp>
 #include <prequel/defs.hpp>
@@ -132,4 +132,4 @@ private:
 
 } // namespace prequel
 
-#endif // PREQUEL_ALLOCATOR_HPP
+#endif // PREQUEL_CONTAINER_ALLOCATOR_HPP

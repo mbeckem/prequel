@@ -1,4 +1,4 @@
-#include <prequel/node_allocator.hpp>
+#include <prequel/container/node_allocator.hpp>
 
 #include <prequel/exception.hpp>
 

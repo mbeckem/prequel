@@ -1,4 +1,4 @@
-#include <prequel/default_allocator.hpp>
+#include <prequel/container/default_allocator.hpp>
 #include <prequel/deferred.hpp>
 
 #include <fmt/ostream.h>

@@ -1,9 +1,9 @@
-#ifndef PREQUEL_RAW_BTREE_HPP
-#define PREQUEL_RAW_BTREE_HPP
+#ifndef PREQUEL_CONTAINER_RAW_BTREE_HPP
+#define PREQUEL_CONTAINER_RAW_BTREE_HPP
 
-#include <prequel/allocator.hpp>
 #include <prequel/anchor_handle.hpp>
 #include <prequel/binary_format.hpp>
+#include <prequel/container/allocator.hpp>
 #include <prequel/defs.hpp>
 #include <prequel/engine.hpp>
 
@@ -447,4 +447,4 @@ private:
 
 } // namespace prequel
 
-#endif // PREQUEL_RAW_BTREE_HPP
+#endif // PREQUEL_CONTAINER_RAW_BTREE_HPP

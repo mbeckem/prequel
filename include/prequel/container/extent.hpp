@@ -1,10 +1,10 @@
-#ifndef PREQUEL_EXTENT_HPP
-#define PREQUEL_EXTENT_HPP
+#ifndef PREQUEL_CONTAINER_EXTENT_HPP
+#define PREQUEL_CONTAINER_EXTENT_HPP
 
-#include <prequel/allocator.hpp>
 #include <prequel/anchor_handle.hpp>
 #include <prequel/binary_format.hpp>
 #include <prequel/block_index.hpp>
+#include <prequel/container/allocator.hpp>
 #include <prequel/defs.hpp>
 #include <prequel/handle.hpp>
 
@@ -125,4 +125,4 @@ private:
 
 } // namespace prequel
 
-#endif // PREQUEL_EXTENT_HPP
+#endif // PREQUEL_CONTAINER_EXTENT_HPP

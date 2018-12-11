@@ -1,8 +1,8 @@
-#ifndef PREQUEL_BTREE_HPP
-#define PREQUEL_BTREE_HPP
+#ifndef PREQUEL_CONTAINER_BTREE_HPP
+#define PREQUEL_CONTAINER_BTREE_HPP
 
-#include <prequel/identity_key.hpp>
-#include <prequel/raw_btree.hpp>
+#include <prequel/container/identity_key.hpp>
+#include <prequel/container/raw_btree.hpp>
 #include <prequel/serialization.hpp>
 
 #include <fmt/ostream.h>
@@ -505,4 +505,4 @@ void btree<T, DeriveKey, KeyLess>::dump(std::ostream& os) {
 
 } // namespace prequel
 
-#endif // PREQUEL_BTREE_HPP
+#endif // PREQUEL_CONTAINER_BTREE_HPP

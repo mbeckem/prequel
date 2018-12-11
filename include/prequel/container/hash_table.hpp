@@ -1,10 +1,10 @@
-#ifndef PREQUEL_HASH_TABLE_HPP
-#define PREQUEL_HASH_TABLE_HPP
+#ifndef PREQUEL_CONTAINER_HASH_TABLE_HPP
+#define PREQUEL_CONTAINER_HASH_TABLE_HPP
 
 #include <prequel/binary_format.hpp>
+#include <prequel/container/identity_key.hpp>
+#include <prequel/container/raw_hash_table.hpp>
 #include <prequel/hash.hpp>
-#include <prequel/identity_key.hpp>
-#include <prequel/raw_hash_table.hpp>
 #include <prequel/serialization.hpp>
 
 #include <memory>
@@ -32,7 +32,7 @@ public:
         friend binary_format_access;
     };
 
-    // TODO Rethink node visitation API, its awkward.
+    // TODO Rethink node visitation API, it's awkward.
     class node_view {
     public:
         bool is_primary() const { return m_inner.is_primary(); }
@@ -302,4 +302,4 @@ private:
 
 } // namespace prequel
 
-#endif // PREQUEL_HASH_TABLE_HPP
+#endif // PREQUEL_CONTAINER_HASH_TABLE_HPP

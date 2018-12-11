@@ -1,4 +1,4 @@
-#include <prequel/heap.hpp>
+#include <prequel/container/heap.hpp>
 
 #include <prequel/assert.hpp>
 #include <prequel/deferred.hpp>

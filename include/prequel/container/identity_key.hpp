@@ -1,5 +1,5 @@
-#ifndef PREQUEL_IDENTITY_KEY_HPP
-#define PREQUEL_IDENTITY_KEY_HPP
+#ifndef PREQUEL_CONTAINER_IDENTITY_KEY_HPP
+#define PREQUEL_CONTAINER_IDENTITY_KEY_HPP
 
 #include <prequel/defs.hpp>
 
@@ -18,4 +18,4 @@ struct identity_t {
 
 } // namespace prequel
 
-#endif // PREQUEL_IDENTITY_KEY_HPP
+#endif // PREQUEL_CONTAINER_IDENTITY_KEY_HPP
