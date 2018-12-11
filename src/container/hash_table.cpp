@@ -1,4 +1,4 @@
-#include <prequel/container/raw_hash_table.hpp>
+#include <prequel/container/hash_table.hpp>
 
 #include <prequel/exception.hpp>
 #include <prequel/formatting.hpp>

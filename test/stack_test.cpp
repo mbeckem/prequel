@@ -1,7 +1,6 @@
 #include <catch.hpp>
 
 #include <prequel/container/node_allocator.hpp>
-#include <prequel/container/raw_stack.hpp>
 #include <prequel/container/stack.hpp>
 
 #include <iostream>

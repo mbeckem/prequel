@@ -1,9 +1,9 @@
 #ifndef PREQUEL_CONTAINER_NODE_ALLOCATOR_HPP
 #define PREQUEL_CONTAINER_NODE_ALLOCATOR_HPP
 
-#include <prequel/container/allocator.hpp>
 #include <prequel/anchor_handle.hpp>
 #include <prequel/binary_format.hpp>
+#include <prequel/container/allocator.hpp>
 #include <prequel/detail/free_list.hpp>
 #include <prequel/handle.hpp>
 

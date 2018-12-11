@@ -4,7 +4,6 @@
 #include <prequel/container/default_allocator.hpp>
 #include <prequel/exception.hpp>
 #include <prequel/formatting.hpp>
-#include <prequel/container/raw_array.hpp>
 
 #include "./test_file.hpp"
 

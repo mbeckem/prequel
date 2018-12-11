@@ -1,10 +1,9 @@
 #include <catch.hpp>
 
-#include <prequel/exception.hpp>
-#include <prequel/formatting.hpp>
 #include <prequel/container/list.hpp>
 #include <prequel/container/node_allocator.hpp>
-#include <prequel/container/raw_list.hpp>
+#include <prequel/exception.hpp>
+#include <prequel/formatting.hpp>
 
 #include <fmt/format.h>
 #include <fmt/ostream.h>

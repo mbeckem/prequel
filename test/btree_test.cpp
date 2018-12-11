@@ -1,9 +1,8 @@
 #include <catch.hpp>
 
 #include <prequel/container/btree.hpp>
-#include <prequel/formatting.hpp>
 #include <prequel/container/node_allocator.hpp>
-#include <prequel/container/raw_btree.hpp>
+#include <prequel/formatting.hpp>
 
 #include "./test_file.hpp"
 

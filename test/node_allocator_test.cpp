@@ -1,7 +1,7 @@
 #include <catch.hpp>
 
-#include <prequel/exception.hpp>
 #include <prequel/container/node_allocator.hpp>
+#include <prequel/exception.hpp>
 
 #include "./test_file.hpp"
 

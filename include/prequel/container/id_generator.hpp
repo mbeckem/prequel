@@ -1,8 +1,8 @@
 #ifndef PREQUEL_CONTAINER_ID_GENERATOR_HPP
 #define PREQUEL_CONTAINER_ID_GENERATOR_HPP
 
-#include <prequel/container/allocator.hpp>
 #include <prequel/anchor_handle.hpp>
+#include <prequel/container/allocator.hpp>
 #include <prequel/container/btree.hpp>
 #include <prequel/defs.hpp>
 #include <prequel/engine.hpp>

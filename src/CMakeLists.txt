@@ -1,6 +1,27 @@
 set(HEADER_ROOT ${PROJECT_SOURCE_DIR}/include/prequel)
 
 set(PUBLIC_HEADERS
+    ${HEADER_ROOT}/address.hpp
+    ${HEADER_ROOT}/anchor_handle.hpp
+    ${HEADER_ROOT}/assert.hpp
+    ${HEADER_ROOT}/binary_format.hpp
+    ${HEADER_ROOT}/block_index.hpp
+    ${HEADER_ROOT}/deferred.hpp
+    ${HEADER_ROOT}/defs.hpp
+    ${HEADER_ROOT}/engine.hpp
+    ${HEADER_ROOT}/exception.hpp
+    ${HEADER_ROOT}/file_engine.hpp
+    ${HEADER_ROOT}/formatting.hpp
+    ${HEADER_ROOT}/handle.hpp
+    ${HEADER_ROOT}/hash.hpp
+    ${HEADER_ROOT}/math.hpp
+    ${HEADER_ROOT}/memory_engine.hpp
+    ${HEADER_ROOT}/mmap_engine.hpp
+    ${HEADER_ROOT}/serialization.hpp
+    ${HEADER_ROOT}/simple_file_format.hpp
+    ${HEADER_ROOT}/type_traits.hpp
+    ${HEADER_ROOT}/vfs.hpp
+
     ${HEADER_ROOT}/detail/bitset.hpp
     ${HEADER_ROOT}/detail/fix.hpp
     ${HEADER_ROOT}/detail/free_list.hpp
@@ -21,48 +42,21 @@ set(PUBLIC_HEADERS
     ${HEADER_ROOT}/container/list.hpp
     ${HEADER_ROOT}/container/map.hpp
     ${HEADER_ROOT}/container/node_allocator.hpp
-    ${HEADER_ROOT}/container/raw_array.hpp
-    ${HEADER_ROOT}/container/raw_btree.hpp
-    ${HEADER_ROOT}/container/raw_hash_table.hpp
-    ${HEADER_ROOT}/container/raw_list.hpp
-    ${HEADER_ROOT}/container/raw_stack.hpp
     ${HEADER_ROOT}/container/stack.hpp
-
-    ${HEADER_ROOT}/address.hpp
-    ${HEADER_ROOT}/anchor_handle.hpp
-    ${HEADER_ROOT}/assert.hpp
-    ${HEADER_ROOT}/binary_format.hpp
-    ${HEADER_ROOT}/block_index.hpp
-    ${HEADER_ROOT}/deferred.hpp
-    ${HEADER_ROOT}/defs.hpp
-    ${HEADER_ROOT}/engine.hpp
-    ${HEADER_ROOT}/exception.hpp
-    ${HEADER_ROOT}/file_engine.hpp
-    ${HEADER_ROOT}/formatting.hpp
-    ${HEADER_ROOT}/handle.hpp
-    ${HEADER_ROOT}/hash.hpp
-    ${HEADER_ROOT}/math.hpp
-    ${HEADER_ROOT}/memory_engine.hpp
-    ${HEADER_ROOT}/mmap_engine.hpp
-    ${HEADER_ROOT}/serialization.hpp
-    ${HEADER_ROOT}/simple_file_format.hpp
-
-    ${HEADER_ROOT}/type_traits.hpp
-    ${HEADER_ROOT}/vfs.hpp
 )
 
 set(PRIVATE_HEADERS
-    btree/base.hpp
-    btree/cursor.hpp
-    btree/cursor.ipp
-    btree/internal_node.hpp
-    btree/internal_node.ipp
-    btree/leaf_node.hpp
-    btree/leaf_node.ipp
-    btree/loader.hpp
-    btree/loader.ipp
-    btree/tree.hpp
-    btree/tree.ipp
+    container/btree/base.hpp
+    container/btree/cursor.hpp
+    container/btree/cursor.ipp
+    container/btree/internal_node.hpp
+    container/btree/internal_node.ipp
+    container/btree/leaf_node.hpp
+    container/btree/leaf_node.ipp
+    container/btree/loader.hpp
+    container/btree/loader.ipp
+    container/btree/tree.hpp
+    container/btree/tree.ipp
 
     engine/base.hpp
     engine/block.hpp
@@ -79,26 +73,28 @@ set(SOURCES
     address.cpp
     assert.cpp
     block_index.cpp
-    default_allocator.cpp
     engine.cpp
     exception.cpp
-    extent.cpp
     file_engine.cpp
     formatting.cpp
     hash.cpp
-    heap.cpp
-    id_generator.cpp
     memory_engine.cpp
     mmap_engine.cpp
-    node_allocator.cpp
-    raw_array.cpp
-    raw_btree.cpp
-    raw_hash_table.cpp
-    raw_list.cpp
-    raw_stack.cpp
     simple_file_format.cpp
     vfs.cpp
-    detail/free_list.cpp
+
+    detail/free_list.cpp    
+
+    container/array.cpp
+    container/btree.cpp
+    container/default_allocator.cpp
+    container/extent.cpp
+    container/hash_table.cpp
+    container/heap.cpp
+    container/id_generator.cpp
+    container/list.cpp
+    container/node_allocator.cpp
+    container/stack.cpp
 )
 
 if (WIN32)
