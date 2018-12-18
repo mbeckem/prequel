@@ -20,8 +20,8 @@ class tree : public uses_allocator {
     using anchor = detail::raw_btree_anchor;
 
 public:
-    tree(anchor_handle<anchor> _anchor, const raw_btree_options& opts, allocator& alloc);
-    ~tree();
+    inline tree(anchor_handle<anchor> _anchor, const raw_btree_options& opts, allocator& alloc);
+    inline ~tree();
 
     tree(const tree&) = delete;
     tree& operator=(const tree&) = delete;
@@ -52,7 +52,7 @@ public:
     }
 
     // Returns left < right
-    bool value_less(const byte* left_value, const byte* right_value) const;
+    inline bool value_less(const byte* left_value, const byte* right_value) const;
 
     // Returns derive_key(value) == key
     bool value_equal_key(const byte* value, const byte* key) const {
@@ -67,116 +67,118 @@ public:
     }
 
     // Seek the cursor to the lower bound of key.
-    void lower_bound(const byte* key, cursor& cursor) const;
+    inline void lower_bound(const byte* key, cursor& cursor) const;
 
     // Seek the cursor to the upper bound of key.
-    void upper_bound(const byte* key, cursor& cursor) const;
+    inline void upper_bound(const byte* key, cursor& cursor) const;
 
     // Find the key (or fail).
-    void find(const byte* key, cursor& cursor) const;
+    inline void find(const byte* key, cursor& cursor) const;
 
     // Insert the value into the tree (or do nothing if the key exists).
     // Points to the value (old or new) after the operation completed.
-    bool insert(const byte* value, cursor& cursor);
+    inline bool insert(const byte* value, cursor& cursor);
 
     /// Erase the element that is currently being pointed at by this cursor.
-    void erase(cursor& cursor);
+    inline void erase(cursor& cursor);
 
-    void clear();
+    inline void clear();
 
-    void clear_subtree(block_index root, u32 level);
+    inline void clear_subtree(block_index root, u32 level);
 
-    std::unique_ptr<loader> bulk_load();
+    inline std::unique_ptr<loader> bulk_load();
 
-    std::unique_ptr<cursor> create_cursor(raw_btree::cursor_seek_t seek);
+    inline std::unique_ptr<cursor> create_cursor(raw_btree::cursor_seek_t seek);
 
-    void dump(std::ostream& os) const;
+    inline void dump(std::ostream& os) const;
 
-    void visit(bool (*visit_fn)(const raw_btree::node_view& node, void* user_data),
-               void* user_data) const;
+    inline void visit(bool (*visit_fn)(const raw_btree::node_view& node, void* user_data),
+                      void* user_data) const;
 
-    void validate() const;
+    inline void validate() const;
 
 private:
-    void seek_insert_location(const byte* key, cursor& cursor);
+    inline void seek_insert_location(const byte* key, cursor& cursor);
 
     // Create a new root node from two children (leaves or internal) and a split key.
-    internal_node
+    inline internal_node
     create_root(block_index left_child, block_index right_child, const byte* split_key);
 
     // Exactly like split(const leaf_node&, byte*) but for internal nodes.
-    internal_node split(const internal_node& old_internal, byte* split_key);
+    inline internal_node split(const internal_node& old_internal, byte* split_key);
 
     // The root was split. Make sure that all (valid) cursors include the new root in their path.
-    void apply_root_split(const internal_node& new_root, const internal_node& left_leaf,
-                          const internal_node& right_leaf);
+    inline void apply_root_split(const internal_node& new_root, const internal_node& left_leaf,
+                                 const internal_node& right_leaf);
 
     // A node with a (non-full!) parent was split. The left node was at left_index and remains there. The right node
     // becomes the child at index left_index + 1 and all nodes further to the right have their index incremented by one.
     // 'level' is the level of the left node.
-    void apply_child_split(const internal_node& parent, u32 left_level, u32 left_index,
-                           const internal_node& left, const internal_node& right);
+    inline void apply_child_split(const internal_node& parent, u32 left_level, u32 left_index,
+                                  const internal_node& left, const internal_node& right);
 
 private:
     // Handle the deletion of a leaf node in its parent node(s).
-    void propagate_leaf_deletion(cursor& cursor, block_index child_node, u32 child_node_index);
+    inline void
+    propagate_leaf_deletion(cursor& cursor, block_index child_node, u32 child_node_index);
 
     // Steal an entry from the neighboring node and put it into the leaf.
-    void steal_leaf_entry(const internal_node& parent, const leaf_node& leaf, u32 leaf_index,
-                          const leaf_node& neighbor, u32 neighbor_index);
-    void steal_internal_entry(const internal_node& parent, u32 stack_index,
-                              const internal_node& internal, u32 internal_index,
-                              const internal_node& neighbor, u32 neighbor_index);
+    inline void steal_leaf_entry(const internal_node& parent, const leaf_node& leaf, u32 leaf_index,
+                                 const leaf_node& neighbor, u32 neighbor_index);
+    inline void steal_internal_entry(const internal_node& parent, u32 stack_index,
+                                     const internal_node& internal, u32 internal_index,
+                                     const internal_node& neighbor, u32 neighbor_index);
 
     // Merge two neighboring nodes.
     // Note: values will end up in "leaf" and will be taken from "neighbor".
-    void merge_leaf(const internal_node& parent, const leaf_node& leaf, u32 leaf_index,
-                    const leaf_node& neighbor, u32 neighbor_index);
-    void merge_internal(const internal_node& parent, u32 stack_index, const internal_node& node,
-                        u32 node_index, const internal_node& neighbor, u32 neighbor_index);
+    inline void merge_leaf(const internal_node& parent, const leaf_node& leaf, u32 leaf_index,
+                           const leaf_node& neighbor, u32 neighbor_index);
+    inline void
+    merge_internal(const internal_node& parent, u32 stack_index, const internal_node& node,
+                   u32 node_index, const internal_node& neighbor, u32 neighbor_index);
 
 private:
     // Index of the first value >= key or leaf.size() if none exists.
-    u32 lower_bound(const leaf_node& leaf, const byte* key) const;
+    inline u32 lower_bound(const leaf_node& leaf, const byte* key) const;
 
     // Index of the first child >= key or the index of the last child.
-    u32 lower_bound(const internal_node& internal, const byte* key) const;
+    inline u32 lower_bound(const internal_node& internal, const byte* key) const;
 
-    u32 upper_bound(const leaf_node& leaf, const byte* key) const;
-    u32 upper_bound(const internal_node& internal, const byte* key) const;
+    inline u32 upper_bound(const leaf_node& leaf, const byte* key) const;
+    inline u32 upper_bound(const internal_node& internal, const byte* key) const;
 
     // Seek to the first value with key(value) > key (upper)
     // or >= key (lower).
     enum seek_bound_t { seek_bound_lower, seek_bound_upper, seek_bound_find };
 
     template<seek_bound_t which>
-    void seek_bound(const byte* key, cursor& cursor) const;
+    inline void seek_bound(const byte* key, cursor& cursor) const;
 
 public:
     // TODO: Move rest of cursor navigation here too, then make this private again.
     // Also get rid of most of the code in cursor_impl.
-    bool next_leaf(cursor& cursor) const;
-    bool prev_leaf(cursor& cursor) const;
+    inline bool next_leaf(cursor& cursor) const;
+    inline bool prev_leaf(cursor& cursor) const;
 
 private:
     template<typename Func>
-    void visit_nodes(Func&& fn) const;
+    inline void visit_nodes(Func&& fn) const;
 
 public:
-    leaf_node as_leaf(block_handle handle) const;
-    internal_node as_internal(block_handle handle) const;
+    inline leaf_node as_leaf(block_handle handle) const;
+    inline internal_node as_internal(block_handle handle) const;
 
-    leaf_node read_leaf(block_index index) const;
-    internal_node read_internal(block_index) const;
+    inline leaf_node read_leaf(block_index index) const;
+    inline internal_node read_internal(block_index) const;
 
 private:
     friend loader;
 
-    leaf_node create_leaf();
-    internal_node create_internal();
+    inline leaf_node create_leaf();
+    inline internal_node create_internal();
 
-    void free_leaf(block_index leaf);
-    void free_internal(block_index internal);
+    inline void free_leaf(block_index leaf);
+    inline void free_internal(block_index internal);
 
 private:
     // Cursor management
@@ -186,9 +188,9 @@ private:
     using cursor_list_type = boost::intrusive::list<
         cursor, boost::intrusive::member_hook<cursor, decltype(cursor::m_cursors), &cursor::m_cursors>>;
 
-    void link_cursor(cursor* cursor) { m_cursors.push_back(*cursor); }
+    inline void link_cursor(cursor* cursor) { m_cursors.push_back(*cursor); }
 
-    void unlink_cursor(cursor* cursor) { m_cursors.erase(m_cursors.iterator_to(*cursor)); }
+    inline void unlink_cursor(cursor* cursor) { m_cursors.erase(m_cursors.iterator_to(*cursor)); }
 
 public:
     // Persistent tree state accessors

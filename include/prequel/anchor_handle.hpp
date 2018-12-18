@@ -41,16 +41,16 @@ public:
     anchor_handle() = default;
 
     /// Constructs an anchor handle that does not point to a dirty flag.
-    explicit anchor_handle(Anchor& anchor)
+    anchor_handle(Anchor& anchor)
         : anchor_handle(anchor, nullptr) {}
 
     /// Constructs an anchor handle that references a dirty flag.
     /// The flag will be set to "changed" when the anchor was modified through
     /// the anchor or one of its aliasing children.
-    explicit anchor_handle(Anchor& anchor, anchor_flag& changed)
+    anchor_handle(Anchor& anchor, anchor_flag& changed)
         : anchor_handle(anchor, &changed) {}
 
-    explicit anchor_handle(Anchor& anchor, anchor_flag* changed);
+    anchor_handle(Anchor& anchor, anchor_flag* changed);
 
 public:
     /// Returns the anchor's value.
@@ -125,6 +125,10 @@ private:
     anchor_flag* m_flag = nullptr;
 };
 
+template<typename Anchor>
+anchor_handle(Anchor& anchor)->anchor_handle<Anchor>;
+
+// FIXME remove factory functions.
 template<typename Anchor>
 anchor_handle<Anchor> make_anchor_handle(Anchor& anchor) {
     return anchor_handle<Anchor>(anchor);

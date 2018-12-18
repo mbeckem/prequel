@@ -238,6 +238,7 @@ public:
     u64 size() const;
 
     /// Grows the underyling storage by `n` blocks.
+    /// The new blocks are considered uninitialized and can contain arbitrary data.
     void grow(u64 n);
 
     /// Writes all dirty blocks back to disk.
@@ -247,6 +248,10 @@ public:
     /// Reads the block at the given index and returns a handle to it.
     /// No actual I/O is performed if the block is already being referenced; a block handle
     /// pointing to the same block in memory will be returned in that case.
+    ///
+    /// \note The content of blocks that have never been written to is arbitrary,
+    /// they have to be initialized manually. `overwrite()` and `overwrite_zero()` are
+    /// efficient ways to do that, because they don't need to read the block from disk.
     ///
     /// Throws if an I/O error occurs.
     block_handle read(block_index index);
@@ -263,12 +268,13 @@ public:
     /// Similar to `read()`, but the block is overwritten with the new data instead.
     /// This can save a read operation if the block is not already in memory.
     ///
+    /// `data_size` must not be greater than the block size. If `data_size` is smaller than the block size,
+    /// the rest of the block will be filled with zeroes.
+    ///
     /// Throws if an I/O error occurs.
     ///
     /// \note If the block was already in memory, its contents will be overwritten
     /// with zeroes as well.
-    ///
-    /// \warning `data` must be a pointer to (at least) `block_size()` bytes.
     block_handle overwrite(block_index index, const byte* data, size_t data_size);
 
     /// Returns the address to the first byte of the given block.
@@ -326,8 +332,13 @@ private:
     // Initialize with the given data array, without reading from storage.
     struct initialize_data_t {
         const byte* data;
+        const size_t size;
 
-        void apply(byte* block, u32 block_size) { std::memmove(block, data, block_size); }
+        void apply(byte* block, u32 block_size) {
+            std::memmove(block, data, size);
+            if (size < block_size)
+                std::memset(block + size, 0, block_size - size);
+        }
     };
 
     template<typename Initializer>

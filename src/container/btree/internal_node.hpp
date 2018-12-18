@@ -70,33 +70,33 @@ public:
     // Pre: 1 <= index <= get_child_count
     // Post: keys[index - 1] == split_key, children[index] == new_child.
     // Other keys and children will be shifted to the right.
-    void insert_split_result(u32 index, const byte* split_key, block_index new_child) const;
+    inline void insert_split_result(u32 index, const byte* split_key, block_index new_child) const;
 
     // Insert a (key, value)-pair at the front.
-    void prepend_entry(const byte* key, block_index child) const;
+    inline void prepend_entry(const byte* key, block_index child) const;
 
     // Insert a (key, value)-pair at the back.
-    void append_entry(const byte* key, block_index child) const;
+    inline void append_entry(const byte* key, block_index child) const;
 
     // Sets the content (child_count - 1 keys and child_count children) of this node.
     // Used during bulk loading.
-    void set_entries(const byte* keys, const block_index* children, u32 child_count);
+    inline void set_entries(const byte* keys, const block_index* children, u32 child_count);
 
     // Removes the child at the given index (and its key, if there is one).
     // All children and keys with a higher index move one to the left.
-    void remove_child(u32 index) const;
+    inline void remove_child(u32 index) const;
 
     // Merge with the right neighbor. The split key is the key that currently
     // represents this node in the parent.
-    void append_from_right(const byte* split_key, const internal_node& neighbor) const;
+    inline void append_from_right(const byte* split_key, const internal_node& neighbor) const;
 
     // Merge with the left neighbor. The split key is the key that currently
     // represents the neighbor in the parent.
-    void prepend_from_left(const byte* split_key, const internal_node& neighbor) const;
+    inline void prepend_from_left(const byte* split_key, const internal_node& neighbor) const;
 
     /// Moves half of this node's keys and children into the right node.
     /// Sets the split key to the key that should go in the middle.
-    void split(const internal_node& right, byte* split_key) const;
+    inline void split(const internal_node& right, byte* split_key) const;
 
     u32 min_children() const { return compute_min_children(max_children()); }
     u32 max_children() const { return m_max_children; }

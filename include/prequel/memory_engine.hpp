@@ -19,7 +19,7 @@ class memory_engine_impl;
  *
  * The main use of this class is for unit testing.
  */
-class memory_engine : public engine {
+class memory_engine final : public engine {
 public:
     /**
      * Constructs a new in-memory engine with the specified block size.

@@ -52,14 +52,14 @@ private:
     int m_flags = 0;
 
 public:
-    explicit cursor(btree_impl::tree* parent);
-    ~cursor();
+    inline explicit cursor(btree_impl::tree* parent);
+    inline ~cursor();
 
     cursor(const cursor&) = delete;
     cursor& operator=(const cursor&) = delete;
 
     // Explicit to avoid errors.
-    void copy(const cursor&);
+    inline void copy(const cursor&);
 
     btree_impl::tree* tree() const { return m_tree; }
 
@@ -81,38 +81,38 @@ public:
     bool invalid() const { return m_flags & INVALID; }
 
 public:
-    u32 value_size() const;
-    u32 key_size() const;
+    inline u32 value_size() const;
+    inline u32 key_size() const;
 
-    bool at_end() const;
-    bool erased() const;
+    inline bool at_end() const;
+    inline bool erased() const;
 
-    bool move_min();
-    bool move_max();
-    bool move_next();
-    bool move_prev();
+    inline bool move_min();
+    inline bool move_max();
+    inline bool move_next();
+    inline bool move_prev();
 
-    bool lower_bound(const byte* key);
-    bool upper_bound(const byte* key);
-    bool find(const byte* key);
-    bool insert(const byte* value, bool overwrite);
-    void erase();
+    inline bool lower_bound(const byte* key);
+    inline bool upper_bound(const byte* key);
+    inline bool find(const byte* key);
+    inline bool insert(const byte* value, bool overwrite);
+    inline void erase();
 
-    const byte* get() const;
-    void set(const byte* value);
+    inline const byte* get() const;
+    inline void set(const byte* value);
 
-    void validate() const;
+    inline void validate() const;
 
-    bool operator==(const cursor& other) const;
+    inline bool operator==(const cursor& other) const;
 
 private:
     // Seek to the first or last entry in the tree.
     template<bool max>
-    void init_position();
+    inline void init_position();
 
 private:
-    void check_tree_valid() const;
-    void check_element_valid() const;
+    inline void check_tree_valid() const;
+    inline void check_element_valid() const;
 };
 
 } // namespace prequel::detail::btree_impl

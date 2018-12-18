@@ -19,6 +19,7 @@ set(PUBLIC_HEADERS
     ${HEADER_ROOT}/mmap_engine.hpp
     ${HEADER_ROOT}/serialization.hpp
     ${HEADER_ROOT}/simple_file_format.hpp
+    ${HEADER_ROOT}/transaction_engine.hpp
     ${HEADER_ROOT}/type_traits.hpp
     ${HEADER_ROOT}/vfs.hpp
 
@@ -65,8 +66,14 @@ set(PRIVATE_HEADERS
     engine/block_dirty_set.hpp
     engine/block_map.hpp
     engine/block_pool.hpp
+    engine/engine_base.hpp
+    engine/engine_base.ipp
     engine/file_engine.hpp
     engine/file_engine.ipp
+    engine/journal.hpp
+    engine/journal.ipp
+    engine/transaction_engine.hpp
+    engine/transaction_engine.ipp
 )
 
 set(SOURCES
@@ -81,6 +88,7 @@ set(SOURCES
     memory_engine.cpp
     mmap_engine.cpp
     simple_file_format.cpp
+    transaction_engine.cpp
     vfs.cpp
 
     detail/free_list.cpp    

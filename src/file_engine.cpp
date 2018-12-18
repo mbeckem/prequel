@@ -1,17 +1,10 @@
 #include <prequel/file_engine.hpp>
 
-#include "engine/block.hpp"
-#include "engine/block_cache.hpp"
-#include "engine/block_dirty_set.hpp"
-#include "engine/block_map.hpp"
-#include "engine/block_pool.hpp"
 #include "engine/file_engine.hpp"
 
 #include "engine/block.ipp"
+#include "engine/engine_base.ipp"
 #include "engine/file_engine.ipp"
-
-#include <exception>
-#include <type_traits>
 
 namespace prequel {
 
@@ -30,13 +23,11 @@ file_engine_stats file_engine::stats() const {
 }
 
 u64 file_engine::do_size() const {
-    return fd().file_size() >> block_size_log();
+    return impl().size();
 }
 
 void file_engine::do_grow(u64 n) {
-    u64 new_size_blocks = checked_add(do_size(), n);
-    u64 new_size_bytes = checked_mul<u64>(new_size_blocks, block_size());
-    fd().truncate(new_size_bytes);
+    impl().grow(n);
 }
 
 void file_engine::do_flush() {

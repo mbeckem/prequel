@@ -268,6 +268,25 @@ struct default_serializer<std::tuple<T...>> {
     }
 };
 
+// Enums are (de-) serialized by casting them to their underlying type (which should have a
+// platform independent size).
+template<typename T>
+struct default_serializer<T, std::enable_if_t<std::is_enum_v<T>>> {
+    using underlying_t = std::underlying_type_t<T>;
+
+    static constexpr size_t serialized_size = prequel::serialized_size<underlying_t>();
+
+    PREQUEL_ALWAYS_INLINE
+    static void serialize(const T& v, byte* b) { serialize_impl(static_cast<underlying_t>(v), b); }
+
+    PREQUEL_ALWAYS_INLINE
+    static void deserialize(T& v, const byte* b) {
+        underlying_t u;
+        deserialize_impl(u, b);
+        v = static_cast<T>(u);
+    }
+};
+
 // Returns the size of the largest type.
 template<typename... T>
 constexpr size_t max_size() {

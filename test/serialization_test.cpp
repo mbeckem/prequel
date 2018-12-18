@@ -579,6 +579,8 @@ TEST_CASE("complex struct", "[serialization]") {
     auto buffer = serialize_to_buffer(hdr);
 
     size_t size_offset = serialized_offset<&sqlite_header_t::default_page_cache_size>();
+    REQUIRE(size_offset == 48);
+
     u32 page_cache_size = deserialize<u32>(buffer.data() + size_offset);
     REQUIRE(page_cache_size == 128);
 }
@@ -756,4 +758,44 @@ TEST_CASE("non default constructible", "[serialization]") {
 
     REQUIRE(value.x == 3);
     REQUIRE(value.inner.y == -1234);
+}
+
+TEST_CASE("enums are supported", "[serialization]") {
+    enum test_enum_1 : i64 { test_1 = 5, test_2 = 1337 };
+
+    static_assert(serialized_size<test_enum_1>() == 8, "serialized as i64");
+
+    enum class test_enum_2 : u32 { first = 999, second = 55555, last = u32(-1) };
+
+    static_assert(serialized_size<test_enum_2>() == 4, "serialized as u32");
+
+    {
+        auto buffer = serialize_to_buffer(test_1);
+        auto value = deserialize_from_buffer<test_enum_1>(buffer);
+        REQUIRE(value == test_1);
+    }
+
+    {
+        auto buffer = serialize_to_buffer(test_2);
+        auto value = deserialize_from_buffer<test_enum_1>(buffer);
+        REQUIRE(value == test_2);
+    }
+
+    {
+        auto buffer = serialize_to_buffer(test_enum_2::first);
+        auto value = deserialize_from_buffer<test_enum_2>(buffer);
+        REQUIRE(value == test_enum_2::first);
+    }
+
+    {
+        auto buffer = serialize_to_buffer(test_enum_2::second);
+        auto value = deserialize_from_buffer<test_enum_2>(buffer);
+        REQUIRE(value == test_enum_2::second);
+    }
+
+    {
+        auto buffer = serialize_to_buffer(test_enum_2::last);
+        auto value = deserialize_from_buffer<test_enum_2>(buffer);
+        REQUIRE(value == test_enum_2::last);
+    }
 }

@@ -18,6 +18,12 @@ using IsUnsigned = std::enable_if_t<std::is_unsigned<T>::value, T>;
 template<typename T>
 using IsInteger = std::enable_if_t<std::is_integral<T>::value, T>;
 
+/// Returns true if the index range [offset, offset + n) is valid for a datastructure of the given `size`.
+template<typename T, IsUnsigned<T>* = nullptr>
+constexpr bool range_in_bounds(T size, T offset, T n) {
+    return offset <= size && n <= size - offset;
+}
+
 /// Rounds `v` towards the next power of two. Returns `v` if it is already a power of two.
 /// Note: returns 0 if `v == 0`.
 ///

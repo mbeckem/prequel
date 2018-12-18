@@ -9,7 +9,7 @@
 
 namespace prequel::detail::btree_impl {
 
-inline loader::loader(btree_impl::tree& tree)
+loader::loader(btree_impl::tree& tree)
     : m_tree(tree)
     , m_internal_min_children(m_tree.internal_node_min_chlidren())
     , m_internal_max_children(m_tree.internal_node_max_children())
@@ -17,7 +17,7 @@ inline loader::loader(btree_impl::tree& tree)
     , m_value_size(m_tree.value_size())
     , m_key_size(m_tree.key_size()) {}
 
-inline void loader::insert(const byte* values, size_t count) {
+void loader::insert(const byte* values, size_t count) {
     if (count == 0)
         return;
     if (!values)
@@ -54,7 +54,7 @@ inline void loader::insert(const byte* values, size_t count) {
     guard.disable();
 }
 
-inline void loader::finish() {
+void loader::finish() {
     if (!m_tree.empty())
         PREQUEL_THROW(bad_operation("The tree must be empty."));
 
@@ -101,7 +101,7 @@ inline void loader::finish() {
     m_state = STATE_FINALIZED;
 }
 
-inline void loader::discard() {
+void loader::discard() {
     if (m_state == STATE_OK)
         m_state = STATE_FINALIZED;
 
@@ -123,7 +123,7 @@ inline void loader::discard() {
 }
 
 // Note: Invalidates references to nodes on the parent stack.
-inline void loader::flush_leaf() {
+void loader::flush_leaf() {
     PREQUEL_ASSERT(m_leaf.valid(), "Leaf must be valid.");
     PREQUEL_ASSERT(m_leaf.get_size() > 0, "Leaf must not be empty.");
 
@@ -141,7 +141,7 @@ inline void loader::flush_leaf() {
 }
 
 // Note: Invalidates references to nodes on the parent stack.
-inline void loader::insert_child(size_t index, const byte* key, block_index child) {
+void loader::insert_child(size_t index, const byte* key, block_index child) {
     PREQUEL_ASSERT(index <= m_parents.size(), "Invalid parent index.");
 
     if (index == m_parents.size()) {
@@ -157,7 +157,7 @@ inline void loader::insert_child(size_t index, const byte* key, block_index chil
 
 // Flush count entries from the node to the next level.
 // Note: Invalidates references to nodes on the parent stack.
-inline void loader::flush_internal(size_t index, proto_internal_node& node, u32 count) {
+void loader::flush_internal(size_t index, proto_internal_node& node, u32 count) {
     PREQUEL_ASSERT(index < m_parents.size(), "Invalid node index.");
     PREQUEL_ASSERT(m_parents[index].get() == &node, "Node address mismatch.");
     PREQUEL_ASSERT(count <= node.size, "Cannot flush that many elements.");
@@ -179,8 +179,7 @@ inline void loader::flush_internal(size_t index, proto_internal_node& node, u32 
     node.size = node.size - count;
 }
 
-inline void
-loader::insert_child_nonfull(proto_internal_node& node, const byte* key, block_index child) {
+void loader::insert_child_nonfull(proto_internal_node& node, const byte* key, block_index child) {
     PREQUEL_ASSERT(node.size < node.capacity, "Node is full.");
 
     std::memcpy(node.keys.data() + node.size * m_key_size, key, m_key_size);

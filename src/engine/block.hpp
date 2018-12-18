@@ -16,7 +16,7 @@ namespace prequel::detail::engine_impl {
 struct block {
 public:
     /// The engine this block belongs to.
-    file_engine* const m_engine;
+    engine_base* const m_engine;
 
     /// Index of the block within the file.
     u64 m_index = 0;
@@ -42,9 +42,9 @@ public:
     block_dirty_set_hook m_dirty_hook;
 
 public:
-    explicit block(file_engine* engine);
+    inline explicit block(engine_base* engine);
 
-    ~block();
+    inline ~block();
 
     block(const block&) = delete;
     block& operator=(const block&) = delete;

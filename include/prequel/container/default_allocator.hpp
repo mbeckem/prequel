@@ -12,7 +12,7 @@
 
 namespace prequel {
 
-class default_allocator : public allocator {
+class default_allocator final : public allocator {
 private:
     // An extent represents a region of space within the file.
     struct extent_t {

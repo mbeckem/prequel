@@ -8,19 +8,19 @@
 
 namespace prequel::detail::btree_impl {
 
-inline cursor::cursor(btree_impl::tree* parent)
+cursor::cursor(btree_impl::tree* parent)
     : m_tree(parent) {
     if (m_tree)
         m_tree->link_cursor(this);
     reset_to_invalid();
 }
 
-inline cursor::~cursor() {
+cursor::~cursor() {
     if (m_tree && m_cursors.is_linked())
         m_tree->unlink_cursor(this);
 }
 
-inline void cursor::copy(const cursor& other) {
+void cursor::copy(const cursor& other) {
     if (this == &other)
         return;
 
@@ -31,12 +31,12 @@ inline void cursor::copy(const cursor& other) {
     m_flags = other.m_flags;
 }
 
-inline void cursor::check_tree_valid() const {
+void cursor::check_tree_valid() const {
     if (!m_tree)
         PREQUEL_THROW(bad_cursor("The cursor's tree instance has been destroyed."));
 }
 
-inline void cursor::check_element_valid() const {
+void cursor::check_element_valid() const {
     check_tree_valid();
     if (m_flags & cursor::INPROGRESS)
         PREQUEL_THROW(bad_cursor("Leak of in-progress cursor."));
@@ -86,26 +86,26 @@ inline void cursor::check_element_valid() const {
 #endif
 }
 
-inline u32 cursor::value_size() const {
+u32 cursor::value_size() const {
     check_tree_valid();
     return m_tree->value_size();
 }
 
-inline u32 cursor::key_size() const {
+u32 cursor::key_size() const {
     check_tree_valid();
     return m_tree->key_size();
 }
 
-inline bool cursor::at_end() const {
+bool cursor::at_end() const {
     return !erased() && (m_flags & INVALID);
 }
 
-inline bool cursor::erased() const {
+bool cursor::erased() const {
     return m_flags & DELETED;
 }
 
 template<bool max>
-inline void cursor::init_position() {
+void cursor::init_position() {
     check_tree_valid();
     reset_to_zero();
 
@@ -146,17 +146,17 @@ inline void cursor::init_position() {
     m_flags &= ~INPROGRESS;
 }
 
-inline bool cursor::move_min() {
+bool cursor::move_min() {
     init_position<false>();
     return !at_end();
 }
 
-inline bool cursor::move_max() {
+bool cursor::move_max() {
     init_position<true>();
     return !at_end();
 }
 
-inline bool cursor::move_prev() {
+bool cursor::move_prev() {
     check_tree_valid();
 
     if (m_flags & DELETED) {
@@ -197,7 +197,7 @@ inline bool cursor::move_prev() {
     return true;
 }
 
-inline bool cursor::move_next() {
+bool cursor::move_next() {
     check_tree_valid();
 
     if (m_flags & DELETED) {
@@ -240,25 +240,25 @@ inline bool cursor::move_next() {
     return true;
 }
 
-inline bool cursor::lower_bound(const byte* key) {
+bool cursor::lower_bound(const byte* key) {
     check_tree_valid();
     m_tree->lower_bound(key, *this);
     return !at_end();
 }
 
-inline bool cursor::upper_bound(const byte* key) {
+bool cursor::upper_bound(const byte* key) {
     check_tree_valid();
     m_tree->upper_bound(key, *this);
     return !at_end();
 }
 
-inline bool cursor::find(const byte* key) {
+bool cursor::find(const byte* key) {
     check_tree_valid();
     m_tree->find(key, *this);
     return !at_end();
 }
 
-inline bool cursor::insert(const byte* value, bool overwrite) {
+bool cursor::insert(const byte* value, bool overwrite) {
     check_tree_valid();
     bool inserted = m_tree->insert(value, *this);
     if (!inserted && overwrite) {
@@ -267,17 +267,17 @@ inline bool cursor::insert(const byte* value, bool overwrite) {
     return inserted;
 }
 
-inline void cursor::erase() {
+void cursor::erase() {
     check_element_valid();
     m_tree->erase(*this);
 }
 
-inline const byte* cursor::get() const {
+const byte* cursor::get() const {
     check_element_valid();
     return m_leaf.get(m_index);
 }
 
-inline void cursor::set(const byte* value) {
+void cursor::set(const byte* value) {
     PREQUEL_ASSERT(value, "Nullpointer instead of a value.");
     check_element_valid();
 
@@ -291,7 +291,7 @@ inline void cursor::set(const byte* value) {
     m_leaf.set(m_index, value);
 }
 
-inline void cursor::validate() const {
+void cursor::validate() const {
 #define BAD(...) PREQUEL_THROW(bad_cursor(__VA_ARGS__))
 
     // TODO
@@ -299,7 +299,7 @@ inline void cursor::validate() const {
 #undef BAD
 }
 
-inline bool cursor::operator==(const cursor& other) const {
+bool cursor::operator==(const cursor& other) const {
     if (m_tree != other.m_tree)
         return false;
     if (at_end() != other.at_end())

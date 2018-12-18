@@ -16,7 +16,7 @@ class mmap_engine_impl;
 
 } // namespace detail
 
-class mmap_engine : public engine {
+class mmap_engine final : public engine {
 public:
     /**
      * Constructs a new mmap engine.

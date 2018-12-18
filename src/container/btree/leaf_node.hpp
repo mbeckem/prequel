@@ -58,25 +58,25 @@ public:
     }
 
     // Insert the new value at the given index and shift values to the right.
-    void insert_nonfull(u32 index, const byte* value) const;
+    inline void insert_nonfull(u32 index, const byte* value) const;
 
     // Insert a range of values at the end. For bulk loading.
-    void append_nonfull(const byte* values, u32 count) const;
+    inline void append_nonfull(const byte* values, u32 count) const;
 
     // Perform a node split and insert the new value at the appropriate position.
     // `mid` is the size of *this, after the split (other values end up in new_leaf).
     // If index < mid, then the new value is in the left node, at the given index.
     // Otherwise the new value is in new_leaf, at `index - mid`.
-    void insert_full(u32 index, const byte* value, u32 mid, const leaf_node& new_leaf) const;
+    inline void insert_full(u32 index, const byte* value, u32 mid, const leaf_node& new_leaf) const;
 
     // Removes the value at the given index and shifts all values after it to the left.
-    void remove(u32 index) const;
+    inline void remove(u32 index) const;
 
     // Append all values from the right neighbor.
-    void append_from_right(const leaf_node& neighbor) const;
+    inline void append_from_right(const leaf_node& neighbor) const;
 
     // Prepend all values from the left neighbor.
-    void prepend_from_left(const leaf_node& neighbor) const;
+    inline void prepend_from_left(const leaf_node& neighbor) const;
 
 public:
     static u32 capacity(u32 block_size, u32 value_size) {
@@ -111,8 +111,8 @@ private:
     /// Otherwise, the value will be located in the right sequence, at index `insert_index - mid`.
     ///
     /// \note This function does not apply the new size to either sequence, it only moves elements.
-    static void sequence_insert(u32 value_size, byte* left, byte* right, u32 count, u32 mid,
-                                u32 insert_index, const byte* value);
+    inline static void sequence_insert(u32 value_size, byte* left, byte* right, u32 count, u32 mid,
+                                       u32 insert_index, const byte* value);
 
 private:
     handle<header> m_handle;

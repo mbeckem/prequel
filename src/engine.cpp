@@ -174,12 +174,12 @@ block_handle engine::overwrite(block_index index, const byte* data, size_t size)
     if (!index.valid()) {
         PREQUEL_THROW(bad_argument("Invalid block index."));
     }
-    if (size < m_block_size) {
-        PREQUEL_THROW(bad_argument(
-            fmt::format("Buffer not large enough ({} byte given but blocks are {} byte large).",
-                        size, m_block_size)));
+    if (size > m_block_size) {
+        PREQUEL_THROW(bad_argument(fmt::format(
+            "Buffer is too large for a single block ({} bytes given, block size is {} bytes).",
+            size, m_block_size)));
     }
-    return internal_populate_handle(index, initialize_data_t{data});
+    return internal_populate_handle(index, initialize_data_t{data, size});
 }
 
 template<typename Initializer>

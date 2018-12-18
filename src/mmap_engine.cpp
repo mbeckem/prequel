@@ -1,8 +1,5 @@
 #include <prequel/mmap_engine.hpp>
 
-#include <boost/intrusive/list.hpp>
-#include <boost/intrusive/list_hook.hpp>
-
 #include <vector>
 
 namespace prequel {

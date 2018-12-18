@@ -5,8 +5,8 @@
 
 namespace prequel::detail::btree_impl {
 
-inline void
-internal_node::insert_split_result(u32 index, const byte* split_key, block_index new_child) const {
+void internal_node::insert_split_result(u32 index, const byte* split_key,
+                                        block_index new_child) const {
     PREQUEL_ASSERT(get_child_count() < max_children(), "Inserting into a full node.");
     PREQUEL_ASSERT(index >= 1 && index <= get_child_count(), "Index out of bounds");
 
@@ -27,7 +27,7 @@ internal_node::insert_split_result(u32 index, const byte* split_key, block_index
     set_child_count(child_count + 1);
 }
 
-inline void internal_node::prepend_entry(const byte* key, block_index child) const {
+void internal_node::prepend_entry(const byte* key, block_index child) const {
     PREQUEL_ASSERT(get_child_count() < max_children(), "Inserting into a full node.");
 
     const u32 child_count = get_child_count();
@@ -43,7 +43,7 @@ inline void internal_node::prepend_entry(const byte* key, block_index child) con
     set_child_count(child_count + 1);
 }
 
-inline void internal_node::append_entry(const byte* key, block_index child) const {
+void internal_node::append_entry(const byte* key, block_index child) const {
     PREQUEL_ASSERT(get_child_count() < max_children(), "Inserting into a full node.");
 
     const u32 child_count = get_child_count();
@@ -55,8 +55,7 @@ inline void internal_node::append_entry(const byte* key, block_index child) cons
     set_child_count(child_count + 1);
 }
 
-inline void
-internal_node::set_entries(const byte* keys, const block_index* children, u32 child_count) {
+void internal_node::set_entries(const byte* keys, const block_index* children, u32 child_count) {
     PREQUEL_ASSERT(get_child_count() == 0, "Can only be used on empty nodes.");
     PREQUEL_ASSERT(child_count <= max_children(), "Too many children.");
     PREQUEL_ASSERT(child_count >= 2, "Invalid number of children.");
@@ -75,7 +74,7 @@ internal_node::set_entries(const byte* keys, const block_index* children, u32 ch
     set_child_count(child_count);
 }
 
-inline void internal_node::remove_child(u32 index) const {
+void internal_node::remove_child(u32 index) const {
     PREQUEL_ASSERT(index < get_child_count(), "Child index out of bounds.");
 
     const u32 child_count = get_child_count();
@@ -90,8 +89,7 @@ inline void internal_node::remove_child(u32 index) const {
     set_child_count(child_count - 1);
 }
 
-inline void
-internal_node::append_from_right(const byte* split_key, const internal_node& neighbor) const {
+void internal_node::append_from_right(const byte* split_key, const internal_node& neighbor) const {
     PREQUEL_ASSERT(get_child_count() + neighbor.get_child_count() <= max_children(),
                    "Too many children.");
     PREQUEL_ASSERT(key_size() == neighbor.key_size(), "Key size missmatch.");
@@ -111,8 +109,7 @@ internal_node::append_from_right(const byte* split_key, const internal_node& nei
     set_child_count(child_count + neighbor_child_count);
 }
 
-inline void
-internal_node::prepend_from_left(const byte* split_key, const internal_node& neighbor) const {
+void internal_node::prepend_from_left(const byte* split_key, const internal_node& neighbor) const {
     PREQUEL_ASSERT(get_child_count() + neighbor.get_child_count() <= max_children(),
                    "Too many children.");
     PREQUEL_ASSERT(key_size() == neighbor.key_size(), "Key size missmatch.");
@@ -139,7 +136,7 @@ internal_node::prepend_from_left(const byte* split_key, const internal_node& nei
     set_child_count(child_count + neighbor_child_count);
 }
 
-inline void internal_node::split(const internal_node& right, byte* split_key) const {
+void internal_node::split(const internal_node& right, byte* split_key) const {
     PREQUEL_ASSERT(get_child_count() == max_children(), "Node must be full.");
     PREQUEL_ASSERT(right.get_child_count() == 0, "Right node must be empty.");
     PREQUEL_ASSERT(key_size() == right.key_size(), "Key size missmatch.");

@@ -5,7 +5,7 @@
 
 namespace prequel::detail::btree_impl {
 
-inline void leaf_node::insert_nonfull(u32 index, const byte* value) const {
+void leaf_node::insert_nonfull(u32 index, const byte* value) const {
     PREQUEL_ASSERT(index < m_max_children, "Index out of bounds.");
     PREQUEL_ASSERT(index <= get_size(), "Unexpected index (not in range).");
 
@@ -17,7 +17,7 @@ inline void leaf_node::insert_nonfull(u32 index, const byte* value) const {
     set_size(size + 1);
 }
 
-inline void leaf_node::append_nonfull(const byte* values, u32 count) const {
+void leaf_node::append_nonfull(const byte* values, u32 count) const {
     PREQUEL_ASSERT(count > 0, "Useless call.");
     PREQUEL_ASSERT(count <= m_max_children, "Count out of bounds.");
     PREQUEL_ASSERT(get_size() <= m_max_children - count, "Insert range out of bounds.");
@@ -28,8 +28,7 @@ inline void leaf_node::append_nonfull(const byte* values, u32 count) const {
     set_size(old_size + count);
 }
 
-inline void
-leaf_node::insert_full(u32 index, const byte* value, u32 mid, const leaf_node& new_leaf) const {
+void leaf_node::insert_full(u32 index, const byte* value, u32 mid, const leaf_node& new_leaf) const {
     PREQUEL_ASSERT(mid <= m_max_children, "Mid out of bounds.");
     PREQUEL_ASSERT(m_value_size == new_leaf.m_value_size, "Value size missmatch.");
     PREQUEL_ASSERT(m_max_children == new_leaf.m_max_children, "Capacity missmatch.");
@@ -43,7 +42,7 @@ leaf_node::insert_full(u32 index, const byte* value, u32 mid, const leaf_node& n
     new_leaf.set_size(m_max_children + 1 - mid);
 }
 
-inline void leaf_node::remove(u32 index) const {
+void leaf_node::remove(u32 index) const {
     PREQUEL_ASSERT(index < m_max_children, "Index out of bounds.");
     PREQUEL_ASSERT(index < get_size(), "Unexpected index (not in range).");
 
@@ -54,7 +53,7 @@ inline void leaf_node::remove(u32 index) const {
     set_size(size - 1);
 }
 
-inline void leaf_node::append_from_right(const leaf_node& neighbor) const {
+void leaf_node::append_from_right(const leaf_node& neighbor) const {
     PREQUEL_ASSERT(get_size() + neighbor.get_size() <= m_max_children, "Too many values.");
     PREQUEL_ASSERT(value_size() == neighbor.value_size(), "Value size missmatch.");
 
@@ -69,7 +68,7 @@ inline void leaf_node::append_from_right(const leaf_node& neighbor) const {
     set_size(size + neighbor_size);
 }
 
-inline void leaf_node::prepend_from_left(const leaf_node& neighbor) const {
+void leaf_node::prepend_from_left(const leaf_node& neighbor) const {
     PREQUEL_ASSERT(get_size() + neighbor.get_size() <= m_max_children, "Too many values.");
     PREQUEL_ASSERT(value_size() == neighbor.value_size(), "Value size missmatch.");
 
@@ -86,8 +85,8 @@ inline void leaf_node::prepend_from_left(const leaf_node& neighbor) const {
     set_size(size + neighbor_size);
 }
 
-inline void leaf_node::sequence_insert(u32 value_size, byte* left, byte* right, u32 count, u32 mid,
-                                       u32 insert_index, const byte* value) {
+void leaf_node::sequence_insert(u32 value_size, byte* left, byte* right, u32 count, u32 mid,
+                                u32 insert_index, const byte* value) {
     PREQUEL_ASSERT(mid > 0 && mid <= count, "index can't be used as mid");
     PREQUEL_ASSERT(insert_index <= count, "index out of bounds");
 

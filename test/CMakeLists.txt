@@ -20,6 +20,7 @@ set(SOURCES
     serialization_test.cpp
     stack_test.cpp
     test_file.hpp
+    transaction_engine_test.cpp
 )
 
 if (UNIX)
@@ -30,3 +31,4 @@ endif()
 
 add_executable(unit-tests ${SOURCES})
 target_link_libraries(unit-tests prequel)
+target_include_directories(unit-tests PRIVATE "${PROJECT_SOURCE_DIR}/src")

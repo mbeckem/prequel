@@ -15,7 +15,7 @@ namespace prequel {
 ///
 /// This allocator can be used for very simple node based containers,
 /// such as lists and btrees.
-class node_allocator : public allocator {
+class node_allocator final : public allocator {
 public:
     class anchor {
         // Free'd blocks are put on the free list.

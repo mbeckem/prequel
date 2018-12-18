@@ -15,16 +15,16 @@ namespace prequel::detail::btree_impl {
 // Future: Implement bulk loading for non-emtpy trees (i.e. all keys must be > max).
 class loader {
 public:
-    loader(btree_impl::tree& tree);
+    inline loader(btree_impl::tree& tree);
 
     loader(const loader&) = delete;
     loader& operator=(const loader&) = delete;
 
-    void insert(const byte* values, size_t count);
+    inline void insert(const byte* values, size_t count);
 
-    void finish();
+    inline void finish();
 
-    void discard();
+    inline void discard();
 
 private:
     // Every node is represented by its max key and its pointer.
@@ -47,11 +47,11 @@ private:
         return node;
     }
 
-    void insert_child(size_t index, const byte* key, block_index child);
-    void flush_internal(size_t index, proto_internal_node& node, u32 count);
+    inline void insert_child(size_t index, const byte* key, block_index child);
+    inline void flush_internal(size_t index, proto_internal_node& node, u32 count);
 
-    void insert_child_nonfull(proto_internal_node& node, const byte* key, block_index child);
-    void flush_leaf();
+    inline void insert_child_nonfull(proto_internal_node& node, const byte* key, block_index child);
+    inline void flush_leaf();
 
     enum state_t { STATE_OK, STATE_ERROR, STATE_FINALIZED };
 

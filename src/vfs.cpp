@@ -71,7 +71,6 @@ private:
 private:
     std::string m_name;
     std::vector<byte> m_data;
-    size_t size = 0;
     bool m_read_only = false; // Doesn't make much sense..
 };
 
@@ -99,7 +98,12 @@ void memory_file::write(u64 offset, const void* buffer, u32 count) {
     if (m_read_only)
         PREQUEL_THROW(io_error("Writing to a file opened in read-only mode."));
 
-    range_check(offset, count);
+    if (offset <= m_data.size() && count > m_data.size() - offset) {
+        truncate(offset + count);
+    }
+
+    PREQUEL_ASSERT(offset <= m_data.size() && count <= m_data.size() - offset,
+                   "Enough room for write.");
     auto begin = reinterpret_cast<const byte*>(buffer);
     auto end = begin + count;
     std::copy(begin, end, m_data.data() + offset);
