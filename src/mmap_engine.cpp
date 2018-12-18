@@ -25,10 +25,36 @@ constexpr u64 mmap_chunk_size = query_mmap_chunk_size();
 
 /// This implementation relies on the fact that, on linux,
 /// mapping beyond the end of the file is fine.
-/// For reference: https://marc.info/?t=112482693600001
 ///
 /// We map large chunks of size mmap_chunk_size into memory at once,
-/// which gives us the ability to dynamically grow the file.
+/// which gives us the ability to dynamically grow the file without
+/// constantly remapping virtual memory (and therefore changing pointers...).
+///
+/// For reference: https://marc.info/?t=112482693600001
+///
+/// Quote:
+///     From:       Linus Torvalds <torvalds () osdl ! org>
+///
+///     On Tue, 23 Aug 2005, Ulrich Drepper wrote:
+///     >
+///     > Using mmap with a too-large size for the underlying file and then hoping
+///     > that future file growth is magically handled when those pages are
+///     > accessed is not valid.
+///
+///     Actually, it should be pretty much as valid as using mremap - ie it works
+///     on Linux.
+///
+///     Especially if you use MAP_SHARED, you don't even need to mprotect
+///     anything: you'll get a nice SIGBUS if you ever try to access past the last
+///     page that maps the file.
+///
+///     I think that works correctly for any half-way modern kernel - anything
+///     that has mremap() should do the right thing (I think older kernels would
+///     map zero pages past the end of the file mapping, and then if you touched
+///     the page first, you'd lose the coherency).
+///
+///                 Linus
+///
 class mmap_engine_impl {
 public:
     mmap_engine_impl(file& fd, u32 block_size);
