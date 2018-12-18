@@ -149,7 +149,7 @@ public:
      * that has been modified in this transaction.
      */
     template<typename Func>
-    inline void iterate_uncommited(Func&& fn) const;
+    inline void iterate_uncommitted(Func&& fn) const;
 
 private:
     // Restore the state of the journal by scanning the log file. Called from the constructor.

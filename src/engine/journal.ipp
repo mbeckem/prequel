@@ -394,7 +394,7 @@ bool journal::checkpoint(file& database_fd) {
 }
 
 template<typename Func>
-void journal::iterate_uncommited(Func&& fn) const {
+void journal::iterate_uncommitted(Func&& fn) const {
     PREQUEL_ASSERT(in_transaction(), "Must be in a transaction.");
 
     for (const auto& pair : m_uncommitted_block_positions) {

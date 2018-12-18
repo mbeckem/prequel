@@ -91,7 +91,7 @@ void transaction_engine::rollback() {
      * even if they are currently "clean" in memory.
      */
     if (m_journal.in_transaction()) {
-        m_journal.iterate_uncommited([&](block_index index) {
+        m_journal.iterate_uncommitted([&](block_index index) {
             PREQUEL_ASSERT(index.valid(), "Must be a valid block index.");
             discard(index.value());
         });
