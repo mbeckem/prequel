@@ -11,6 +11,8 @@ pool:
 
 steps:
 - script:
+    # Fuck you microsoft
+    sudo apt-get install -f
     sudo apt-get install -qq g++-6 cmake cmake-data
   displayName: "Installing apt dependencies"
 - script:
