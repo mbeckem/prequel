@@ -11,9 +11,7 @@ pool:
 
 steps:
 - script:
-    # Fuck you microsoft
-    sudo apt-get install -f;
-    sudo apt-get install -qq g++-6 cmake cmake-data;
+    sudo apt-get install -qq g++-6 cmake cmake;
   displayName: "Installing apt dependencies"
 - script:
     wget -O fmt-5.2.1.zip asd "https://github.com/fmtlib/fmt/releases/download/5.2.1/fmt-5.2.1.zip";
