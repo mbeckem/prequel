@@ -7,11 +7,19 @@ trigger:
 - master
 
 pool:
-  vmImage: 'Ubuntu-18.04'
+  vmImage: 'Ubuntu-16.04'
 
 steps:
 - script:
-    sudo apt install -qq g++-6 cmake cmake-data libfmt-dev
-  displayName: "Installing dependencies"
+    sudo apt install -qq g++-6 cmake cmake-data
+  displayName: "Installing apt dependencies"
+- script:
+    wget -O fmt-5.2.1.zip asd "https://github.com/fmtlib/fmt/releases/download/5.2.1/fmt-5.2.1.zip"
+    unzip fmt-5.2.1.zip
+    cd fmt-5.2.1/
+    mkdir build && cd build
+    cmake -DCMAKE_BUILD_TYPE=Release ..
+    make
+  displayName: "Installing libfmt"
 - script:
     echo "Hello World"
