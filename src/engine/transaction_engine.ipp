@@ -16,13 +16,18 @@ transaction_engine::transaction_engine(file& dbfd, file& journalfd, u32 block_si
     , m_dbfd(&dbfd)
     , m_journalfd(&journalfd)
     , m_journal(journalfd, block_size, default_journal_buffer_bytes) {
-    u64 size_bytes = m_dbfd->file_size();
-    if (size_bytes % m_block_size != 0) {
-        PREQUEL_THROW(corruption_error("Database size is not a multiple of the block size."));
-    }
+
+    const u64 size_bytes = m_dbfd->file_size();
     m_dbfile_size = size_bytes / m_block_size;
     m_size = m_journal.database_size().value_or(
         m_dbfile_size); // Use most recent committed size from the journal.
+
+    // A dirty journal and an invalid size -> database file corruption.
+    // In other words: the database file size can be stupid as long as the journal
+    // has the correct information.
+    if (size_bytes % m_block_size != 0 && !m_journal.has_committed_changes()) {
+        PREQUEL_THROW(corruption_error("Database size is not a multiple of the block size."));
+    }
 }
 
 transaction_engine::~transaction_engine() {
