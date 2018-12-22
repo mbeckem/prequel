@@ -5,7 +5,7 @@
 #include <prequel/binary_format.hpp>
 #include <prequel/container/allocator.hpp>
 #include <prequel/container/array.hpp>
-#include <prequel/container/identity_key.hpp>
+#include <prequel/container/indexing.hpp>
 #include <prequel/container/iteration.hpp>
 #include <prequel/defs.hpp>
 #include <prequel/engine.hpp>
@@ -297,7 +297,7 @@ private:
     std::unique_ptr<detail::raw_hash_table_impl> m_impl;
 };
 
-template<typename Value, typename DeriveKey = identity_t, typename KeyHash = fnv_hasher,
+template<typename Value, typename DeriveKey = indexed_by_identity, typename KeyHash = fnv_hasher,
          typename KeyEqual = std::equal_to<>>
 class hash_table {
 public:

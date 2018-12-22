@@ -4,7 +4,7 @@
 #include <prequel/anchor_handle.hpp>
 #include <prequel/binary_format.hpp>
 #include <prequel/container/allocator.hpp>
-#include <prequel/container/identity_key.hpp>
+#include <prequel/container/indexing.hpp>
 #include <prequel/defs.hpp>
 #include <prequel/engine.hpp>
 #include <prequel/serialization.hpp>
@@ -458,7 +458,7 @@ private:
  * by specifying the `KeyLess` parameter).
  * Two values are considered equal if their keys are equal.
  */
-template<typename Value, typename DeriveKey = identity_t, typename KeyLess = std::less<>>
+template<typename Value, typename DeriveKey = indexed_by_identity, typename KeyLess = std::less<>>
 class btree {
 public:
     /// Typedef for the value type.

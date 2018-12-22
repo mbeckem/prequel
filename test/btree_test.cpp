@@ -100,7 +100,7 @@ void check_tree_equals_container_reverse(const btree<T, DeriveKey, KeyLess>& tre
     return check_tree_equals_container_reverse<T>(tree.raw(), c);
 }
 
-template<typename Value, typename KeyDerive = identity_t, typename TestFunction>
+template<typename Value, typename KeyDerive = indexed_by_identity, typename TestFunction>
 void simple_tree_test(TestFunction&& test) {
     using tree_type = btree<Value, KeyDerive>;
 

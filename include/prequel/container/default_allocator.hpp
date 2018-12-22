@@ -51,7 +51,7 @@ private:
     };
 
     using extent_position_tree = btree<extent_t, derive_block_key>;
-    using extent_size_tree = btree<extent_t, identity_t, order_by_size>;
+    using extent_size_tree = btree<extent_t, indexed_by_identity, order_by_size>;
 
 public:
     class anchor {

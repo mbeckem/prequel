@@ -13,6 +13,7 @@
 #include <fmt/format.h>
 
 #include <array>
+#include <functional>
 #include <iostream>
 #include <memory>
 

@@ -38,7 +38,7 @@ set(PUBLIC_HEADERS
     ${HEADER_ROOT}/container/hash_table.hpp
     ${HEADER_ROOT}/container/heap.hpp
     ${HEADER_ROOT}/container/id_generator.hpp
-    ${HEADER_ROOT}/container/identity_key.hpp
+    ${HEADER_ROOT}/container/indexing.hpp
     ${HEADER_ROOT}/container/iteration.hpp
     ${HEADER_ROOT}/container/list.hpp
     ${HEADER_ROOT}/container/map.hpp
