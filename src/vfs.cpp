@@ -44,6 +44,8 @@ public:
     virtual std::unique_ptr<file> open(const char* path, access_t access, int mode) override;
 
     virtual std::unique_ptr<file> create_temp() override;
+
+    virtual void remove(const char* path) override;
 };
 
 class memory_file : public file {
@@ -130,6 +132,12 @@ std::unique_ptr<file> in_memory_vfs::open(const char* path, access_t access, int
 
 std::unique_ptr<file> in_memory_vfs::create_temp() {
     return std::make_unique<memory_file>(*this, "unnamed-temporary", false);
+}
+
+// Currently does nothing since there isn't even a memory-file index
+// from which a file entry could be removed.
+void in_memory_vfs::remove(const char* path) {
+    unused(path);
 }
 
 vfs& memory_vfs() {

@@ -71,6 +71,8 @@ public:
 
     std::unique_ptr<file> create_temp() override;
 
+    void remove(const char* path) override;
+
     void* memory_map(file& f, u64 offset, u64 length) override;
 
     void memory_sync(void* addr, u64 length) override;
@@ -259,6 +261,14 @@ std::unique_ptr<file> unix_vfs::create_temp() {
     auto ret = std::make_unique<unix_file>(*this, fd, std::move(name), false);
     guard.disable();
     return ret;
+}
+
+void unix_vfs::remove(const char* path) {
+    if (::remove(path) == -1) {
+        auto ec = get_errno();
+        PREQUEL_THROW(
+            io_error(fmt::format("Failed to remove `{}`: {}.", name(), ec.message())));
+    }
 }
 
 void* unix_vfs::memory_map(file& f, u64 offset, u64 length) {

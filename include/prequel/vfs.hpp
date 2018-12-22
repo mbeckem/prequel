@@ -115,6 +115,11 @@ public:
     /// TODO: Take a restricted subset of open flags (such as open_direct)
     virtual std::unique_ptr<file> create_temp() = 0;
 
+    /// Removes the file with the given name or throws an exception.
+    /// Note that on many implementations, existing file handles can still be used
+    /// after a file has been removed.
+    virtual void remove(const char* path) = 0;
+
     /// Maps a portion of the file into the process address space.
     /// Throws if not supported by the platform.
     ///

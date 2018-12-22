@@ -307,7 +307,7 @@ void journal::abort() {
         m_buffer_used = 0;
     } else {
         /*
-         * Transaction is in buffer only. just remove the part of the buffer that we can throw away.
+         * Transaction is in buffer only. Just remove the part of the buffer that we can throw away.
          */
         m_log_size = m_transaction_begin;
         m_buffer_used = m_transaction_begin - m_buffer_offset;
