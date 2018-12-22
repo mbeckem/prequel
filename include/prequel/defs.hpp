@@ -14,6 +14,12 @@ namespace prequel {
 #define PREQUEL_ALWAYS_INLINE __attribute__((always_inline))
 #define PREQUEL_FLATTEN __attribute__((flatten))
 
+/**
+ * Convenience namespace for users of this library that want to use the same typenames
+ * within their projects. Simple use "using namespace prequel::short_types" to import them.
+ */
+namespace short_types {
+
 using u8 = std::uint8_t;
 using u16 = std::uint16_t;
 using u32 = std::uint32_t;
@@ -25,6 +31,10 @@ using i32 = std::int32_t;
 using i64 = std::int64_t;
 
 using byte = unsigned char;
+
+} // namespace short_types
+
+using namespace short_types;
 
 using std::ptrdiff_t;
 using std::size_t;
