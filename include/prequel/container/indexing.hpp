@@ -39,9 +39,7 @@ struct indexed_by_member {
     using object_type = object_type_t<decltype(MemberPtr)>;
     using key_type = member_type_t<decltype(MemberPtr)>;
 
-    key_type operator()(const object_type& obj) const {
-        return obj.*MemberPtr;
-    }
+    key_type operator()(const object_type& obj) const { return obj.*MemberPtr; }
 };
 
 } // namespace prequel

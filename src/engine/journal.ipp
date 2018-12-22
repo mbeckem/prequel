@@ -246,6 +246,7 @@ void journal::begin() {
     PREQUEL_ASSERT(!m_in_transaction, "Already in a transaction.");
     PREQUEL_ASSERT(m_uncommitted_block_positions.empty(), "No changed blocks.");
     PREQUEL_ASSERT(!m_read_only, "Cannot start a write transaction in a read only log.");
+    PREQUEL_ASSERT(m_logfd->file_size() + m_buffer_used == m_log_size, "Log size invariant.");
 
     m_in_transaction = true;
     m_transaction_begin = m_log_size;
@@ -270,6 +271,8 @@ void journal::commit(u64 database_size) {
     // ^ This is the point of successful commit. Anything from here on is index/program state
     // management, which we will be able to restore after a crash by scanning the journal.
 
+    PREQUEL_ASSERT(m_logfd->file_size() + m_buffer_used == m_log_size, "Log size invariant.");
+
     /*
      * Remember the positions of the committed block versions for later reads.
      * Make sure to erase blocks from the index that may have been erased with
@@ -292,12 +295,25 @@ void journal::abort() {
     PREQUEL_ASSERT(!m_read_only, "Cannot abort a write transaction in a read only log.");
 
     /*
-     * Flush or sync would be a waste. The transaction was aborted; we don't care.
-     *
-     * TODO: It might be better to truncate back to the beginning of the transaction, i.e.
-     * just erase the discarded entries.
+     * Abort the transaction by erasing the last part of the log.
      */
-    append_to_buffer(record_header(record_abort));
+    if (m_transaction_begin < m_buffer_offset) {
+        /*
+         * Parts of the transaction have been flushed to disk.
+         */
+        m_logfd->truncate(m_transaction_begin);
+        m_log_size = m_transaction_begin;
+        m_buffer_offset = m_log_size;
+        m_buffer_used = 0;
+    } else {
+        /*
+         * Transaction is in buffer only. just remove the part of the buffer that we can throw away.
+         */
+        m_log_size = m_transaction_begin;
+        m_buffer_used = m_transaction_begin - m_buffer_offset;
+        PREQUEL_ASSERT(m_logfd->file_size() + m_buffer_used == m_log_size, "Log size invariant.");
+    }
+
     m_in_transaction = false;
     m_transaction_begin = 0;
     m_uncommitted_block_positions.clear();
