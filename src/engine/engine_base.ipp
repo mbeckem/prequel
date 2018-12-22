@@ -8,11 +8,11 @@
 
 namespace prequel::detail::engine_impl {
 
-engine_base::engine_base(u32 block_size, size_t cache_size, bool read_only)
+engine_base::engine_base(u32 block_size, size_t cache_blocks, bool read_only)
     : m_block_size(block_size)
     , m_block_size_log(log2(m_block_size))
-    , m_max_blocks(cache_size)
-    , m_max_pooled_blocks((cache_size + 8) < cache_size ? size_t(-1) : (cache_size + 8))
+    , m_max_blocks(cache_blocks)
+    , m_max_pooled_blocks((cache_blocks + 8) < cache_blocks ? size_t(-1) : (cache_blocks + 8))
     , m_read_only(read_only)
     , m_pool()
     , m_blocks(m_max_blocks)

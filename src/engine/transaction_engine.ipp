@@ -11,8 +11,8 @@ namespace prequel::detail::engine_impl {
 inline constexpr size_t default_journal_buffer_bytes = 4 * 1024 * 1024;
 
 transaction_engine::transaction_engine(file& dbfd, file& journalfd, u32 block_size,
-                                       size_t cache_size)
-    : engine_base(block_size, cache_size, journalfd.read_only())
+                                       size_t cache_blocks)
+    : engine_base(block_size, cache_blocks, journalfd.read_only())
     , m_dbfd(&dbfd)
     , m_journalfd(&journalfd)
     , m_journal(journalfd, block_size, default_journal_buffer_bytes) {

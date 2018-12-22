@@ -17,7 +17,7 @@ class transaction_engine;
 
 class transaction_engine final : public engine {
 public:
-    transaction_engine(file& dbfd, file& journalfd, u32 block_size, size_t cache_size);
+    transaction_engine(file& dbfd, file& journalfd, u32 block_size, size_t cache_blocks);
     ~transaction_engine();
 
     file& database_fd() const;

@@ -10,10 +10,10 @@
 namespace prequel {
 
 transaction_engine::transaction_engine(file& dbfd, file& journalfd, u32 block_size,
-                                       size_t cache_size)
+                                       size_t cache_blocks)
     : engine(block_size)
     , m_impl(std::make_unique<detail::engine_impl::transaction_engine>(dbfd, journalfd, block_size,
-                                                                       cache_size)) {}
+                                                                       cache_blocks)) {}
 
 transaction_engine::~transaction_engine() {}
 

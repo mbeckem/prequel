@@ -7,8 +7,8 @@
 
 namespace prequel::detail::engine_impl {
 
-file_engine::file_engine(file& fd, u32 block_size, size_t cache_size)
-    : engine_base(block_size, cache_size, fd.read_only())
+file_engine::file_engine(file& fd, u32 block_size, size_t cache_blocks)
+    : engine_base(block_size, cache_blocks, fd.read_only())
     , m_file(&fd) {}
 
 file_engine::~file_engine() {

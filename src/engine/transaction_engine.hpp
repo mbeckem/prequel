@@ -10,7 +10,7 @@ namespace prequel::detail::engine_impl {
 
 class transaction_engine final : public engine_base {
 public:
-    inline transaction_engine(file& dbfd, file& journalfd, u32 block_size, size_t cache_size);
+    inline transaction_engine(file& dbfd, file& journalfd, u32 block_size, size_t cache_blocks);
 
     inline ~transaction_engine();
 

@@ -15,7 +15,7 @@ namespace prequel::detail::engine_impl {
 class engine_base {
 public:
     // Cache size: number of blocks cached in memory.
-    inline explicit engine_base(u32 block_size, size_t cache_size, bool read_only);
+    inline explicit engine_base(u32 block_size, size_t cache_blocks, bool read_only);
 
     inline virtual ~engine_base();
 

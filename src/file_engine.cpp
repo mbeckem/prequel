@@ -8,9 +8,9 @@
 
 namespace prequel {
 
-file_engine::file_engine(file& fd, u32 block_size, size_t cache_size)
+file_engine::file_engine(file& fd, u32 block_size, size_t cache_blocks)
     : engine(block_size)
-    , m_impl(std::make_unique<detail::engine_impl::file_engine>(fd, block_size, cache_size)) {}
+    , m_impl(std::make_unique<detail::engine_impl::file_engine>(fd, block_size, cache_blocks)) {}
 
 file_engine::~file_engine() {}
 

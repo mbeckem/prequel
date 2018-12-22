@@ -41,9 +41,9 @@ public:
     ///     The size of a single block, in bytes.
     ///     Must be a power of two.
     ///
-    /// \param cache_size
+    /// \param cache_blocks
     ///     The number of blocks that can be cached in memory.
-    file_engine(file& fd, u32 block_size, size_t cache_size);
+    file_engine(file& fd, u32 block_size, size_t cache_blocks);
     ~file_engine();
 
     /// Returns the underlying file handle. The file should not be manipulated

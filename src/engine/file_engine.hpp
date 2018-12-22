@@ -10,7 +10,7 @@ namespace prequel::detail::engine_impl {
 
 class file_engine final : public engine_base {
 public:
-    inline explicit file_engine(file& fd, u32 block_size, size_t cache_size);
+    inline explicit file_engine(file& fd, u32 block_size, size_t cache_blocks);
     inline ~file_engine();
 
     inline file& fd() const { return *m_file; }
