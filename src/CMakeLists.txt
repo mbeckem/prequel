@@ -117,7 +117,6 @@ endif()
 
 # Workaround so that our warnings don't trigger in libraries included by us (header files...).
 # It transforms all includes of the library to "-isystem" mode, so the compiler skips warnings.
-# Currently unused but kept around for later.
 function(target_link_libraries_system target visibility)
     set(libs ${ARGN})
     foreach(lib ${libs})
@@ -136,7 +135,7 @@ target_include_directories(prequel
     SYSTEM PRIVATE
         "${Boost_INCLUDE_DIRS}"
 )
-target_link_libraries(prequel PUBLIC fmt::fmt)
+target_link_libraries_system(prequel PUBLIC fmt::fmt)
 
 # To log file engine block load/stores
 # target_compile_definitions(prequel PRIVATE PREQUEL_TRACE_IO=1)
