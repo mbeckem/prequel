@@ -115,11 +115,34 @@ elseif(UNIX)
     )
 endif()
 
+# Workaround so that our warnings don't trigger in libraries included by us (header files...).
+# It transforms all includes of the library to "-isystem" mode, so the compiler skips warnings.
+function(target_link_libraries_system target visibility)
+    set(libs ${ARGN})
+    foreach(lib ${libs})
+        get_target_property(lib_include_dirs ${lib} INTERFACE_INCLUDE_DIRECTORIES)
+        target_include_directories(${target} SYSTEM ${visibility} ${lib_include_dirs})
+        target_link_libraries(${target} ${visibility} ${lib})
+    endforeach()
+endfunction()
+
 add_library(prequel ${SOURCES} ${PUBLIC_HEADERS} ${PRIVATE_HEADERS})
-target_link_libraries(prequel PUBLIC fmt::fmt)
-target_include_directories(prequel PUBLIC "${PROJECT_SOURCE_DIR}/include")
-target_include_directories(prequel PRIVATE "${PROJECT_SOURCE_DIR}/src")
-target_include_directories(prequel SYSTEM PUBLIC ${Boost_INCLUDE_DIRS})
+
+# Public link against dependencies - headers are included as SYSTEM.
+target_link_libraries_system(prequel PUBLIC fmt::fmt)
+
+# Private includes when building the library.
+target_include_directories(prequel PRIVATE
+    "${PROJECT_SOURCE_DIR}/include"
+    "${PROJECT_SOURCE_DIR}/src"
+)
+target_include_directories(prequel SYSTEM PRIVATE "${Boost_INCLUDE_DIRS}")
+
+
+# Public includes for users
+target_include_directories(prequel SYSTEM PUBLIC
+    "${PROJECT_SOURCE_DIR}/include"
+)
 
 # To log file engine block load/stores
 # target_compile_definitions(prequel PRIVATE PREQUEL_TRACE_IO=1)
