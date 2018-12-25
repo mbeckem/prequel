@@ -1,6 +1,5 @@
 set(HEADERS
     database.hpp
-    fixed_string.hpp
 )
 
 set(SOURCES

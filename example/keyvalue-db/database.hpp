@@ -1,10 +1,9 @@
 #ifndef DATABASE_HPP
 #define DATABASE_HPP
 
-#include "./fixed_string.hpp"
-
 #include <prequel/container/hash_table.hpp>
 #include <prequel/container/heap.hpp>
+#include <prequel/fixed_string.hpp>
 #include <prequel/serialization.hpp>
 
 #include <optional>
@@ -37,7 +36,7 @@ inline uint64_t string_hash(const std::string& str) {
 struct database_entry {
 public:
     // Short strings contain their storage directly.
-    using short_key_t = fixed_string<23>;
+    using short_key_t = prequel::fixed_cstring<23>;
 
     struct long_key_t {
         // Reference to the string storage in the heap.

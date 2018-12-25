@@ -11,6 +11,7 @@ set(PUBLIC_HEADERS
     ${HEADER_ROOT}/engine.hpp
     ${HEADER_ROOT}/exception.hpp
     ${HEADER_ROOT}/file_engine.hpp
+    ${HEADER_ROOT}/fixed_string.hpp
     ${HEADER_ROOT}/formatting.hpp
     ${HEADER_ROOT}/handle.hpp
     ${HEADER_ROOT}/hash.hpp
