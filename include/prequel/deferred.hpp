@@ -14,10 +14,6 @@ namespace prequel {
 /// the `disable()` member function prior to its destruction.
 template<typename Function>
 class deferred {
-private:
-    Function fn;
-    bool invoke;
-
 public:
     deferred(const Function& fn_)
         : fn(fn_)
@@ -38,13 +34,17 @@ public:
         }
     }
 
-    /// Once `disable` has been called on a rollback object,
-    /// the rollback function will not be executed upon destruction.
+    /// Disables the execution of the deferred function.
     void disable() noexcept { invoke = false; }
 
     deferred(deferred&& other) = delete;
     deferred& operator=(const deferred&) = delete;
+
+private:
+    Function fn;
+    bool invoke;
 };
+
 } // namespace prequel
 
 #endif // PREQUEL_DEFERRED_HPP
