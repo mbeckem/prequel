@@ -266,8 +266,7 @@ std::unique_ptr<file> unix_vfs::create_temp() {
 void unix_vfs::remove(const char* path) {
     if (::remove(path) == -1) {
         auto ec = get_errno();
-        PREQUEL_THROW(
-            io_error(fmt::format("Failed to remove `{}`: {}.", name(), ec.message())));
+        PREQUEL_THROW(io_error(fmt::format("Failed to remove `{}`: {}.", name(), ec.message())));
     }
 }
 

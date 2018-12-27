@@ -142,7 +142,7 @@ std::tuple<bool, u64> journal::restore_transaction(u64 offset, u64 size) {
     };
 
     // Erases the current transaction state on return.
-    deferred reset_transaction = [&]{
+    deferred reset_transaction = [&] {
         if (m_in_transaction) {
             m_transaction_begin = 0;
             m_uncommitted_block_positions.clear();
@@ -222,8 +222,7 @@ std::tuple<bool, u64> journal::restore_transaction(u64 offset, u64 size) {
             return std::tuple(true, offset);
         }
 
-        default:
-            return {};
+        default: return {};
         }
     }
 
