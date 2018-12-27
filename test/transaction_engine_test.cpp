@@ -317,6 +317,36 @@ TEST_CASE("journal restored", "[transaction-engine]") {
         dbfd->read(block_size * 7, block.data(), block.size());
         REQUIRE(block == block2);
     }
+
+    SECTION("large transaction after crash is reverted") {
+        {
+            journal jn(*logfd, block_size, 4 * block_size);
+
+            jn.begin();
+            for (u32 i = 0; i < 12; ++i) {
+                jn.write(block_index(i + 1), block0.data());
+            }
+        }
+
+        // Some changes were written to disk
+        REQUIRE(logfd->file_size() > journal::log_header_size());
+
+        {
+            journal jn(*logfd, block_size, 4 * block_size);
+
+            for (u32 i = 0; i < 12; ++i) {
+                block_index index(i + 1);
+                CAPTURE(index);
+
+                if (jn.read(index, block.data()))
+                    FAIL("Transaction was not rolled back.");
+            }
+
+            REQUIRE(jn.log_size() == journal::log_header_size());
+        }
+
+        REQUIRE(logfd->file_size() == journal::log_header_size());
+    }
 }
 
 TEST_CASE("high level engine", "[transaction-engine]") {

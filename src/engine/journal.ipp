@@ -3,6 +3,7 @@
 
 #include "journal.hpp"
 
+#include <prequel/deferred.hpp>
 #include <prequel/math.hpp>
 
 #include <cstring>
@@ -140,7 +141,22 @@ std::tuple<bool, u64> journal::restore_transaction(u64 offset, u64 size) {
         return record;
     };
 
-    while (offset < size) {
+    // Erases the current transaction state on return.
+    deferred reset_transaction = [&]{
+        if (m_in_transaction) {
+            m_transaction_begin = 0;
+            m_uncommitted_block_positions.clear();
+            m_in_transaction = false;
+        }
+    };
+
+    /*
+     * We expect to read one complete transaction (at least BEGIN + COMMIT (or abort)).
+     * If that fails, the loop terminates because there are not enough available bytes
+     * to read the next record. It also terminates with a return statement (this time, successfully)
+     * after a complete transaction has been observed.
+     */
+    while (1) {
         const u64 available = size - offset;
         if (serialized_size<record_header>() > available)
             return {};
@@ -195,10 +211,6 @@ std::tuple<bool, u64> journal::restore_transaction(u64 offset, u64 size) {
             m_block_positions.erase(m_block_positions.lower_bound(block_index(record.database_size)),
                                     m_block_positions.end());
             m_database_size = record.database_size;
-
-            m_in_transaction = false;
-            m_transaction_begin = 0;
-            m_uncommitted_block_positions.clear();
             return std::tuple(true, offset);
         }
 
@@ -207,16 +219,15 @@ std::tuple<bool, u64> journal::restore_transaction(u64 offset, u64 size) {
          */
         case record_abort: {
             offset += serialized_size(header);
-            m_in_transaction = false;
-            m_transaction_begin = 0;
-            m_uncommitted_block_positions.clear();
             return std::tuple(true, offset);
         }
 
-        default: return {};
+        default:
+            return {};
         }
     }
-    return {};
+
+    PREQUEL_UNREACHABLE("Loop must not terminate.");
 }
 
 bool journal::read(block_index index, byte* data) const {
