@@ -14,6 +14,10 @@ namespace prequel {
 /// the `disable()` member function prior to its destruction.
 template<typename Function>
 class deferred {
+private:
+    Function fn;
+    bool invoke;
+
 public:
     deferred(const Function& fn_)
         : fn(fn_)
@@ -39,10 +43,6 @@ public:
 
     deferred(deferred&& other) = delete;
     deferred& operator=(const deferred&) = delete;
-
-private:
-    Function fn;
-    bool invoke;
 };
 
 } // namespace prequel

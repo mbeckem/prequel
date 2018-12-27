@@ -7,18 +7,8 @@
 
 namespace prequel {
 
-template<typename T>
-struct type_t {
-    using type = T;
-};
-
 template<typename... T>
 using void_t = void;
-
-template<typename T>
-struct is_trivial {
-    static constexpr bool value = std::is_trivially_copyable<T>::value;
-};
 
 template<typename T>
 struct always_false : std::false_type {};
@@ -77,7 +67,7 @@ using object_type_t = typename detail::member_ptr_traits<MemberPtr>::object_type
  *      int x;
  *  };
  *
- *  object_type_t<decltype(&ex::x)> is int.
+ *  member_type_t<decltype(&ex::x)> is int.
  */
 template<typename MemberPtr>
 using member_type_t = typename detail::member_ptr_traits<MemberPtr>::member_type;
