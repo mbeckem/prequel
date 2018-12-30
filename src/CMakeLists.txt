@@ -133,13 +133,17 @@ target_include_directories(prequel
         "${PROJECT_SOURCE_DIR}/include"
     PRIVATE
         "${PROJECT_SOURCE_DIR}/src"
-    SYSTEM PRIVATE
-        "${Boost_INCLUDE_DIRS}"
+    SYSTEM PUBLIC
+        "${Boost_INCLUDE_DIRS}" # TODO must be public right now because serialization header uses boost endian
 )
 target_link_libraries_system(prequel PUBLIC fmt::fmt)
 
 # To log file engine block load/stores
 # target_compile_definitions(prequel PRIVATE PREQUEL_TRACE_IO=1)
+
+if (WIN32)
+    target_compile_definitions(prequel PRIVATE -DNOMINMAX -DWINVER=0x0600 -D_WIN32_WINNT=0x0600 -DUNICODE -D_UNICODE)
+endif()
 
 if (UNIX)
     # TODO: glibc specific

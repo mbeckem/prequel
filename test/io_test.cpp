@@ -2,6 +2,6 @@
 
 #include <prequel/vfs.hpp>
 
-#include <iostream>
+#include <fmt/format.h>
 
 using namespace prequel;
