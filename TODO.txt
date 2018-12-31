@@ -4,7 +4,6 @@ Open Tasks
 - Async prefetch for block reads. Engine should have function for reading that returns a future.
   Real I/O should be done in a worker thread.
 - Better programming model for anchor creation/destruction, for example static create(...) destroy(...) fn.
-- Implement transactional engine with write ahead log
 
 - Implement Queue and Priority Queue
 
@@ -13,3 +12,7 @@ Open Tasks
   for example functions returning bool and taking an output reference.
 
 - Review examples
+
+- Integrity checking support. Currently, every datastructure has complete control over the contents
+  of its own data blocks. This prevents applications from inserting custom metadata into those blocks,
+  for example to check for unexpected corruption (magic numbers, checksums, owners, etc.)
