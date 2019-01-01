@@ -65,7 +65,6 @@ find_package(Boost 1.60 REQUIRED)
 
 find_package(fmt REQUIRED)
 
-add_subdirectory(doc)
 add_subdirectory(src)
 
 if (PREQUEL_EXAMPLES)
