@@ -44,7 +44,7 @@ Together, these properties make it easy to guarantee a platform-independent file
 Data structures
 ---------------
 
-Prequel comes with a collection of simple data structures idented for the use in secondary storage.
+Prequel comes with a collection of simple data structures intended for the use in secondary storage.
 Data structures are written uses the *engine* interface, so they will keep functioning with a custom
 implementation of that interface.
 
